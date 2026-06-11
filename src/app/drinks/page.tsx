@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import DropSync from '@/app/_components/dropsync/DropSync';
 import { useAppShell } from '@/app/_context/AppShellContext';
@@ -35,5 +35,9 @@ function DrinksPageContent() {
 }
 
 export default function DrinksPage() {
-  return <DrinksPageContent />;
+  return (
+    <Suspense>
+      <DrinksPageContent />
+    </Suspense>
+  );
 }

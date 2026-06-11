@@ -1,14 +1,17 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
 interface BarcodeScannerProps {
   isOpen: boolean;
   onClose: () => void;
   onScanned: (barcode: string) => void;
+  embedded?: boolean;
 }
 
-export default function BarcodeScanner({ isOpen, onClose, onScanned }: BarcodeScannerProps) {
+export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded }: BarcodeScannerProps) {
+  const sheet = useDraggableSheet({ onClose });
   const videoRef = useRef<HTMLVideoElement>(null);
   const [status, setStatus] = useState('Looking for barcode...');
   const streamRef = useRef<MediaStream | null>(null);
@@ -32,10 +35,14 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned }: BarcodeSc
 
   const startCamera = async (deviceId?: string) => {
     const ZXing = (window as unknown as Record<string, unknown>)['ZXingBrowser'] as {
-      BrowserMultiFormatReader: new() => {
-        decodeFromStream: (stream: MediaStream, video: HTMLVideoElement, cb: (result: { getText: () => string } | null, err: Error | null) => void) => void;
+      BrowserMultiFormatReader: new () => {
+        decodeFromStream: (
+          stream: MediaStream,
+          video: HTMLVideoElement,
+          cb: (result: { getText: () => string } | null, err: Error | null) => void
+        ) => void;
         reset: () => void;
-      }
+      };
     };
     if (!ZXing) { setStatus('Barcode library not loaded.'); return; }
     const constraints: MediaStreamConstraints = {
@@ -59,7 +66,7 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned }: BarcodeSc
           setStatus(`Scanned: ${code}`);
           stopCamera();
           onScanned(code);
-          onClose();
+          if (!embedded) onClose();
         } else if (err && activeRef.current) {
           if ((err as Error & { name: string }).name !== 'NotFoundException') {
             console.warn('Scan error:', err);
@@ -85,7 +92,11 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned }: BarcodeSc
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !embedded) {
+      sheet.open();
+      stopCamera();
+      setTimeout(() => startCamera(deviceIdRef.current), 300);
+    } else if (isOpen && embedded) {
       stopCamera();
       setTimeout(() => startCamera(deviceIdRef.current), 300);
     } else {
@@ -93,39 +104,84 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned }: BarcodeSc
     }
     return () => stopCamera();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, embedded]);
 
   if (!isOpen) return null;
 
+  // Embedded mode: just the video element
+  if (embedded) {
+    return (
+      <video
+        ref={videoRef}
+        id="cameraVideo"
+        autoPlay
+        playsInline
+        muted
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+      />
+    );
+  }
+
+  // Full modal mode (draggable sheet)
   return (
-    <>
-      <div className="overlay visible" id="cameraOverlay" onClick={onClose} />
-      <div className="bottom-sheet camera-sheet" id="cameraModal" style={{ transform: 'translateY(0)' }}>
-        <div className="sheet-handle-zone" id="cameraHandleZone">
-          <div className="sheet-handle" />
-          <div className="sheet-header">
-            <div className="sheet-title">Scan Barcode</div>
-            <button id="closeCameraBtn" onClick={onClose} className="sheet-close-btn">
-              <svg height="20" viewBox="0 -960 960 960" width="20" fill="currentColor"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg>
-            </button>
-          </div>
+    <div
+      className="app-overlay"
+      id="cameraOverlay"
+      ref={sheet.overlayRef}
+      onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); }}
+    >
+      <div className="modal" id="cameraModal" ref={sheet.modalRef} style={{ transform: 'translateY(100%)' }}>
+        <div className="modal-handle-zone" id="cameraHandleZone" {...sheet.handleProps}>
+          <div className="modal-handle" />
         </div>
-        <div className="camera-body">
-          <div className="camera-preview">
-            <video ref={videoRef} id="cameraVideo" autoPlay playsInline muted />
-            <div className="camera-overlay-frame" />
+        <div className="modal-header">
+          <div className="modal-title">Scan Barcode</div>
+          <button
+            id="closeCameraBtn"
+            className="back-btn"
+            style={{ position: 'absolute', right: 24, top: 6, background: 'var(--surface3)' }}
+            onClick={sheet.close}
+          >
+            <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+              <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+            </svg>
+          </button>
+        </div>
+        <div className="modal-body" style={{ padding: 16 }}>
+          <div style={{ position: 'relative' }}>
+            <video
+              ref={videoRef}
+              id="cameraVideo"
+              autoPlay
+              playsInline
+              muted
+              style={{ width: '100%', borderRadius: 'var(--radius-sm)', background: '#000' }}
+            />
+            <div className="camera-frame-overlay">
+              <div className="scan-frame" />
+            </div>
           </div>
-          <div className="camera-status" id="cameraStatus">{status}</div>
-          <div className="camera-controls">
-            <button id="restartCameraBtn" className="option-btn" onClick={() => startCamera(deviceIdRef.current)}>
-              <i className="fa-solid fa-rotate" /> Restart
+          <div id="cameraStatus" className="search-status" style={{ marginTop: 12 }}>{status}</div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button
+              id="restartCameraBtn"
+              className="option-btn"
+              style={{ flex: 1 }}
+              onClick={() => { stopCamera(); setTimeout(() => startCamera(deviceIdRef.current), 100); }}
+            >
+              Restart Camera
             </button>
-            <button id="switchCameraBtn" className="option-btn" onClick={switchCamera}>
-              <i className="fa-solid fa-camera-rotate" /> Switch
+            <button
+              id="switchCameraBtn"
+              className="option-btn"
+              style={{ flex: 1 }}
+              onClick={switchCamera}
+            >
+              Switch Camera
             </button>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

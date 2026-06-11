@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import CalSync from '@/app/_components/calsync/CalSync';
 import { useAppShell } from '@/app/_context/AppShellContext';
@@ -22,7 +22,7 @@ function FoodPageContent() {
 
   // Clean URL params after consuming them so modal doesn't re-trigger on next visit
   useEffect(() => {
-    if (openModal) {
+    if (openModal || barcode || mode) {
       router.replace('/food', { scroll: false });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -39,5 +39,9 @@ function FoodPageContent() {
 }
 
 export default function FoodPage() {
-  return <FoodPageContent />;
+  return (
+    <Suspense>
+      <FoodPageContent />
+    </Suspense>
+  );
 }

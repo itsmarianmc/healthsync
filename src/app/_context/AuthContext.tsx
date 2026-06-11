@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, fetchSettings]);
 
   const performCloudSync = useCallback(async (userId: string) => {
-    showToast('Syncing...', 2000, null, null);
+    showToast('Syncing...', 2000, null, undefined);
     if (isSyncingRef.current || lastSyncedUserIdRef.current === userId) return;
     isSyncingRef.current = true;
     lastSyncedUserIdRef.current = userId;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../../_context/AuthContext';
 import { pushSettings } from '../../_lib/sync';
 import { supabase } from '../../_lib/supabase';

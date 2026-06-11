@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAppShell } from '../_context/AppShellContext';
 import BottomNav from './navigation/BottomNav';
 import Toast from './shared/Toast';
@@ -12,13 +12,17 @@ import NotesModal from './settings/NotesModal';
 import WorkoutModal from './settings/WorkoutModal';
 import WorkoutHistoryModal from './settings/WorkoutHistoryModal';
 import BarcodeScanModal from './calsync/BarcodeScanModal';
+import ExtraScanner from './calsync/ExtraScanner';
 import Onboarding from './onboarding/Onboarding';
 import { removeHeaderBtn, addHeaderBtn } from '../_lib/headerBtns';
 
 const ONBOARDING_KEY = 'calsync_onboarding_done';
 
+const KNOWN_ROUTES = new Set(['/', '/dash', '/food', '/drinks', '/login']);
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const {
     settingsOpen, openSettings, closeSettings,
     notesOpen, openNotes, closeNotes,
@@ -66,11 +70,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (action === 'describe-food') router.push('/food?openModal=true&mode=describe');
     else if (action === 'import-food') router.push('/food?openModal=true&mode=import');
     else if (action === 'capture-food') router.push('/food?openModal=true&mode=capture');
-    else if (action === 'scan-barcode') openScanModal();
+    else if (action === 'scan-barcode') setExtraScannerOpen(true);
     else if (action === 'log-drink') router.push('/drinks?openModal=true');
     else if (action === 'training') openWorkout();
     else if (action === 'workout-history') openWorkoutHistory();
-  }, [router, setExtraMenuOpen, openScanModal, openWorkout, openWorkoutHistory]);
+  }, [router, setExtraMenuOpen, openWorkout, openWorkoutHistory]);
+
+  const [extraScannerOpen, setExtraScannerOpen] = useState(false);
 
   const handleScanScanned = useCallback((barcode: string) => {
     closeScanModal();
@@ -87,6 +93,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     openNotes();
   }, [closeSettings, openNotes]);
 
+  // For unknown routes (404), render without shell chrome
+  if (!KNOWN_ROUTES.has(pathname)) {
+    return <>{children}</>;
+  }
+
   return (
     <>
       {!onboardingDone && <Onboarding onDone={() => setOnboardingDone(true)} />}
@@ -100,7 +111,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           className={`extra-btn${extraMenuOpen ? ' open' : ''}`}
           id="extraActionBtn"
           ref={extraBtnRef}
-          onClick={() => setExtraMenuOpen(v => !v)}
+          onClick={() => setExtraMenuOpen(!extraMenuOpen)}
         >
           <div className="extra-icon">
             <i className="fa-solid fa-plus" />
@@ -149,6 +160,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         onClose={closeScanModal}
         onScanned={handleScanScanned}
       />
+
+      <ExtraScanner isOpen={extraScannerOpen} onClose={() => setExtraScannerOpen(false)} />
 
       <Toast />
     </>
