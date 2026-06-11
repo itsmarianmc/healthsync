@@ -491,7 +491,7 @@ input::-webkit-inner-spin-button {
 	position: fixed;
 	right: 0;
 	width: 100%;
-	z-index: 9999;
+	z-index: 9998;
 }
 
 .app-footer>* {
