@@ -5,6 +5,7 @@ import './styles.css';
 import { AuthProvider } from './_context/AuthContext';
 import { AppShellProvider } from './_context/AppShellContext';
 import AppShell from './_components/AppShell';
+import Tooltip from './_components/onboarding/Tooltip';
 
 const dmSans = DM_Sans({
   subsets: ['latin'],
@@ -45,7 +46,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <link rel="stylesheet" href="https://static.itsmarian.dev/global/colors.css" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className={dmSans.className} suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <AuthProvider>
           <AppShellProvider>
             <AppShell>
@@ -53,9 +54,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </AppShell>
           </AppShellProvider>
         </AuthProvider>
-        <Script
-          src="https://unpkg.com/@zxing/browser@latest/umd/index.min.js"
-          strategy="lazyOnload"
+        <Tooltip />
+        <Script 
+          src="https://unpkg.com/@zxing/browser@latest" 
+          strategy="afterInteractive" 
         />
       </body>
     </html>

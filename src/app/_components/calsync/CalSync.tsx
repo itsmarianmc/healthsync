@@ -76,10 +76,21 @@ export default function CalSync({
     window.addEventListener('viewChanged', loadEntries);
     window.addEventListener('focus', loadEntries);
     const interval = setInterval(() => { loadEntries(); setTick(t => t + 1); }, 30000);
+    // Listen for external scanner events (ExtraScanner) and log entries
+    const onSymLog = (e: Event) => {
+      try {
+        const detail = (e as CustomEvent).detail as FoodEntry | undefined;
+        if (detail) handleLog(detail);
+      } catch (err) {
+        // ignore
+      }
+    };
+    window.addEventListener('sym:logFood', onSymLog as EventListener);
     return () => {
       window.removeEventListener('storage', loadEntries);
       window.removeEventListener('viewChanged', loadEntries);
       window.removeEventListener('focus', loadEntries);
+      window.removeEventListener('sym:logFood', onSymLog as EventListener);
       clearInterval(interval);
     };
   }, [loadEntries]);

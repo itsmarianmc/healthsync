@@ -12,6 +12,7 @@ import NotesModal from './settings/NotesModal';
 import WorkoutModal from './settings/WorkoutModal';
 import WorkoutHistoryModal from './settings/WorkoutHistoryModal';
 import BarcodeScanModal from './calsync/BarcodeScanModal';
+import ExtraScanner from './calsync/ExtraScanner';
 import Onboarding from './onboarding/Onboarding';
 import { removeHeaderBtn, addHeaderBtn } from '../_lib/headerBtns';
 
@@ -69,11 +70,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (action === 'describe-food') router.push('/food?openModal=true&mode=describe');
     else if (action === 'import-food') router.push('/food?openModal=true&mode=import');
     else if (action === 'capture-food') router.push('/food?openModal=true&mode=capture');
-    else if (action === 'scan-barcode') openScanModal();
+    else if (action === 'scan-barcode') setExtraScannerOpen(true);
     else if (action === 'log-drink') router.push('/drinks?openModal=true');
     else if (action === 'training') openWorkout();
     else if (action === 'workout-history') openWorkoutHistory();
-  }, [router, setExtraMenuOpen, openScanModal, openWorkout, openWorkoutHistory]);
+  }, [router, setExtraMenuOpen, openWorkout, openWorkoutHistory]);
+
+  const [extraScannerOpen, setExtraScannerOpen] = useState(false);
 
   const handleScanScanned = useCallback((barcode: string) => {
     closeScanModal();
@@ -157,6 +160,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         onClose={closeScanModal}
         onScanned={handleScanScanned}
       />
+
+      <ExtraScanner isOpen={extraScannerOpen} onClose={() => setExtraScannerOpen(false)} />
 
       <Toast />
     </>

@@ -232,6 +232,7 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
   const lastTime = useRef(0);
   const isCapturing = useRef(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const usedBarcodeRef = useRef<string | null>(null);
 
   const expandedH = () => window.innerHeight - SHEET_TOP_MARGIN;
   const setNoTrans = () => { if (modalRef.current) modalRef.current.style.transition = 'none'; };
@@ -276,6 +277,8 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
       modalRef.current.style.height = '';
       modalRef.current.style.transition = '';
       naturalH.current = 0;
+      usedBarcodeRef.current = null;
+      resetState();
       onClose();
     }, 440);
   }, [onClose]);
@@ -301,6 +304,7 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
     setAiMethodOpen(false); setAiTextOpen(false); setAiTextValue(''); setAiProcessing(false);
     isModalHiddenForAiRef.current = false;
     aiProcessingRef.current = false;
+    usedBarcodeRef.current = null;
   };
 
   const getAiCategory = () => {
@@ -519,6 +523,11 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
       setSearchStatus('');
       saveRecent(code.trim(), 'barcode', foods);
       setRecent(loadRecent());
+      if (foods.length === 1) {
+        selectFood(foods[0]);
+      } else {
+        goToStep(3);
+      }
     } catch { setSearchLoading(false); setSearchResults([]); setSearchStatus('Lookup failed. Check your connection.'); }
   };
 
@@ -616,7 +625,6 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
     setBarcodeQuery(code);
     setBarcodeMode(true);
     runBarcodeSearch(code);
-    goToStep(3);
   };
 
   const [isAiReady, setIsAiReady] = useState(false);
@@ -649,6 +657,8 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
 
   useEffect(() => {
     if (!openWithBarcodeValue || modalState === 'closed') return;
+    if (usedBarcodeRef.current === openWithBarcodeValue) return;
+    usedBarcodeRef.current = openWithBarcodeValue;
     const t = setTimeout(() => {
       handleCameraScanned(openWithBarcodeValue);
     }, 100);
