@@ -1,0 +1,31 @@
+# HealthSync
+
+> HealthSync is a mobile-first Progressive Web App (PWA) for personal health tracking - calories, macros, and hydration - built with Next.js 15 (App Router) and TypeScript.
+
+## Features
+
+- **Dashboard**: Daily overview of calories, water intake, and macronutrients with progress bars, a score ring (SVG), a 7-day bar chart, recent activity list, streak counter, and rule-based next-step tips.
+- **CalSync (Food Tracking)**: Log meals with a barcode scanner (ZXing), free-text search, or manual entry. Tracks calories, protein, carbohydrates, fat, and weight per entry. Cloud sync via Supabase.
+- **DropSync (Hydration Tracking)**: Log drinks via a drag-sheet modal with a draggable SVG glass for quantity input and snap-points at common ml values. Cloud sync via Supabase.
+- **Settings**: Configure calorie, water, and macro goals. Account management, theme, AI toggle, and privacy.
+- **Workout Module**: 4-day training plan (Pull/Push/Legs/Arms), active session with live timer and set logging.
+- **Onboarding**: Slide-based intro overlay with a tooltip tour shown on first launch.
+- **AI Tips**: Rule-based motivational tips and AI-assisted food detection (Gemini API or fallback rules).
+- **PWA**: Installable, offline-capable via manifest and service worker.
+
+## Tech Stack
+
+- **Framework**: Next.js 15 (App Router), TypeScript, React 19
+- **Auth & Database**: Supabase (`@supabase/ssr`)
+- **Styling**: Plain CSS (no Tailwind used for app components)
+- **State**: React Context + useState/useReducer, localStorage for persistence
+- **No external chart library** - all SVG and DOM charts are custom
+
+## Data Storage
+
+- `localStorage` keys: `calsync_v1` (food entries), `dropsync_v3` (drink entries), `calsync_goal`, `dropsync_goal`, macro goals, workout data
+- Supabase tables: `food_entries`, `dropsync_entries`, `user_settings`, `workout_sessions`
+
+## Project URL
+
+https://healthsync.itsmarian.dev

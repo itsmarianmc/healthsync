@@ -1,0 +1,160 @@
+'use client';
+
+import { useState, useEffect, useRef, useCallback } from 'react';
+import ScoreRing from './ScoreRing';
+
+const REFRESH_INTERVAL = 5 * 60 * 1000;
+
+function isAIEnabled() {
+  return typeof localStorage !== 'undefined' && localStorage.getItem('calsync_ai_enabled') === 'true';
+}
+
+function getCurrentStats() {
+  if (typeof localStorage === 'undefined') return {
+    totalCal: 0, calGoal: 2000, totalWater: 0, waterGoal: 2500,
+    totalProtein: 0, proteinGoal: 0, entryCount: 0,
+    _hash: ''
+  };
+  const today = new Date().toDateString();
+  const cal = (() => { try { return JSON.parse(localStorage.getItem('calsync_v1') || '[]'); } catch { return []; } })();
+  const water = (() => { try { return JSON.parse(localStorage.getItem('dropsync_v3') || '[]'); } catch { return []; } })();
+  const todayCal = cal.filter((e: { date: string }) => e.date === today);
+  const todayWater = water.filter((e: { date: string }) => e.date === today);
+  const totalCal = todayCal.reduce((s: number, e: { kcal: number }) => s + (e.kcal || 0), 0);
+  const calGoal = parseInt(localStorage.getItem('calsync_goal') || '2000');
+  const totalProtein = todayCal.reduce((s: number, e: { prot: number }) => s + (e.prot || 0), 0);
+  const proteinGoal = parseInt(localStorage.getItem('calsync_goal_protein') || '0');
+  const totalWater = todayWater.reduce((s: number, e: { amount: number }) => s + (e.amount || 0), 0);
+  const waterGoal = parseInt(localStorage.getItem('dropsync_goal') || '2500');
+  const entryCount = todayCal.length + todayWater.length;
+  return {
+    totalCal, calGoal, totalWater, waterGoal, totalProtein, proteinGoal, entryCount,
+    _hash: `${today}|${totalCal}|${totalWater}|${totalProtein}|${entryCount}|${calGoal}|${waterGoal}|${proteinGoal}`
+  };
+}
+
+function fmt(ml: number) { return ml >= 1000 ? (ml / 1000).toFixed(1).replace('.', ',') + ' L' : Math.round(ml) + ' ml'; }
+function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function pickMessage(stats: ReturnType<typeof getCurrentStats>): { title: string; text: string } {
+  const { totalCal, calGoal, totalWater, waterGoal, totalProtein, proteinGoal, entryCount } = stats;
+  const calPct = totalCal / calGoal;
+  const waterPct = totalWater / waterGoal;
+  const protPct = proteinGoal > 0 ? totalProtein / proteinGoal : null;
+  const calLeft = Math.round(calGoal - totalCal);
+  const waterLeft = Math.round(waterGoal - totalWater);
+  const hour = new Date().getHours();
+
+  if (entryCount === 0) {
+    if (hour < 10) return { title: '<i class="fa-regular fa-sun"></i> Good morning!', text: 'Start the day with your first entry - small steps, big impact.' };
+    if (hour < 14) return { title: '<i class="fa-solid fa-utensils"></i> Nothing logged yet', text: 'Don\'t forget to log your lunch so your balance is correct.' };
+    if (hour < 18) return { title: '<i class="fa-solid fa-pen"></i> Log now', text: 'The afternoon is running - start tracking before the day ends.' };
+    return { title: '<i class="fa-regular fa-moon"></i> Still time today', text: 'Log what you ate - every entry counts for your overview.' };
+  }
+
+  if (calPct >= 0.97 && waterPct >= 0.97 && (protPct === null || protPct >= 0.97))
+    return { title: '<i class="fa-solid fa-trophy"></i> Perfect day!', text: 'All goals in the green. That\'s how tracking is fun!' };
+
+  if (calPct > 1.15) {
+    const over = Math.round(totalCal - calGoal);
+    return { title: '<i class="fa-solid fa-triangle-exclamation"></i> Calorie budget exceeded', text: `You are ${over} kcal over your goal. More water and movement can help balance it out.` };
+  }
+
+  if (waterPct < 0.4 && calPct > 0.4)
+    return { title: '<i class="fa-solid fa-droplet"></i> Drink more!', text: `You have only drunk ${fmt(totalWater)} of ${fmt(waterGoal)}. Place a glass of water now.` };
+
+  if (protPct !== null && protPct < 0.5 && calPct > 0.5) {
+    const protLeft = Math.round(proteinGoal - totalProtein);
+    return { title: '<i class="fa-solid fa-dumbbell"></i> Protein behind', text: `Protein is lagging - ${protLeft}g missing. Cottage cheese, eggs or legumes help quickly.` };
+  }
+
+  if (hour >= 18 && waterPct < 0.8)
+    return { title: '<i class="fa-regular fa-moon"></i> Evening check: Water', text: `${fmt(waterLeft)} left to your water goal. Actively drink now.` };
+
+  if (calPct >= 0.5 && calPct <= 1.0 && waterPct >= 0.5)
+    return { title: '<i class="fa-solid fa-chart-line"></i> Good progress', text: `Calories and water are balanced. ${calLeft > 0 ? calLeft + ' kcal left to daily goal.' : 'Calorie goal reached!'}` };
+
+  if (hour < 12 && calPct < 0.4)
+    return { title: '<i class="fa-regular fa-sun"></i> Day is starting', text: `${Math.round(totalCal)} kcal so far - the day is still young. Keep tracking.` };
+
+  return pick([
+    { title: '<i class="fa-solid fa-chart-line"></i> Keep going', text: 'You\'re doing great. Stay consistent through the day.' },
+    { title: '<i class="fa-solid fa-star"></i> Tracking well', text: 'Every entry helps you understand your body better.' },
+  ]);
+}
+
+interface AiTipsProps {
+  score: number;
+}
+
+export default function AiTips({ score }: AiTipsProps) {
+  const [title, setTitle] = useState('');
+  const [text, setText] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const lastHashRef = useRef('');
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const refresh = useCallback(() => {
+    if (!isAIEnabled()) { setLoaded(false); return; }
+    const stats = getCurrentStats();
+    if (stats._hash === lastHashRef.current && loaded) return;
+    lastHashRef.current = stats._hash;
+    const msg = pickMessage(stats);
+    setTitle(msg.title);
+    setText(msg.text);
+    setLoaded(true);
+  }, [loaded]);
+
+  useEffect(() => {
+    refresh();
+    intervalRef.current = setInterval(refresh, REFRESH_INTERVAL);
+    window.addEventListener('storage', refresh);
+    const handler = () => refresh();
+    window.addEventListener('requestAITipUpdate', handler);
+    (window as typeof window & { refreshAITip?: () => void }).refreshAITip = refresh;
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('requestAITipUpdate', handler);
+    };
+  }, [refresh]);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const aiEnabled = mounted && isAIEnabled();
+
+  if (!mounted) return null;
+
+  return (
+    <div id="AiBox" className={aiEnabled ? 'ai' : ''}>
+      <div className="dashboard-hero">
+        <div className="dashboard-hero-dash">
+          <div className="dashboard-kicker">Today</div>
+          <div className="dashboard-title">Dashboard</div>
+          <div className="dashboard-status" id="dashboardStatus">Ready when you are.</div>
+        </div>
+        <ScoreRing score={score} />
+      </div>
+      <div className="dashboard-widget ai-tip-widget">
+        <div className="dashboard-widget-rep">
+          {loaded && aiEnabled ? (
+            <>
+              <div className="dashboard-widget-title" id="aiTipTitle" dangerouslySetInnerHTML={{ __html: title }} />
+              <div className="dashboard-widget-text" id="aiTipText">{text}</div>
+            </>
+          ) : (
+            <>
+              <div className="dashboard-widget-title" id="aiTipTitle">
+                <div className="skeleton-info"><div className="skeleton-line name" /></div>
+              </div>
+              <div className="dashboard-widget-text" id="aiTipText">
+                <div className="skeleton-info"><div className="skeleton-line brand" /></div>
+                <div className="skeleton-info"><div className="skeleton-line brand last" /></div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
