@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Dashboard from '@/app/_components/dashboard/Dashboard';
 import { useAppShell } from '@/app/_context/AppShellContext';
@@ -36,6 +36,8 @@ function DashboardPageContent() {
 
 export default function DashboardPage() {
   return (
-    <DashboardPageContent />
+    <Suspense>
+      <DashboardPageContent />
+    </Suspense>
   );
 }

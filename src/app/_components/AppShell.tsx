@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAppShell } from '../_context/AppShellContext';
 import BottomNav from './navigation/BottomNav';
 import Toast from './shared/Toast';
@@ -17,8 +17,11 @@ import { removeHeaderBtn, addHeaderBtn } from '../_lib/headerBtns';
 
 const ONBOARDING_KEY = 'calsync_onboarding_done';
 
+const KNOWN_ROUTES = new Set(['/', '/dash', '/food', '/drinks', '/login']);
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const {
     settingsOpen, openSettings, closeSettings,
     notesOpen, openNotes, closeNotes,
@@ -87,6 +90,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     openNotes();
   }, [closeSettings, openNotes]);
 
+  // For unknown routes (404), render without shell chrome
+  if (!KNOWN_ROUTES.has(pathname)) {
+    return <>{children}</>;
+  }
+
   return (
     <>
       {!onboardingDone && <Onboarding onDone={() => setOnboardingDone(true)} />}
@@ -100,7 +108,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           className={`extra-btn${extraMenuOpen ? ' open' : ''}`}
           id="extraActionBtn"
           ref={extraBtnRef}
-          onClick={() => setExtraMenuOpen(v => !v)}
+          onClick={() => setExtraMenuOpen(!extraMenuOpen)}
         >
           <div className="extra-icon">
             <i className="fa-solid fa-plus" />
