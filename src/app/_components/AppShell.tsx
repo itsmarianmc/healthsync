@@ -13,7 +13,6 @@ import WorkoutModal from './settings/WorkoutModal';
 import WorkoutHistoryModal from './settings/WorkoutHistoryModal';
 import BarcodeScanModal from './calsync/BarcodeScanModal';
 import ExtraScanner from './calsync/ExtraScanner';
-import Onboarding from './onboarding/Onboarding';
 import { removeHeaderBtn, addHeaderBtn } from '../_lib/headerBtns';
 
 const ONBOARDING_KEY = 'calsync_onboarding_done';
@@ -41,12 +40,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const handler = () => setOnboardingDone(true);
+    window.addEventListener('onboarding:done', handler as EventListener);
+    return () => window.removeEventListener('onboarding:done', handler as EventListener);
+  }, []);
+
+  useEffect(() => {
+    if (!onboardingDone && pathname !== '/onboarding') {
+      router.replace('/onboarding');
+    }
+  }, [onboardingDone, pathname, router]);
+
+  useEffect(() => {
     const theme = localStorage.getItem('calsync_theme');
     if (theme && theme !== 'default') document.documentElement.setAttribute('data-theme', theme);
     else document.documentElement.removeAttribute('data-theme');
   }, []);
 
-  // Close extra menu on outside click
   useEffect(() => {
     if (!extraMenuOpen) return;
     const handler = (e: MouseEvent) => {
@@ -58,7 +68,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [extraMenuOpen, extraBtnRef, setExtraMenuOpen]);
 
-  // Hide/show settings buttons when settings is open
   useEffect(() => {
     const ids = ['db-openSettingsBtn', 'cs-openSettingsBtn', 'ds-openSettingsBtn'];
     if (settingsOpen) ids.forEach(removeHeaderBtn);
@@ -93,15 +102,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     openNotes();
   }, [closeSettings, openNotes]);
 
-  // For unknown routes (404), render without shell chrome
   if (!KNOWN_ROUTES.has(pathname)) {
     return <>{children}</>;
   }
 
   return (
     <>
-      {!onboardingDone && <Onboarding onDone={() => setOnboardingDone(true)} />}
-
       <SplashScreen />
       <PullToRefresh />
 

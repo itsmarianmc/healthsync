@@ -176,7 +176,6 @@ Only respond with the JSON object.` }];
   }
   const data = await res.json();
   const raw: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-  // Strip markdown code fences, then extract first JSON object or array
   const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
   const match = cleaned.match(/[\[\{][\s\S]*[\]\}]/);
   if (!match) {
@@ -238,7 +237,6 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
   const setNoTrans = () => { if (modalRef.current) modalRef.current.style.transition = 'none'; };
   const setTrans = (props: string[]) => { if (modalRef.current) modalRef.current.style.transition = props.map(p => `${p} 0.42s ${EASE}`).join(', '); };
 
-  // Close the sheet when this route becomes hidden via Activity
   useLayoutEffect(() => {
     return () => {
       setModalState('closed');
@@ -663,7 +661,6 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
       handleCameraScanned(openWithBarcodeValue);
     }, 100);
     return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openWithBarcodeValue, modalState]);
 
   const titles: Record<number, string> = { 1: 'Add Food', 2: 'Select Method', 3: 'Search Food', 4: 'Set Amount' };

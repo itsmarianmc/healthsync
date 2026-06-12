@@ -89,7 +89,6 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
     }, 440);
   }, [onClose]);
 
-  // Close the sheet when this route becomes hidden via Activity
   useLayoutEffect(() => {
     return () => {
       setModalState('closed');
@@ -179,7 +178,6 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
     dragDYRef.current = 0;
   };
 
-  // Carousel height management: animate body + modal when step changes
   useEffect(() => {
     if (modalState !== 'open' || !modalRef.current || !bodyRef.current || naturalHeightRef.current === 0) return;
     const el = step === 1 ? step1Ref.current : step2Ref.current;
@@ -198,7 +196,6 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
       if (bodyRef.current) bodyRef.current.style.transition = '';
       if (modalRef.current) modalRef.current.style.transition = '';
     }, 400);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, selectedDrink]);
 
   const handleSelectDrink = (drink: DrinkOption) => {

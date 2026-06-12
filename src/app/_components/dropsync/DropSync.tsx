@@ -42,7 +42,6 @@ export default function DropSync({
   const [modalOpen, setModalOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Close modals when this route becomes hidden via Activity
   useLayoutEffect(() => {
     return () => {
       setModalOpen(false);
@@ -50,12 +49,10 @@ export default function DropSync({
     };
   }, []);
 
-  // Sync external openModal prop
   useEffect(() => {
     if (externalOpenModal) setModalOpen(true);
   }, [externalOpenModal]);
 
-  // Hide/show history button when history modal opens
   useEffect(() => {
     if (historyOpen) removeHeaderBtn('ds-openHistoryBtn');
     else addHeaderBtn('ds-openHistoryBtn');

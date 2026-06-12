@@ -84,7 +84,6 @@ export default function CalHistoryModal({ entries, isOpen, onClose }: CalHistory
         </div>
         <div className="modal-body" id="historyModalBody" style={{ overflowY: 'auto' }}>
           <div className="history-list" id="historyList">
-            {/* Week chart */}
             <div className="week-chart" data-mode={chartMode}>
               <div className="week-chart-mode-row">
                 {(['kcal','prot','carb','fat'] as ChartMode[]).map(m => (
@@ -117,8 +116,6 @@ export default function CalHistoryModal({ entries, isOpen, onClose }: CalHistory
                 <span style={{ color: '#FF6B35' }}>F {Math.round(totals7.fat / 7)}g</span>
               </div>
             </div>
-
-            {/* Day sections */}
             {Object.keys(groups).length === 0
               ? <div className="empty-state"><div className="empty-icon"><i className="fa-solid fa-clock-rotate-left" /></div>No history yet.</div>
               : Object.entries(groups).map(([date, items]) => {

@@ -27,14 +27,12 @@ export default function BottomNav() {
     const translateX = safeIndex * 103.5;
 
     if (!mountedRef.current) {
-      // First render: snap into position without any transition
       mountedRef.current = true;
       slider.style.transition = 'none';
       slider.style.transform = `translateX(${translateX}%) scale(1)`;
       slider.style.background = 'rgba(58, 58, 60, 0.5)';
       slider.style.borderTop = '0px';
       slider.style.borderBottom = '0px';
-      // Re-enable transition on next frame so subsequent navigations animate
       requestAnimationFrame(() => {
         if (slider) slider.style.transition = '';
       });

@@ -80,8 +80,6 @@ export default function Dashboard({ nfl, onOpenCalSync, onOpenDropSync, onOpenSe
         />
 
         <WeekChart weekData={data.weekData} />
-
-        {/* Mini stats */}
         <div className="dashboard-mini-grid">
           <div className="dashboard-mini-card">
             <div className="dashboard-mini-icon"><i className="fa-solid fa-list-check" /></div>

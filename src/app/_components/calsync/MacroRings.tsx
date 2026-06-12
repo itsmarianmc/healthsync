@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { FoodEntry } from '../../_lib/types';
 
-const MACRO_CIRC = 2 * Math.PI * 16; // r=16, viewBox 40x40
+const MACRO_CIRC = 2 * Math.PI * 16;
 
 interface MacroRingsProps {
   entries: FoodEntry[];
@@ -40,7 +40,6 @@ export default function MacroRings({ entries, goal }: MacroRingsProps) {
     { key: 'fat',     id: 'cs-fatRing',     leftId: 'cs-fatLeft',     name: 'FAT',     value: totals.fat, goalVal: fatGoal, color: '#FF6B35' },
   ];
 
-  // mini week chart data (last 7 days)
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
@@ -68,7 +67,6 @@ export default function MacroRings({ entries, goal }: MacroRingsProps) {
 
   return (
     <>
-      {/* Calorie ring + week chart widget */}
       <div className="dashboard">
         <div className="dashboard-stats-row">
           <div className="calorie-week-widget">
@@ -104,8 +102,6 @@ export default function MacroRings({ entries, goal }: MacroRingsProps) {
             <div className="calorie-ring-percent" id="cs-caloriePercent">{Math.round(calPct * 100)}%</div>
           </div>
         </div>
-
-        {/* Macro rings */}
         <div className="macro-widgets">
           {macros.map(m => {
             const pct = m.goalVal > 0 ? Math.min(m.value / m.goalVal, 1) : 0;
@@ -130,8 +126,6 @@ export default function MacroRings({ entries, goal }: MacroRingsProps) {
           })}
         </div>
       </div>
-
-      {/* Stats row */}
       <div className="stats-row" id="cs-statsRowSecondary">
         <div className="stat-card">
           <div className="stat-icon"><i className="fa-solid fa-utensils" /></div>
@@ -149,8 +143,6 @@ export default function MacroRings({ entries, goal }: MacroRingsProps) {
           <div className="stat-label">Progress</div>
         </div>
       </div>
-
-      {/* Macro goal bars */}
       <div className="macro-goals-section" id="cs-macroGoalsSection">
         {macroGoalRows.map(row => {
           const hidden = !row.always && (!row.goalVal || row.goalVal <= 0);

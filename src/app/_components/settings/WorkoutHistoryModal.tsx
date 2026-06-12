@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
-/* ── types ───────────────────────────────────────────────────────────────── */
 interface LogSet {
   weight: number;
   reps: number;
@@ -26,7 +25,6 @@ interface WorkoutLog {
   exercises: LogExercise[];
 }
 
-/* ── helpers ─────────────────────────────────────────────────────────────── */
 function loadLogs(): WorkoutLog[] {
   try {
     return JSON.parse(localStorage.getItem('healthsync_workout_logs') || '[]');
@@ -47,7 +45,6 @@ function fmtTime(ts: number): string {
   return new Date(ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
-/* ── component ───────────────────────────────────────────────────────────── */
 interface WorkoutHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -99,7 +96,6 @@ export default function WorkoutHistoryModal({ isOpen, onClose }: WorkoutHistoryM
 
               return (
                 <div key={log.id} className="workout-history-entry">
-                  {/* Session header row — reuses log-date-header layout */}
                   <div
                     className="log-date-header"
                     style={{ cursor: 'pointer' }}
@@ -117,14 +113,12 @@ export default function WorkoutHistoryModal({ isOpen, onClose }: WorkoutHistoryM
                     </div>
                   </div>
 
-                  {/* Collapsed summary */}
                   {!isExpanded && (
                     <div className="routine-stats" style={{ paddingLeft: 4 }}>
                       {log.exercises.length} exercise{log.exercises.length !== 1 ? 's' : ''} · {doneSets}/{totalSets} sets completed
                     </div>
                   )}
 
-                  {/* Expanded: exercise cards + set rows */}
                   {isExpanded && log.exercises.map(ex => (
                     <div key={ex.exerciseId} className="exercise-card workout-history-card">
                       <div className="exercise-card-header">

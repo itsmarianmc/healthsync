@@ -241,7 +241,7 @@ export default function Tooltip() {
         background: 'rgba(0, 0, 0, 0.75)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
-        zIndex: 9998,
+        zIndex: 9997,
         opacity: visible ? 1 : 0,
         transition: `opacity ${ANIMATION_DURATION}ms var(--ease, ease)`,
     };
@@ -284,7 +284,6 @@ export default function Tooltip() {
                 aria-live="polite"
                 style={boxStyle}
                 >
-                {/* Message */}
                 <div
                     style={{
                         color: 'var(--text)',
@@ -295,7 +294,6 @@ export default function Tooltip() {
                     dangerouslySetInnerHTML={{ __html: state.message }}
                 />
 
-                {/* Footer row */}
                 <div
                     style={{
                         display: 'flex',
@@ -332,7 +330,6 @@ export default function Tooltip() {
                 </button>
             </div>
 
-            {/* Arrow */}
             {arrowStyle && <div style={arrowBaseStyle} aria-hidden="true" />}
         </div>
         </>,

@@ -6,7 +6,6 @@ import { useAuth } from '../../_context/AuthContext';
 import { pushWorkoutSessionToCloud } from '../../_lib/sync';
 import { supabase } from '../../_lib/supabase';
 
-/* ── types ───────────────────────────────────────────────────────────────── */
 interface ExerciseSet {
   reps: number;
   weight: number;
@@ -56,7 +55,6 @@ interface ExerciseCacheItem {
   category: string;
 }
 
-/* ── storage helpers ─────────────────────────────────────────────────────── */
 const STORAGE_KEY = 'healthsync_workouts';
 
 function loadRoutinesFromStorage(): Routine[] {
@@ -73,7 +71,6 @@ function saveRoutinesToStorage(routines: Routine[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }
 
-/* ── exercise cache ──────────────────────────────────────────────────────── */
 let exercisesCache: ExerciseCacheItem[] | null = null;
 
 async function loadExercisesCache(): Promise<ExerciseCacheItem[]> {
@@ -94,7 +91,6 @@ async function loadExercisesCache(): Promise<ExerciseCacheItem[]> {
   } catch { return []; }
 }
 
-/* ── GIF modal (inline) ──────────────────────────────────────────────────── */
 function GifModal({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -138,7 +134,6 @@ function GifModal({ url, name, onClose }: { url: string; name: string; onClose: 
   );
 }
 
-/* ── ContextMenu ─────────────────────────────────────────────────────────── */
 function RoutineContextMenu({ btn, routineId, onEdit, onSort, onDelete, onClose }: {
   btn: HTMLElement;
   routineId: string;
@@ -157,7 +152,6 @@ function RoutineContextMenu({ btn, routineId, onEdit, onSort, onDelete, onClose 
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node) && e.target !== btn) { handleClose(); } };
     setTimeout(() => document.addEventListener('click', handler), 10);
     return () => document.removeEventListener('click', handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleClose = () => {
@@ -185,7 +179,6 @@ function RoutineContextMenu({ btn, routineId, onEdit, onSort, onDelete, onClose 
   );
 }
 
-/* ── SortExercisesModal ──────────────────────────────────────────────────── */
 function SortExercisesModal({ routine, onSave, onClose }: { routine: Routine; onSave: (exercises: RoutineExercise[]) => void; onClose: () => void }) {
   const sheet = useDraggableSheet({ onClose });
   const [exercises, setExercises] = useState<RoutineExercise[]>([...routine.exercises]);
@@ -232,7 +225,6 @@ function SortExercisesModal({ routine, onSave, onClose }: { routine: Routine; on
   );
 }
 
-/* ── ExerciseCard (create/edit) ──────────────────────────────────────────── */
 function ExerciseCard({ ex, idx, onChange, onRemove, onShowGif }: {
   ex: RoutineExercise; idx: number;
   onChange: (idx: number, ex: RoutineExercise) => void;
@@ -281,7 +273,6 @@ function ExerciseCard({ ex, idx, onChange, onRemove, onShowGif }: {
   );
 }
 
-/* ── CreateModal ─────────────────────────────────────────────────────────── */
 function CreateModal({ editRoutine, onSave, onClose }: {
   editRoutine: Routine | null;
   onSave: (routine: Omit<Routine, 'id' | 'created_at'> & { id?: string; created_at?: string }) => void;
@@ -373,7 +364,6 @@ function CreateModal({ editRoutine, onSave, onClose }: {
   );
 }
 
-/* ── ActiveSetRow ────────────────────────────────────────────────────────── */
 function ActiveExerciseCard({ ex, exIdx, onChange, onShowGif }: {
   ex: SessionExercise; exIdx: number;
   onChange: (exIdx: number, setIdx: number, updated: Partial<SessionSet>) => void;
@@ -421,7 +411,6 @@ function ActiveExerciseCard({ ex, exIdx, onChange, onShowGif }: {
   );
 }
 
-/* ── ActiveWorkoutModal ──────────────────────────────────────────────────── */
 function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
   session: WorkoutSession;
   onClose: () => void;
@@ -545,7 +534,6 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
         </div>
       </div>
 
-      {/* Mini bar */}
       <div id="miniWorkoutBar" className={`mini-workout-bar${minimized ? '' : ' hidden'}`}>
         <div className="mini-workout-content">
           <div className="mini-workout-icon" onClick={restore}><i className="fa-solid fa-dumbbell" /></div>
@@ -566,7 +554,6 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
   );
 }
 
-/* ── WorkoutModal (main list) ────────────────────────────────────────────── */
 interface WorkoutModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -582,7 +569,6 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
   const [sortModal, setSortModal] = useState<Routine | null>(null);
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
 
-  /* open/close */
   useEffect(() => {
     if (isOpen) {
       setRoutines(loadRoutinesFromStorage());
@@ -675,7 +661,6 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
 
   return (
     <>
-      {/* Main routine list modal */}
       <div className="app-overlay" id="workoutOverlay" ref={sheet.overlayRef}
         onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); setContextMenu(null); }}>
         <div className="modal" id="workoutModal" ref={sheet.modalRef} style={{ transform: 'translateY(100%)' }}>
@@ -727,7 +712,6 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
         </div>
       </div>
 
-      {/* Context menu */}
       {contextMenu && (
         <RoutineContextMenu
           btn={contextMenu.btn}
@@ -739,7 +723,6 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
         />
       )}
 
-      {/* Create / Edit modal */}
       {createModal && (
         <CreateModal
           editRoutine={createModal.edit}
@@ -748,7 +731,6 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
         />
       )}
 
-      {/* Sort exercises modal */}
       {sortModal && (
         <SortExercisesModal
           routine={sortModal}
@@ -762,7 +744,6 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
         />
       )}
 
-      {/* Active workout */}
       {activeSession && (
         <ActiveWorkoutModal
           session={activeSession}

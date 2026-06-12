@@ -40,7 +40,6 @@ export default function CalSync({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [tick, setTick] = useState(0);
 
-  // Close modals when this route becomes hidden via Activity
   useLayoutEffect(() => {
     return () => {
       setModalOpen(false);
@@ -48,18 +47,15 @@ export default function CalSync({
     };
   }, []);
 
-  // Sync external openModal prop
   useEffect(() => {
     if (externalOpenModal) setModalOpen(true);
   }, [externalOpenModal]);
 
-  // Hide/show history button when history modal opens
   useEffect(() => {
     if (historyOpen) removeHeaderBtn('cs-openHistoryBtn');
     else addHeaderBtn('cs-openHistoryBtn');
   }, [historyOpen]);
 
-  // Hide/show modal button when modal opens
   useEffect(() => {
     if (modalOpen) removeHeaderBtn('cs-openModalBtn');
     else addHeaderBtn('cs-openModalBtn');
@@ -76,14 +72,11 @@ export default function CalSync({
     window.addEventListener('viewChanged', loadEntries);
     window.addEventListener('focus', loadEntries);
     const interval = setInterval(() => { loadEntries(); setTick(t => t + 1); }, 30000);
-    // Listen for external scanner events (ExtraScanner) and log entries
     const onSymLog = (e: Event) => {
       try {
         const detail = (e as CustomEvent).detail as FoodEntry | undefined;
         if (detail) handleLog(detail);
-      } catch (err) {
-        // ignore
-      }
+      } catch (err) { console.error('Failed to handle sym:logFood event', err); }
     };
     window.addEventListener('sym:logFood', onSymLog as EventListener);
     return () => {
@@ -105,7 +98,6 @@ export default function CalSync({
     setEntries(updated);
     save(updated);
     if (user) await pushFoodEntriesToCloud([entry], user.id);
-    // If it's a drink category, also add to dropsync
     if (entry.isDrink) {
       const drinkEntry: DrinkEntry = {
         id: entry.id,
