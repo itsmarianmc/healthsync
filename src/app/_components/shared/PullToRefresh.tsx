@@ -3,7 +3,7 @@
 import { useRef, useState, useCallback } from 'react';
 
 interface PullToRefreshProps {
-  onRefresh?: () => Promise<void>;
+    onRefresh?: () => Promise<void>;
 }
 
 const THRESHOLD = 50;

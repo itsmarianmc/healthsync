@@ -4,8 +4,8 @@ import { useEffect } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
 interface NotesModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+    isOpen: boolean;
+    onClose: () => void;
 }
 
 export default function NotesModal({ isOpen, onClose }: NotesModalProps) {

@@ -1,34 +1,40 @@
 'use client';
 
-import { Suspense, useEffect, useRef } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import DropSync from '@/app/_components/dropsync/DropSync';
 import { useAppShell } from '@/app/_context/AppShellContext';
 import { visitedRoutes } from '@/app/_lib/visitedRoutes';
 
 function DrinksPageContent() {
     const { openSettings } = useAppShell();
-    const searchParams = useSearchParams();
-    const router = useRouter();
     const nfl = useRef(visitedRoutes.has('drinks'));
-
-    const openModal = searchParams.get('openModal') === 'true';
+    const [externalOpenModal, setExternalOpenModal] = useState(false);
 
     useEffect(() => {
         visitedRoutes.add('drinks');
     }, []);
 
     useEffect(() => {
-        if (openModal) {
-            router.replace('/drinks', { scroll: false });
-        }
+        const handleNavigateDrinks = (event: Event) => {
+            const detail = (event as CustomEvent).detail as { openModal?: boolean };
+            if (!detail?.openModal) return;
+            setExternalOpenModal(true);
+        };
+
+        window.addEventListener('navigate:drinks', handleNavigateDrinks as EventListener);
+        return () => window.removeEventListener('navigate:drinks', handleNavigateDrinks as EventListener);
     }, []);
+
+    const handleExternalModalClose = () => {
+        setExternalOpenModal(false);
+    };
 
     return (
         <DropSync
             nfl={nfl.current}
             onOpenSettings={openSettings}
-            openModal={openModal}
+            openModal={externalOpenModal}
+            onModalClose={handleExternalModalClose}
         />
     );
 }

@@ -4,9 +4,9 @@ import { useState, useRef, useEffect } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
 interface BarcodeScanModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onScanned: (barcode: string) => void;
+    isOpen: boolean;
+    onClose: () => void;
+    onScanned: (barcode: string) => void;
 }
 
 export default function BarcodeScanModal({ isOpen, onClose, onScanned }: BarcodeScanModalProps) {
@@ -128,12 +128,12 @@ export default function BarcodeScanModal({ isOpen, onClose, onScanned }: Barcode
                 <div className="modal-body" style={{ padding: 16 }}>
                 <div style={{ position: 'relative' }}>
                     <video
-                    ref={videoRef}
-                    id="cameraVideo"
-                    autoPlay
-                    playsInline
-                    muted
-                    style={{ width: '100%', borderRadius: 'var(--radius-sm)', background: '#000' }}
+                        ref={videoRef}
+                        id="cameraVideo"
+                        autoPlay
+                        playsInline
+                        muted
+                        style={{ width: '100%', borderRadius: 'var(--radius-sm)', background: '#000' }}
                     />
                     <div className="camera-frame-overlay">
                         <div className="scan-frame" />

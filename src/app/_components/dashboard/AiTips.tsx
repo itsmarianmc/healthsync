@@ -88,73 +88,77 @@ interface AiTipsProps {
 }
 
 export default function AiTips({ score }: AiTipsProps) {
-  const [title, setTitle] = useState('');
-  const [text, setText] = useState('');
-  const [loaded, setLoaded] = useState(false);
-  const lastHashRef = useRef('');
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const [title, setTitle] = useState('');
+    const [text, setText] = useState('');
+    const [loaded, setLoaded] = useState(false);
+    const lastHashRef = useRef('');
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const refresh = useCallback(() => {
-    if (!isAIEnabled()) { setLoaded(false); return; }
-    const stats = getCurrentStats();
-    if (stats._hash === lastHashRef.current && loaded) return;
-    lastHashRef.current = stats._hash;
-    const msg = pickMessage(stats);
-    setTitle(msg.title);
-    setText(msg.text);
-    setLoaded(true);
-  }, [loaded]);
+    const refresh = useCallback(() => {
+        if (!isAIEnabled()) { setLoaded(false); return; }
+        const stats = getCurrentStats();
+        if (stats._hash === lastHashRef.current && loaded) return;
+        lastHashRef.current = stats._hash;
+        const msg = pickMessage(stats);
+        setTitle(msg.title);
+        setText(msg.text);
+        setLoaded(true);
+    }, [loaded]);
 
-  useEffect(() => {
-    refresh();
-    intervalRef.current = setInterval(refresh, REFRESH_INTERVAL);
-    window.addEventListener('storage', refresh);
-    const handler = () => refresh();
-    window.addEventListener('requestAITipUpdate', handler);
-    (window as typeof window & { refreshAITip?: () => void }).refreshAITip = refresh;
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      window.removeEventListener('storage', refresh);
-      window.removeEventListener('requestAITipUpdate', handler);
-    };
-  }, [refresh]);
+    useEffect(() => {
+        refresh();
+        intervalRef.current = setInterval(refresh, REFRESH_INTERVAL);
+        window.addEventListener('storage', refresh);
+        const handler = () => refresh();
+        window.addEventListener('requestAITipUpdate', handler);
+        (window as typeof window & { refreshAITip?: () => void }).refreshAITip = refresh;
+        return () => {
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            window.removeEventListener('storage', refresh);
+            window.removeEventListener('requestAITipUpdate', handler);
+        };
+    }, [refresh]);
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-  const aiEnabled = mounted && isAIEnabled();
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
+    const aiEnabled = mounted && isAIEnabled();
 
-  if (!mounted) return null;
+    if (!mounted) return null;
 
-  return (
-    <div id="AiBox" className={aiEnabled ? 'ai' : ''}>
-      <div className="dashboard-hero">
-        <div className="dashboard-hero-dash">
-          <div className="dashboard-kicker">Today</div>
-          <div className="dashboard-title">Dashboard</div>
-          <div className="dashboard-status" id="dashboardStatus">Ready when you are.</div>
+    return (
+        <div id="AiBox" className={aiEnabled ? 'ai' : ''}>
+            <div className="dashboard-hero">
+                <div className="dashboard-hero-dash">
+                    <div className="dashboard-kicker">Today</div>
+                    <div className="dashboard-title">Dashboard</div>
+                    <div className="dashboard-status" id="dashboardStatus">Ready when you are.</div>
+                </div>
+                <ScoreRing score={score} />
+            </div>
+            <div className="dashboard-widget ai-tip-widget">
+                <div className="dashboard-widget-rep">
+                    {loaded && aiEnabled ? (
+                        <>
+                            <div className="dashboard-widget-title" id="aiTipTitle" dangerouslySetInnerHTML={{ __html: title }} />
+                            <div className="dashboard-widget-text" id="aiTipText">{text}</div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="dashboard-widget-title" id="aiTipTitle">
+                                <div className="skeleton-info"><div className="skeleton-line name" /></div>
+                            </div>
+                            <div className="dashboard-widget-text" id="aiTipText">
+                                <div className="skeleton-info">
+                                    <div className="skeleton-line brand" />
+                                </div>
+                                <div className="skeleton-info">
+                                    <div className="skeleton-line brand last" />
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
         </div>
-        <ScoreRing score={score} />
-      </div>
-      <div className="dashboard-widget ai-tip-widget">
-        <div className="dashboard-widget-rep">
-          {loaded && aiEnabled ? (
-            <>
-              <div className="dashboard-widget-title" id="aiTipTitle" dangerouslySetInnerHTML={{ __html: title }} />
-              <div className="dashboard-widget-text" id="aiTipText">{text}</div>
-            </>
-          ) : (
-            <>
-              <div className="dashboard-widget-title" id="aiTipTitle">
-                <div className="skeleton-info"><div className="skeleton-line name" /></div>
-              </div>
-              <div className="dashboard-widget-text" id="aiTipText">
-                <div className="skeleton-info"><div className="skeleton-line brand" /></div>
-                <div className="skeleton-info"><div className="skeleton-line brand last" /></div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+    );
 }

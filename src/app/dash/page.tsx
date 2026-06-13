@@ -28,8 +28,14 @@ function DashboardPageContent() {
         <Dashboard
             nfl={nfl.current}
             onOpenSettings={openSettings}
-            onOpenCalSync={() => router.push('/food?openModal=true')}
-            onOpenDropSync={() => router.push('/drinks?openModal=true')}
+            onOpenCalSync={() => {
+              router.push('/food');
+              window.dispatchEvent(new CustomEvent('navigate:food', { detail: { openModal: true } }));
+            }}
+            onOpenDropSync={() => {
+              router.push('/drinks');
+              window.dispatchEvent(new CustomEvent('navigate:drinks', { detail: { openModal: true } }));
+            }}
         />
     );
 }

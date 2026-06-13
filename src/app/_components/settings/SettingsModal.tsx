@@ -7,9 +7,9 @@ import { supabase } from '../../_lib/supabase';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
 interface SettingsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onOpenNotes: () => void;
+    isOpen: boolean;
+    onClose: () => void;
+    onOpenNotes: () => void;
 }
 
 type CalcFields = { gender: string; activity: string; goalType: string; hydrationClimate: string };
@@ -17,47 +17,47 @@ type CalcFields = { gender: string; activity: string; goalType: string; hydratio
 const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
 
 function downloadFile(filename: string, content: string, type: string) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
 }
 
 function applyTheme(theme: string) {
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('calsync_theme', theme);
-  localStorage.setItem('dropsync_theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('calsync_theme', theme);
+    localStorage.setItem('dropsync_theme', theme);
 }
 
 const THEMES = [
-  { id: 'dark',     label: 'Dark',     bg: '#0F0F10', card: '#1C1C1E', s1: '#2C2C2E', s2: '#3A3A3C', accent: '#E4840F' },
-  { id: 'light',    label: 'Light',    bg: '#F2F2F7', card: '#FFFFFF', s1: '#E5E5EA', s2: '#D1D1D6', accent: '#E4840F' },
-  { id: 'ocean',    label: 'Ocean',    bg: '#05111F', card: '#0A2038', s1: '#103050', s2: '#1A4060', accent: '#E4840F' },
-  { id: 'forest',   label: 'Forest',   bg: '#0A140C', card: '#132218', s1: '#1E3326', s2: '#284535', accent: '#E4840F' },
-  { id: 'sunset',   label: 'Sunset',   bg: '#120808', card: '#221210', s1: '#351A16', s2: '#46231E', accent: '#E4840F' },
-  { id: 'lavender', label: 'Lavender', bg: '#0E0A18', card: '#1A1428', s1: '#261E3C', s2: '#332850', accent: '#E4840F' },
+    { id: 'dark',     label: 'Dark',     bg: '#0F0F10', card: '#1C1C1E', s1: '#2C2C2E', s2: '#3A3A3C', accent: '#E4840F' },
+    { id: 'light',    label: 'Light',    bg: '#F2F2F7', card: '#FFFFFF', s1: '#E5E5EA', s2: '#D1D1D6', accent: '#E4840F' },
+    { id: 'ocean',    label: 'Ocean',    bg: '#05111F', card: '#0A2038', s1: '#103050', s2: '#1A4060', accent: '#E4840F' },
+    { id: 'forest',   label: 'Forest',   bg: '#0A140C', card: '#132218', s1: '#1E3326', s2: '#284535', accent: '#E4840F' },
+    { id: 'sunset',   label: 'Sunset',   bg: '#120808', card: '#221210', s1: '#351A16', s2: '#46231E', accent: '#E4840F' },
+    { id: 'lavender', label: 'Lavender', bg: '#0E0A18', card: '#1A1428', s1: '#261E3C', s2: '#332850', accent: '#E4840F' },
 ];
 
 function runCalc(fields: CalcFields, w: number, h: number, age: number) {
-  if (!w || !h || !age) return null;
-  let bmr = fields.gender === 'male' ? 10*w + 6.25*h - 5*age + 5 : 10*w + 6.25*h - 5*age - 161;
-  const actMap: Record<string, number> = { sedentary:1.2, light:1.375, moderate:1.55, active:1.725, very_active:1.9 };
-  let tdee = bmr * (actMap[fields.activity] || 1.2);
-  if (fields.goalType === 'lose') tdee -= 500; else if (fields.goalType === 'gain') tdee += 500;
-  const kcal = Math.round(tdee);
-  const protein = Math.round(kcal * 0.30 / 4);
-  const carbs   = Math.round(kcal * 0.40 / 4);
-  const fat     = Math.round(kcal * 0.30 / 9);
-  let hydration = w * 24.33333333333333;
-  if (fields.gender === 'male') hydration += 150;
-  if (fields.gender === 'pregnant') hydration += 300;
-  if (fields.gender === 'breastfeeding') hydration += 700;
-  const actHyd: Record<string,number> = { light:150, moderate:300, active:700, very_active:700 };
-  hydration += (actHyd[fields.activity] || 0);
-  const climateAdd: Record<string,number> = { cool:0, mild:200, warm:450, hot:650 };
-  hydration += (climateAdd[fields.hydrationClimate] || 0);
-  return { kcal, protein, carbs, fat, hydration: Math.round(hydration) };
+    if (!w || !h || !age) return null;
+    let bmr = fields.gender === 'male' ? 10*w + 6.25*h - 5*age + 5 : 10*w + 6.25*h - 5*age - 161;
+    const actMap: Record<string, number> = { sedentary:1.2, light:1.375, moderate:1.55, active:1.725, very_active:1.9 };
+    let tdee = bmr * (actMap[fields.activity] || 1.2);
+    if (fields.goalType === 'lose') tdee -= 500; else if (fields.goalType === 'gain') tdee += 500;
+    const kcal = Math.round(tdee);
+    const protein = Math.round(kcal * 0.30 / 4);
+    const carbs   = Math.round(kcal * 0.40 / 4);
+    const fat     = Math.round(kcal * 0.30 / 9);
+    let hydration = w * 24.33333333333333;
+    if (fields.gender === 'male') hydration += 150;
+    if (fields.gender === 'pregnant') hydration += 300;
+    if (fields.gender === 'breastfeeding') hydration += 700;
+    const actHyd: Record<string,number> = { light:150, moderate:300, active:700, very_active:700 };
+    hydration += (actHyd[fields.activity] || 0);
+    const climateAdd: Record<string,number> = { cool:0, mild:200, warm:450, hot:650 };
+    hydration += (climateAdd[fields.hydrationClimate] || 0);
+    return { kcal, protein, carbs, fat, hydration: Math.round(hydration) };
 }
 
 export default function SettingsModal({ isOpen, onClose, onOpenNotes }: SettingsModalProps) {

@@ -11,7 +11,7 @@ export default function OnboardingPage() {
 
     const handleDone = React.useCallback(() => {
         try {
-        localStorage.setItem(ONBOARDING_KEY, '1');
+            localStorage.setItem(ONBOARDING_KEY, '1');
         } catch {}
         try { window.dispatchEvent(new CustomEvent('onboarding:done')); } catch {}
         router.replace('/dash');

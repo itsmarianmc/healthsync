@@ -4,10 +4,10 @@ import { useState, useRef, useEffect } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
 interface BarcodeScannerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onScanned: (barcode: string) => void;
-  embedded?: boolean;
+    isOpen: boolean;
+    onClose: () => void;
+    onScanned: (barcode: string) => void;
+    embedded?: boolean;
 }
 
 export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded }: BarcodeScannerProps) {
@@ -147,12 +147,12 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded }:
                 <div className="modal-body" style={{ padding: 16 }}>
                     <div style={{ position: 'relative' }}>
                         <video
-                        ref={videoRef}
-                        id="cameraVideo"
-                        autoPlay
-                        playsInline
-                        muted
-                        style={{ width: '100%', borderRadius: 'var(--radius-sm)', background: '#000' }}
+                            ref={videoRef}
+                            id="cameraVideo"
+                            autoPlay
+                            playsInline
+                            muted
+                            style={{ width: '100%', borderRadius: 'var(--radius-sm)', background: '#000' }}
                         />
                         <div className="camera-frame-overlay">
                             <div className="scan-frame" />
