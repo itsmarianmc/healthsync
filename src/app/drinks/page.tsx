@@ -1,43 +1,51 @@
 'use client';
 
-import { Suspense, useEffect, useRef } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { Suspense, useEffect, useRef, useState, useCallback } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import DropSync from '@/app/_components/dropsync/DropSync';
 import { useAppShell } from '@/app/_context/AppShellContext';
 import { visitedRoutes } from '@/app/_lib/visitedRoutes';
 
 function DrinksPageContent() {
-  const { openSettings } = useAppShell();
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const nfl = useRef(visitedRoutes.has('drinks'));
+    const { openSettings } = useAppShell();
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const nfl = useRef(visitedRoutes.has('drinks'));
+    const [externalOpenModal, setExternalOpenModal] = useState(false);
 
-  const openModal = searchParams.get('openModal') === 'true';
+    useEffect(() => {
+        visitedRoutes.add('drinks');
+    }, []);
 
-  useEffect(() => {
-    visitedRoutes.add('drinks');
-  }, []);
+    useEffect(() => {
+        if (searchParams.get('openModal') === 'true') {
+            setExternalOpenModal(true);
+            const params = new URLSearchParams(Array.from(searchParams.entries()));
+            params.delete('openModal');
+            const query = params.toString();
+            router.replace(`${pathname}${query ? `?${query}` : ''}`, { scroll: false });
+        }
+    }, [searchParams, router, pathname]);
 
-  // Clean URL params after consuming them so modal doesn't re-trigger on next visit
-  useEffect(() => {
-    if (openModal) {
-      router.replace('/drinks', { scroll: false });
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const handleExternalModalClose = () => {
+        setExternalOpenModal(false);
+    };
 
-  return (
-    <DropSync
-      nfl={nfl.current}
-      onOpenSettings={openSettings}
-      openModal={openModal}
-    />
-  );
+    return (
+        <DropSync
+            nfl={nfl.current}
+            onOpenSettings={openSettings}
+            openModal={externalOpenModal}
+            onModalClose={handleExternalModalClose}
+        />
+    );
 }
 
 export default function DrinksPage() {
-  return (
-    <Suspense>
-      <DrinksPageContent />
-    </Suspense>
-  );
+    return (
+        <Suspense>
+            <DrinksPageContent />
+        </Suspense>
+    );
 }

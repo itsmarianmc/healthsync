@@ -96,7 +96,6 @@ export default function LoginPage() {
     const otpMfaRef = useRef<{ getCode: () => string }>(null);
     const mfaInputRef = useRef<HTMLDivElement>(null);
 
-    // Redirect if already logged in
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
@@ -125,7 +124,6 @@ export default function LoginPage() {
         setLoggedInUser(name);
         setView('loggedIn');
 
-        // Sync profile data (authenticated — session exists at this point)
         if (user?.id) {
             const profilePayload: Record<string, string> = { id: user.id };
             if (user.user_metadata?.display_name) profilePayload.display_name = user.user_metadata.display_name;
@@ -137,7 +135,6 @@ export default function LoginPage() {
         const params = new URLSearchParams(window.location.search);
         if (params.get('keep_login_page') === 'true') return;
 
-        // Redirect to app after 2.2s
         setTimeout(() => { window.location.href = '/dash?reload=true'; }, 2200);
     }, []);
 
@@ -209,7 +206,6 @@ export default function LoginPage() {
         const { data: signUpData, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName || displayName, display_name: displayName, ...(avatarUrl ? { avatar_url: avatarUrl } : {}) } } });
         setLoading(false);
         if (error) return setRegisterAlert({ msg: error.message, type: 'error' });
-        // Profile will be synced to the profiles table on first login (after email confirmation)
         setView('confirm');
     };
 
@@ -343,17 +339,14 @@ export default function LoginPage() {
     const pwScore = [pwStrength.len, pwStrength.upper, pwStrength.num].filter(Boolean).length;
     const pwCls = ['', 'weak', 'medium', 'strong'][pwScore] || '';
 
-    // QR Code rendering
     useEffect(() => {
         if (qrUri && qrRef.current) {
         qrRef.current.innerHTML = '';
-        // Load QRCode.js dynamically if available
         if (typeof window !== 'undefined' && (window as typeof window & { QRCode?: new (el: HTMLElement, opts: Record<string, unknown>) => void }).QRCode) {
             new (window as typeof window & { QRCode: new (el: HTMLElement, opts: Record<string, unknown>) => void }).QRCode(qrRef.current, {
             text: qrUri, width: 160, height: 160, correctLevel: 1
             });
         } else {
-            // Fallback: show the URI
             const link = document.createElement('a');
             link.href = qrUri;
             link.textContent = 'Open in authenticator';
@@ -395,100 +388,96 @@ export default function LoginPage() {
             </div>
         <div className="card" id="mainCard">
 
-            {/* Auth Section (Login / Register) */}
             {(view === 'login' || view === 'register') && (
-            <div id="authSection">
-                <div className="tabs">
-                <button className={`tab${activeTab === 'login' ? ' active' : ''}`} onClick={() => { setActiveTab('login'); setView('login'); }}>Sign in</button>
-                <button className={`tab${activeTab === 'register' ? ' active' : ''}`} onClick={() => { setActiveTab('register'); setView('register'); }}>Register</button>
-                </div>
+                <div id="authSection">
+                    <div className="tabs">
+                    <button className={`tab${activeTab === 'login' ? ' active' : ''}`} onClick={() => { setActiveTab('login'); setView('login'); }}>Sign in</button>
+                    <button className={`tab${activeTab === 'register' ? ' active' : ''}`} onClick={() => { setActiveTab('register'); setView('register'); }}>Register</button>
+                    </div>
 
-                {/* Login view */}
-                {view === 'login' && (
-                <div className="view active" id="viewLogin">
-                    <div className="view-title">Welcome back 👋</div>
-                    <div className="view-subtitle">Sign in with your email and password.</div>
-                    <Alert alert={loginAlert} />
-                    <div className="field">
-                    <label>Email</label>
-                    <div className="input-wrap">{mailIcon}<input type="email" id="loginEmail" placeholder="user@itsmarian.dev" autoComplete="email" /></div>
+                    {view === 'login' && (
+                    <div className="view active" id="viewLogin">
+                        <div className="view-title">Welcome back 👋</div>
+                        <div className="view-subtitle">Sign in with your email and password.</div>
+                        <Alert alert={loginAlert} />
+                        <div className="field">
+                        <label>Email</label>
+                        <div className="input-wrap">{mailIcon}<input type="email" id="loginEmail" placeholder="user@itsmarian.dev" autoComplete="email" /></div>
+                        </div>
+                        <div className="field">
+                        <label>Password</label>
+                        <div className="input-wrap">{lockIcon}
+                            <input type={showLoginPw ? 'text' : 'password'} id="loginPassword" placeholder="Your password" autoComplete="current-password" onKeyDown={e => e.key === 'Enter' && doLogin()} />
+                            <button className="toggle-pw" type="button" onClick={() => setShowLoginPw(v => !v)}>{showLoginPw ? eyeOffIcon : eyeIcon}</button>
+                        </div>
+                        </div>
+                        <div style={{ textAlign: 'right', marginBottom: '1rem', marginTop: '-0.4rem' }}>
+                        <button className="btn-link" onClick={() => setView('reset')}>Forgot password?</button>
+                        </div>
+                        <button className={`btn--primary${loading ? ' loading' : ''}`} id="loginBtn" onClick={doLogin} disabled={loading}>
+                        <span className="btn-text">Sign in</span><div className="btn-loader" />
+                        </button>
                     </div>
-                    <div className="field">
-                    <label>Password</label>
-                    <div className="input-wrap">{lockIcon}
-                        <input type={showLoginPw ? 'text' : 'password'} id="loginPassword" placeholder="Your password" autoComplete="current-password" onKeyDown={e => e.key === 'Enter' && doLogin()} />
-                        <button className="toggle-pw" type="button" onClick={() => setShowLoginPw(v => !v)}>{showLoginPw ? eyeOffIcon : eyeIcon}</button>
-                    </div>
-                    </div>
-                    <div style={{ textAlign: 'right', marginBottom: '1rem', marginTop: '-0.4rem' }}>
-                    <button className="btn-link" onClick={() => setView('reset')}>Forgot password?</button>
-                    </div>
-                    <button className={`btn--primary${loading ? ' loading' : ''}`} id="loginBtn" onClick={doLogin} disabled={loading}>
-                    <span className="btn-text">Sign in</span><div className="btn-loader" />
-                    </button>
-                </div>
-                )}
+                    )}
 
-                {/* Register view */}
-                {view === 'register' && (
-                <div className="view active" id="viewRegister">
-                    <div className="view-title">Create account</div>
-                    <div className="view-subtitle">Join Health<span>Sync</span> and start tracking today!</div>
-                    <Alert alert={registerAlert} />
-                    <div className="field">
-                    <label>Display name</label>
-                    <div className="input-wrap">{userIcon}<input type="text" id="regDisplayName" placeholder="johndoe" autoComplete="username" /></div>
-                    </div>
-                    <div className="field">
-                    <label>Full name <span style={{ opacity: 0.5, fontWeight: 400 }}>(optional)</span></label>
-                    <div className="input-wrap">{userIcon}<input type="text" id="regFullName" placeholder="John Doe" autoComplete="name" /></div>
-                    </div>
-                    <div className="field">
-                    <label>Email</label>
-                    <div className="input-wrap">{mailIcon}<input type="email" id="regEmail" placeholder="user@itsmarian.dev" autoComplete="email" /></div>
-                    </div>
-                    <div className="field">
-                    <label>Password</label>
-                    <div className="input-wrap">{lockIcon}
-                        <input type={showRegPw ? 'text' : 'password'} id="regPassword" placeholder="Min. 8 characters" autoComplete="new-password" onInput={e => checkPwStrength((e.target as HTMLInputElement).value)} />
-                        <button className="toggle-pw" type="button" onClick={() => setShowRegPw(v => !v)}>{showRegPw ? eyeOffIcon : eyeIcon}</button>
-                    </div>
-                    <div className="pw-strength">
-                        <div className={`pw-bar${pwScore >= 1 ? ' ' + pwCls : ''}`} id="bar1" />
-                        <div className={`pw-bar${pwScore >= 2 ? ' ' + pwCls : ''}`} id="bar2" />
-                        <div className={`pw-bar${pwScore >= 3 ? ' ' + pwCls : ''}`} id="bar3" />
-                    </div>
-                    {showPwRules && (
-                        <div className="pw-rules show" id="pwRules">
-                        <div className={`pw-rule${pwStrength.len ? ' ok' : ''}`} id="rule-len">{renderRuleIcon(pwStrength.len)}At least 8 characters</div>
-                        <div className={`pw-rule${pwStrength.upper ? ' ok' : ''}`} id="rule-upper">{renderRuleIcon(pwStrength.upper)}One uppercase letter (A - Z)</div>
-                        <div className={`pw-rule${pwStrength.num ? ' ok' : ''}`} id="rule-num">{renderRuleIcon(pwStrength.num)}One number (0 - 9)</div>
+                    {view === 'register' && (
+                        <div className="view active" id="viewRegister">
+                            <div className="view-title">Create account</div>
+                            <div className="view-subtitle">Join Health<span>Sync</span> and start tracking today!</div>
+                            <Alert alert={registerAlert} />
+                            <div className="field">
+                                <label>Display name</label>
+                                <div className="input-wrap">{userIcon}<input type="text" id="regDisplayName" placeholder="johndoe" autoComplete="username" /></div>
+                            </div>
+                            <div className="field">
+                                <label>Full name <span style={{ opacity: 0.5, fontWeight: 400 }}>(optional)</span></label>
+                                <div className="input-wrap">{userIcon}<input type="text" id="regFullName" placeholder="John Doe" autoComplete="name" /></div>
+                            </div>
+                            <div className="field">
+                                <label>Email</label>
+                                <div className="input-wrap">{mailIcon}<input type="email" id="regEmail" placeholder="user@itsmarian.dev" autoComplete="email" /></div>
+                            </div>
+                            <div className="field">
+                                <label>Password</label>
+                                <div className="input-wrap">{lockIcon}
+                                    <input type={showRegPw ? 'text' : 'password'} id="regPassword" placeholder="Min. 8 characters" autoComplete="new-password" onInput={e => checkPwStrength((e.target as HTMLInputElement).value)} />
+                                    <button className="toggle-pw" type="button" onClick={() => setShowRegPw(v => !v)}>{showRegPw ? eyeOffIcon : eyeIcon}</button>
+                                </div>
+                                <div className="pw-strength">
+                                    <div className={`pw-bar${pwScore >= 1 ? ' ' + pwCls : ''}`} id="bar1" />
+                                    <div className={`pw-bar${pwScore >= 2 ? ' ' + pwCls : ''}`} id="bar2" />
+                                    <div className={`pw-bar${pwScore >= 3 ? ' ' + pwCls : ''}`} id="bar3" />
+                                </div>
+                                {showPwRules && (
+                                    <div className="pw-rules show" id="pwRules">
+                                        <div className={`pw-rule${pwStrength.len ? ' ok' : ''}`} id="rule-len">{renderRuleIcon(pwStrength.len)}At least 8 characters</div>
+                                        <div className={`pw-rule${pwStrength.upper ? ' ok' : ''}`} id="rule-upper">{renderRuleIcon(pwStrength.upper)}One uppercase letter (A - Z)</div>
+                                        <div className={`pw-rule${pwStrength.num ? ' ok' : ''}`} id="rule-num">{renderRuleIcon(pwStrength.num)}One number (0 - 9)</div>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="field">
+                                <label>Confirm password</label>
+                                <div className="input-wrap">{lockIcon}
+                                    <input type={showRegConfirmPw ? 'text' : 'password'} id="regPasswordConfirm" placeholder="Repeat your password" autoComplete="new-password" />
+                                    <button className="toggle-pw" type="button" onClick={() => setShowRegConfirmPw(v => !v)}>{showRegConfirmPw ? eyeOffIcon : eyeIcon}</button>
+                                </div>
+                            </div>
+                            <div className="field">
+                                <label>Avatar URL <span style={{ opacity: 0.5, fontWeight: 400 }}>(optional)</span></label>
+                                <div className="input-wrap">
+                                    <i className="fa-solid fa-image" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }} />
+                                    <input type="url" id="regAvatar" placeholder="https://example.com/avatar.jpg" autoComplete="photo" style={{ paddingLeft: 40 }} />
+                                </div>
+                            </div>
+                            <button className={`btn--primary${loading ? ' loading' : ''}`} id="registerBtn" onClick={doRegister} disabled={loading}>
+                                <span className="btn-text">Create account</span><div className="btn-loader" />
+                            </button>
                         </div>
                     )}
-                    </div>
-                    <div className="field">
-                    <label>Confirm password</label>
-                    <div className="input-wrap">{lockIcon}
-                        <input type={showRegConfirmPw ? 'text' : 'password'} id="regPasswordConfirm" placeholder="Repeat your password" autoComplete="new-password" />
-                        <button className="toggle-pw" type="button" onClick={() => setShowRegConfirmPw(v => !v)}>{showRegConfirmPw ? eyeOffIcon : eyeIcon}</button>
-                    </div>
-                    </div>
-                    <div className="field">
-                    <label>Avatar URL <span style={{ opacity: 0.5, fontWeight: 400 }}>(optional)</span></label>
-                    <div className="input-wrap">
-                        <i className="fa-solid fa-image" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }} />
-                        <input type="url" id="regAvatar" placeholder="https://example.com/avatar.jpg" autoComplete="photo" style={{ paddingLeft: 40 }} />
-                    </div>
-                    </div>
-                    <button className={`btn--primary${loading ? ' loading' : ''}`} id="registerBtn" onClick={doRegister} disabled={loading}>
-                    <span className="btn-text">Create account</span><div className="btn-loader" />
-                    </button>
                 </div>
-                )}
-            </div>
             )}
 
-            {/* MFA view */}
             {view === 'mfa' && (
             <div className="view active" id="viewMFA">
                 <button className="back-link" onClick={() => setView('login')}>{backArrow}Back</button>
@@ -497,19 +486,18 @@ export default function LoginPage() {
                 <Alert alert={mfaAlert} />
                 <OtpInput id="otpWrap" onComplete={doMFAVerify} />
                 <label className="remember-me-row">
-                <input type="checkbox" id="mfaRememberMe" checked={mfaRemember} onChange={e => setMfaRemember(e.target.checked)} />
-                <span>Don&apos;t ask again on this device</span>
+                    <input type="checkbox" id="mfaRememberMe" checked={mfaRemember} onChange={e => setMfaRemember(e.target.checked)} />
+                    <span>Don&apos;t ask again on this device</span>
                 </label>
                 <button className={`btn--primary${loading ? ' loading' : ''}`} id="mfaBtn" onClick={() => {
-                const inputs = document.querySelectorAll<HTMLInputElement>('#otpWrap input');
-                doMFAVerify([...inputs].map(i => i.value).join(''));
-                }} disabled={loading}>
-                <span className="btn-text">Confirm</span><div className="btn-loader" />
+                    const inputs = document.querySelectorAll<HTMLInputElement>('#otpWrap input');
+                    doMFAVerify([...inputs].map(i => i.value).join(''));
+                    }} disabled={loading}>
+                    <span className="btn-text">Confirm</span><div className="btn-loader" />
                 </button>
             </div>
             )}
 
-            {/* Setup 2FA view */}
             {view === 'setup2fa' && (
             <div className="view active" id="viewSetup2FA">
                 <button className="back-link" onClick={() => setView('loggedIn')}>{backArrow}Back</button>
@@ -549,7 +537,6 @@ export default function LoginPage() {
             </div>
             )}
 
-            {/* Reset MFA view */}
             {view === 'resetMfa' && (
                 <div className="view active" id="viewResetMFA">
                     <button className="back-link" onClick={() => setView('reset')}>{backArrow}Back</button>
@@ -558,15 +545,14 @@ export default function LoginPage() {
                     <Alert alert={resetMfaAlert} />
                     <OtpInput id="otpResetWrap" onComplete={doResetMFAVerify} />
                     <button className={`btn--primary${loading ? ' loading' : ''}`} id="resetMfaBtn" onClick={() => {
-                    const inputs = document.querySelectorAll<HTMLInputElement>('#otpResetWrap input');
-                    doResetMFAVerify([...inputs].map(i => i.value).join(''));
-                    }} disabled={loading}>
-                    <span className="btn-text">Confirm &amp; send reset link</span><div className="btn-loader" />
+                        const inputs = document.querySelectorAll<HTMLInputElement>('#otpResetWrap input');
+                        doResetMFAVerify([...inputs].map(i => i.value).join(''));
+                        }} disabled={loading}>
+                        <span className="btn-text">Confirm &amp; send reset link</span><div className="btn-loader" />
                     </button>
                 </div>
             )}
 
-            {/* Reset view */}
             {view === 'reset' && (
                 <div className="view active" id="viewReset">
                     <button className="back-link" onClick={() => setView('login')}>{backArrow}Back</button>
@@ -574,44 +560,42 @@ export default function LoginPage() {
                     <div className="view-subtitle">Enter your email and we&apos;ll send you a reset link.</div>
                     <Alert alert={resetAlert} />
                     <div className="field">
-                    <label>Email</label>
-                    <div className="input-wrap">{mailIcon}<input type="email" id="resetEmail" placeholder="user@itsmarian.dev" autoComplete="email" /></div>
+                        <label>Email</label>
+                        <div className="input-wrap">{mailIcon}<input type="email" id="resetEmail" placeholder="user@itsmarian.dev" autoComplete="email" /></div>
                     </div>
                     <button className={`btn--primary${loading ? ' loading' : ''}`} id="resetBtn" onClick={doReset} disabled={loading}>
-                    <span className="btn-text">Send link</span><div className="btn-loader" />
+                        <span className="btn-text">Send link</span><div className="btn-loader" />
                     </button>
                 </div>
             )}
 
-            {/* Confirm view */}
             {view === 'confirm' && (
                 <div className="view active" id="viewConfirm">
                     <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}><i className="fas fa-mailbox" /></div>
-                    <div className="view-title">Check your inbox</div>
-                    <div className="view-subtitle" style={{ marginBottom: '1.5rem' }}>
-                        We sent you a confirmation email. Click the link inside to activate your account.
-                    </div>
-                    <button className="btn--primary" onClick={() => { setView('login'); setActiveTab('login'); }}>Go to sign in</button>
+                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}><i className="fas fa-mailbox" /></div>
+                        <div className="view-title">Check your inbox</div>
+                        <div className="view-subtitle" style={{ marginBottom: '1.5rem' }}>
+                            We sent you a confirmation email. Click the link inside to activate your account.
+                        </div>
+                        <button className="btn--primary" onClick={() => { setView('login'); setActiveTab('login'); }}>Go to sign in</button>
                     </div>
                 </div>
             )}
 
-            {/* Logged In view */}
             {view === 'loggedIn' && (
                 <div className="view active" id="viewLoggedIn">
                     <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}><i className="fas fa-home" /></div>
-                    <div className="view-title" id="loggedInTitle">Welcome back to Health<span>Sync</span>!</div>
-                    <div className="view-subtitle" id="loggedInMsg" style={{ margin: 0, width: '100%' }}>
-                        You are successfully signed in{loggedInUser ? ` as ${loggedInUser}` : ''}.
-                    </div>
-                    <button className="btn--primary" onClick={goToApp} style={{ marginTop: '2rem' }}>Go back to app</button>
-                    <div className="divider">or</div>
-                    <button className="btn-ghost" onClick={show2FASetupOffer} style={{ marginBottom: '0.5rem' }}>
-                        <i className="fa-solid fa-lock" /> Set up / manage 2FA
-                    </button>
-                    <button className="btn--primary" onClick={logoutUser}>Logout</button>
+                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}><i className="fas fa-home" /></div>
+                        <div className="view-title" id="loggedInTitle">Welcome back to Health<span>Sync</span>!</div>
+                        <div className="view-subtitle" id="loggedInMsg" style={{ margin: 0, width: '100%' }}>
+                            You are successfully signed in{loggedInUser ? ` as ${loggedInUser}` : ''}.
+                        </div>
+                        <button className="btn--primary" onClick={goToApp} style={{ marginTop: '2rem' }}>Go back to app</button>
+                        <div className="divider">or</div>
+                        <button className="btn-ghost" onClick={show2FASetupOffer} style={{ marginBottom: '0.5rem' }}>
+                            <i className="fa-solid fa-lock" /> Set up / manage 2FA
+                        </button>
+                        <button className="btn--primary" onClick={logoutUser}>Logout</button>
                     </div>
                 </div>
             )}
@@ -621,62 +605,60 @@ export default function LoginPage() {
             <a href="/" style={{ color: 'var(--text2)', fontSize: '0.88rem', textDecoration: 'none' }}>Back to app</a>
         </div>
 
-        {/* Disable 2FA Modal */}
         {showDisableModal && (
             <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }} onClick={e => { if (e.target === e.currentTarget) setShowDisableModal(false); }}>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '2rem', width: '100%', maxWidth: 380, boxShadow: 'var(--shadow)' }}>
-                <div style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.4rem' }}>Disable 2FA</div>
-                <div style={{ fontSize: '0.9rem', color: 'var(--text2)', marginBottom: '1.4rem', lineHeight: 1.5 }}>Enter your current authenticator code to confirm. This will remove 2FA from your account.</div>
-                <Alert alert={disableAlert} />
-                <OtpInput id="otpDisableWrap" onComplete={confirmDisable2FA} />
-                <button className={`btn--primary${loading ? ' loading' : ''}`} id="confirmDisableBtn" onClick={() => {
-                const inputs = document.querySelectorAll<HTMLInputElement>('#otpDisableWrap input');
-                confirmDisable2FA([...inputs].map(i => i.value).join(''));
-                }} style={{ background: 'linear-gradient(135deg,#ff453a,#ff6b61)', marginTop: '1.2rem' }} disabled={loading}>
-                <span className="btn-text">Confirm &amp; Disable</span><div className="btn-loader" />
-                </button>
-                <button className="btn-ghost" onClick={() => setShowDisableModal(false)} style={{ marginTop: '0.5rem' }}>Cancel</button>
-            </div>
-            </div>
-        )}
-
-        {/* Change Password Modal */}
-        {showChangePw && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }} onClick={e => { if (e.target === e.currentTarget) setShowChangePw(false); }}>
-                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '2rem', width: '100%', maxWidth: 380 }}>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '1rem' }}>Change Password</div>
-                    <Alert alert={changePwAlert} />
-                    {changePwStep === 1 && (
-                    <>
-                        <div className="view-subtitle" style={{ marginBottom: '1rem' }}>Enter your 2FA code first.</div>
-                        <OtpInput id="otpChangePwWrap" onComplete={doChangePassword} />
-                        <button className={`btn--primary${loading ? ' loading' : ''}`} onClick={() => {
-                        const inputs = document.querySelectorAll<HTMLInputElement>('#otpChangePwWrap input');
-                        doChangePassword([...inputs].map(i => i.value).join(''));
-                        }} disabled={loading} style={{ marginTop: '1rem' }}>
-                        <span className="btn-text">Verify</span><div className="btn-loader" />
-                        </button>
-                    </>
-                    )}
-                    {changePwStep === 2 && (
-                    <>
-                        <div className="field" style={{ marginBottom: '1rem' }}>
-                        <label>New password</label>
-                        <div className="input-wrap">{lockIcon}<input type="password" id="newPassword" placeholder="New password" autoComplete="new-password" /></div>
-                        </div>
-                        <div className="field" style={{ marginBottom: '1rem' }}>
-                        <label>Confirm password</label>
-                        <div className="input-wrap">{lockIcon}<input type="password" id="confirmNewPassword" placeholder="Confirm password" autoComplete="new-password" /></div>
-                        </div>
-                        <button className={`btn--primary${loading ? ' loading' : ''}`} onClick={doChangePasswordSubmit} disabled={loading}>
-                        <span className="btn-text">Change Password</span><div className="btn-loader" />
-                        </button>
-                    </>
-                    )}
-                    <button className="btn-ghost" onClick={() => setShowChangePw(false)} style={{ marginTop: '0.5rem' }}>Cancel</button>
+                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '2rem', width: '100%', maxWidth: 380, boxShadow: 'var(--shadow)' }}>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.4rem' }}>Disable 2FA</div>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--text2)', marginBottom: '1.4rem', lineHeight: 1.5 }}>Enter your current authenticator code to confirm. This will remove 2FA from your account.</div>
+                    <Alert alert={disableAlert} />
+                    <OtpInput id="otpDisableWrap" onComplete={confirmDisable2FA} />
+                    <button className={`btn--primary${loading ? ' loading' : ''}`} id="confirmDisableBtn" onClick={() => {
+                        const inputs = document.querySelectorAll<HTMLInputElement>('#otpDisableWrap input');
+                        confirmDisable2FA([...inputs].map(i => i.value).join(''));
+                        }} style={{ background: 'linear-gradient(135deg,#ff453a,#ff6b61)', marginTop: '1.2rem' }} disabled={loading}>
+                        <span className="btn-text">Confirm &amp; Disable</span><div className="btn-loader" />
+                    </button>
+                    <button className="btn-ghost" onClick={() => setShowDisableModal(false)} style={{ marginTop: '0.5rem' }}>Cancel</button>
                 </div>
             </div>
         )}
+
+            {showChangePw && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }} onClick={e => { if (e.target === e.currentTarget) setShowChangePw(false); }}>
+                    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '2rem', width: '100%', maxWidth: 380 }}>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '1rem' }}>Change Password</div>
+                        <Alert alert={changePwAlert} />
+                        {changePwStep === 1 && (
+                            <>
+                                <div className="view-subtitle" style={{ marginBottom: '1rem' }}>Enter your 2FA code first.</div>
+                                <OtpInput id="otpChangePwWrap" onComplete={doChangePassword} />
+                                <button className={`btn--primary${loading ? ' loading' : ''}`} onClick={() => {
+                                    const inputs = document.querySelectorAll<HTMLInputElement>('#otpChangePwWrap input');
+                                    doChangePassword([...inputs].map(i => i.value).join(''));
+                                    }} disabled={loading} style={{ marginTop: '1rem' }}>
+                                    <span className="btn-text">Verify</span><div className="btn-loader" />
+                                </button>
+                            </>
+                        )}
+                        {changePwStep === 2 && (
+                            <>
+                                <div className="field" style={{ marginBottom: '1rem' }}>
+                                    <label>New password</label>
+                                    <div className="input-wrap">{lockIcon}<input type="password" id="newPassword" placeholder="New password" autoComplete="new-password" /></div>
+                                </div>
+                                <div className="field" style={{ marginBottom: '1rem' }}>
+                                    <label>Confirm password</label>
+                                    <div className="input-wrap">{lockIcon}<input type="password" id="confirmNewPassword" placeholder="Confirm password" autoComplete="new-password" /></div>
+                                </div>
+                                <button className={`btn--primary${loading ? ' loading' : ''}`} onClick={doChangePasswordSubmit} disabled={loading}>
+                                    <span className="btn-text">Change Password</span><div className="btn-loader" />
+                                </button>
+                            </>
+                        )}
+                        <button className="btn-ghost" onClick={() => setShowChangePw(false)} style={{ marginTop: '0.5rem' }}>Cancel</button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

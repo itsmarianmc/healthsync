@@ -241,7 +241,7 @@ export default function Tooltip() {
         background: 'rgba(0, 0, 0, 0.75)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
-        zIndex: 9998,
+        zIndex: 9997,
         opacity: visible ? 1 : 0,
         transition: `opacity ${ANIMATION_DURATION}ms var(--ease, ease)`,
     };
@@ -273,68 +273,65 @@ export default function Tooltip() {
 
     return createPortal(
         <>
-        <div
-            style={overlayStyle}
-            aria-hidden="true"
-            onClick={close}
-        />
             <div
-                ref={boxRef}
-                role="tooltip"
-                aria-live="polite"
-                style={boxStyle}
-                >
-                {/* Message */}
+                style={overlayStyle}
+                aria-hidden="true"
+                onClick={close}
+            />
                 <div
-                    style={{
-                        color: 'var(--text)',
-                        fontSize: '15px',
-                        lineHeight: 1.5,
-                        marginBottom: '5px',
-                    }}
-                    dangerouslySetInnerHTML={{ __html: state.message }}
-                />
-
-                {/* Footer row */}
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                    }}
-                >
-                <span
-                    style={{
-                    color: 'var(--accent)',
-                    fontSize: '7.5px',
-                    }}
+                    ref={boxRef}
+                    role="tooltip"
+                    aria-live="polite"
+                    style={boxStyle}
                     >
-                    {state.progress}
-                </span>
+                    <div
+                        style={{
+                            color: 'var(--text)',
+                            fontSize: '15px',
+                            lineHeight: 1.5,
+                            marginBottom: '5px',
+                        }}
+                        dangerouslySetInnerHTML={{ __html: state.message }}
+                    />
 
-                <button
-                    style={{
-                        color: 'var(--accent)',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'transparent',
-                        padding: '6px',
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                        transition: `opacity ${ANIMATION_DURATION}ms var(--ease, ease)`,
-                    }}
-                    onMouseDown={e => ((e.currentTarget as HTMLButtonElement).style.opacity = '0.7')}
-                    onMouseUp={e => ((e.currentTarget as HTMLButtonElement).style.opacity = '1')}
-                    onClick={handleButton}
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                        }}
                     >
-                    {state.buttonText}
-                </button>
+                    <span
+                        style={{
+                            color: 'var(--accent)',
+                            fontSize: '7.5px',
+                            }}
+                        >
+                        {state.progress}
+                    </span>
+
+                    <button
+                        style={{
+                            color: 'var(--accent)',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: 'transparent',
+                            padding: '6px',
+                            fontSize: '14px',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            transition: `opacity ${ANIMATION_DURATION}ms var(--ease, ease)`,
+                        }}
+                        onMouseDown={e => ((e.currentTarget as HTMLButtonElement).style.opacity = '0.7')}
+                        onMouseUp={e => ((e.currentTarget as HTMLButtonElement).style.opacity = '1')}
+                        onClick={handleButton}
+                        >
+                        {state.buttonText}
+                    </button>
+                </div>
+
+                {arrowStyle && <div style={arrowBaseStyle} aria-hidden="true" />}
             </div>
-
-            {/* Arrow */}
-            {arrowStyle && <div style={arrowBaseStyle} aria-hidden="true" />}
-        </div>
         </>,
         document.body,
     );

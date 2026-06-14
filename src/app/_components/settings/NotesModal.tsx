@@ -4,8 +4,8 @@ import { useEffect } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
 interface NotesModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+    isOpen: boolean;
+    onClose: () => void;
 }
 
 export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
@@ -14,21 +14,22 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
     useEffect(() => {
         if (isOpen) sheet.open();
         else if (sheet.stateRef.current !== 'closed') sheet.close();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
     return (
         <div className="app-overlay" id="notesOverlay" ref={sheet.overlayRef} onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); }}>
             <div className="modal" id="notesModal" ref={sheet.modalRef}>
                 <div className="modal-handle-zone" id="notesHandleZone" {...sheet.handleProps}>
-                <div className="modal-handle" />
+                    <div className="modal-handle" />
                 </div>
                 <div className="modal-header">
-                <div className="modal-title">About &amp; Licenses</div>
+                    <div className="modal-title">About &amp; Licenses</div>
                 </div>
                 <div className="modal-body" id="notesModalBody" style={{ paddingBottom: '1em' }}>
                     <div className="license-section">
-                        <div className="license-section-title"><i className="fas fa-file-contract"></i> About HealthSync & Data Sources</div>
+                        <div className="license-section-title">
+                            <i className="fas fa-file-contract"></i> About HealthSync & Data Sources
+                        </div>
                         <div className="license-section-body">
                             <p><strong>Data Sourcing & Transparency</strong></p>
                             <p>HealthSync proudly utilizes the <strong>Open Food Facts API</strong> (openfoodfacts.org) to provide users with a comprehensive database of food products. Open Food Facts is a collaborative, community-driven project; as such, nutritional data is sourced globally and may be subject to variation based on regional labeling laws and community contributions.</p>
