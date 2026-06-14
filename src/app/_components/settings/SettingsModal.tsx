@@ -6,7 +6,6 @@ import { pushSettings } from '../../_lib/sync';
 import { supabase } from '../../_lib/supabase';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
-
 interface SettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -166,37 +165,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         setTimeout(() => location.reload(), 2222);
     };
 
-    const exportCalJson = () => {
-        const entries = JSON.parse(localStorage.getItem('calsync_v1') || '[]');
-        downloadFile('calsync_export.json', JSON.stringify(entries, null, 2), 'application/json');
-        showToast('JSON exported');
-    };
-    const exportCalCsv = () => {
-        const entries = JSON.parse(localStorage.getItem('calsync_v1') || '[]');
-        const header = 'id,food,brand,kcal,amount,unit,prot,carb,fat,date,time';
-        const rows = entries.map((e: { id: string; food: string; brand?: string; kcal: number; amount?: number; unit?: string; prot?: number; carb?: number; fat?: number; ts: number; date: string }) => {
-            const d = new Date(e.ts);
-            const time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-            return [e.id, `"${e.food}"`, `"${e.brand||''}"`, e.kcal, e.amount, e.unit||'g', e.prot||0, e.carb||0, e.fat||0, e.date, time].join(',');
-        });
-        downloadFile('calsync_export.csv', [header, ...rows].join('\n'), 'text/csv');
-        showToast('CSV exported');
-    };
-    const exportDsJson = () => {
-        const entries = JSON.parse(localStorage.getItem('dropsync_v3') || '[]');
-        downloadFile('dropsync_export.json', JSON.stringify(entries, null, 2), 'application/json');
-        showToast('DropSync JSON exported');
-    };
-    const exportDsCsv = () => {
-        const entries = JSON.parse(localStorage.getItem('dropsync_v3') || '[]');
-        const header = 'id,drink,emoji,amount,date,time';
-        const rows = entries.map((e: { id: string; drink: string; emoji?: string; amount: number; ts: number; date: string }) => {
-            const d = new Date(e.ts);
-            return [e.id, e.drink, e.emoji, e.amount, e.date, `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`].join(',');
-        });
-        downloadFile('dropsync_export.csv', [header, ...rows].join('\n'), 'text/csv');
-        showToast('DropSync CSV exported');
-    };
     const exportAllData = () => {
         const calEntries = JSON.parse(localStorage.getItem('calsync_v1') || '[]');
         const dsEntries = JSON.parse(localStorage.getItem('dropsync_v3') || '[]');
@@ -215,28 +183,64 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         downloadFile('healthsync_export.json', JSON.stringify(allData, null, 2), 'application/json');
         showToast('All data exported');
     };
+
+    const exportAllDataAsCSV = () => {
+        const calEntries = JSON.parse(localStorage.getItem('calsync_v1') || '[]');
+        const dsEntries = JSON.parse(localStorage.getItem('dropsync_v3') || '[]');
+
+        const getDate = (entry: any): string => {
+            return entry.date || entry.timestamp || entry.created_at || '';
+        };
+
+        const getAmount = (entry: any): number => {
+            return entry.calories ?? entry.amount ?? entry.ml ?? 0;
+        };
+
+        const rows = [
+            ...calEntries.map((entry: any) => ({
+                date: getDate(entry),
+                source: 'calorie',
+                amount: getAmount(entry),
+                notes: entry.notes || entry.foodName || ''
+            })),
+            ...dsEntries.map((entry: any) => ({
+                date: getDate(entry),
+                source: 'hydration',
+                amount: getAmount(entry),
+                notes: entry.notes || ''
+            }))
+        ];
+
+        const validRows = rows.filter(row => row.date);
+
+        if (validRows.length === 0) {
+            showToast('No data to export.');
+            return;
+        }
+
+        const headers = ['date', 'source', 'amount', 'notes'];
+        const csvRows = [headers.join(',')];
+
+        for (const row of validRows) {
+            const values = headers.map(header => {
+                const val = row[header as keyof typeof row];
+                const escaped = String(val).replace(/"/g, '""');
+                return `"${escaped}"`;
+            });
+            csvRows.push(values.join(','));
+        }
+
+        const csvString = csvRows.join('\n');
+        downloadFile('healthsync_export.csv', csvString, 'text/csv');
+        showToast('All data exported as CSV');
+    };
+
     const deleteAllData = () => {
         if (!confirm('Delete ALL data? This cannot be undone.')) return;
         localStorage.removeItem('calsync_v1');
         localStorage.removeItem('dropsync_v3');
         window.dispatchEvent(new Event('storage'));
         showToast('All data deleted');
-        sheet.close();
-    };
-    const clearCalData = () => {
-        if (!confirm('Delete ALL CalSync data?')) return;
-        const all = JSON.parse(localStorage.getItem('calsync_v1') || '[]');
-        const kept = all.filter((e: { isDrink?: boolean }) => e.isDrink);
-        localStorage.setItem('calsync_v1', JSON.stringify(kept));
-        window.dispatchEvent(new Event('storage'));
-        showToast('CalSync data deleted');
-        sheet.close();
-    };
-    const clearDsData = () => {
-        if (!confirm('Delete all DropSync data?')) return;
-        localStorage.removeItem('dropsync_v3');
-        window.dispatchEvent(new Event('storage'));
-        showToast('DropSync data deleted');
         sheet.close();
     };
 
@@ -437,8 +441,18 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                             Data
                         </div>
                         <div className="settings-section-body" style={{ gap:8, display:'flex', flexDirection:'column' }}>
-                            <button className="data-btn" id="exportAllDataBtn" onClick={exportAllData}><svg height="20" viewBox="0 -960 960 960" width="20" fill="currentColor"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>Download All Data</button>
-                            <button className="data-btn" id="deleteAllDataBtn" onClick={deleteAllData} style={{ color: '#ef4444' }}><svg height="20" viewBox="0 -960 960 960" width="20" fill="currentColor"><path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h120v-40h320v40h120v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360Z"/></svg>Delete All Data</button>
+                            <button className="data-btn" id="exportAllDataBtn" onClick={exportAllData}>
+                                <i className="fas fa-download"></i>
+                                Export All Data As JSON
+                                </button>
+                            <button className="data-btn" id="exportAllDataCSVBtn" onClick={exportAllDataAsCSV}>
+                                <i className="fa-regular fa-table"></i>
+                                Export All Data as CSV
+                            </button>
+                            <button className="data-btn" id="deleteAllDataBtn" onClick={deleteAllData} style={{ color: '#ef4444' }}>
+                                <i className="fa-regular fa-trash-can"></i>
+                                Delete All Data
+                            </button>
                         </div>
                     </div>
                     <div className="settings-legal">
@@ -626,8 +640,8 @@ function GoalModal({ mode, onModeChange, calGoal, waterGoal, macroProtein, macro
                                 </div>
                             </div>
                             {[ {label:'Protein', color:'#30D158', icon:'fa-solid fa-dumbbell', key:'protein', val:macroProtein, max:500, set:onMacroProteinChange },
-                                {label:'Carbs',   color:'#FFD60A', icon:'fa-solid fa-wheat-awn', key:'carbs',   val:macroCarbs,   max:1000, set:onMacroCarbsChange },
-                                {label:'Fat',     color:'#FF6B35', icon:'fa-solid fa-droplet',   key:'fat',     val:macroFat,     max:500,  set:onMacroFatChange },
+                                {label:'Carbs', color:'#FFD60A', icon:'fa-solid fa-wheat-awn', key:'carbs', val:macroCarbs, max:1000, set:onMacroCarbsChange },
+                                {label:'Fat', color:'#FF6B35', icon:'fa-solid fa-droplet', key:'fat', val:macroFat, max:500, set:onMacroFatChange },
                             ].map(m => (
                                 <div key={m.key} className="form-row" style={{ marginTop:24 }}>
                                     <label className="form-label" style={{ color:m.color }}><i className={m.icon} /> {m.label} (g/day)</label>
