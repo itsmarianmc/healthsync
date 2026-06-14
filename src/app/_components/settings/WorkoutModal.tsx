@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { useAuth } from '../../_context/AuthContext';
 import { pushWorkoutSessionToCloud } from '../../_lib/sync';
@@ -38,6 +38,7 @@ interface SessionExercise {
     image: string;
     gif: string | null;
     sets: SessionSet[];
+    intensity?: string;
 }
 
 interface WorkoutSession {
@@ -45,6 +46,7 @@ interface WorkoutSession {
     routineId: string;
     routineName: string;
     startTime: number;
+    intensity?: string;
     exercises: SessionExercise[];
 }
 
@@ -137,8 +139,8 @@ function GifModal({ url, name, onClose }: { url: string; name: string; onClose: 
     );
 }
 
-function RoutineContextMenu({ btn, routineId, onEdit, onSort, onDelete, onClose }: {
-        btn: HTMLElement;
+function RoutineContextMenu({ rect, routineId, onEdit, onSort, onDelete, onClose }: {
+        rect: DOMRect;
         routineId: string;
         onEdit: (id: string) => void;
         onSort: (id: string) => void;
@@ -146,27 +148,40 @@ function RoutineContextMenu({ btn, routineId, onEdit, onSort, onDelete, onClose 
         onClose: () => void;
     }) {
     const ref = useRef<HTMLDivElement>(null);
-    const rect = btn.getBoundingClientRect();
 
     useEffect(() => {
         requestAnimationFrame(() => {
-            if (ref.current) { ref.current.style.opacity = '1'; ref.current.style.transform = 'scale(1)'; ref.current.style.visibility = 'visible'; }
+            if (ref.current) {
+                ref.current.style.opacity = '1';
+                ref.current.style.transform = 'scale(1)';
+                ref.current.style.visibility = 'visible';
+            }
         });
-        const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node) && e.target !== btn) { handleClose(); } };
-        setTimeout(() => document.addEventListener('click', handler), 10);
+
+        const handler = (e: MouseEvent) => {
+            const target = e.target as Node;
+            if (ref.current && !ref.current.contains(target)) {
+                handleClose();
+            }
+        };
+
+        document.addEventListener('click', handler);
         return () => document.removeEventListener('click', handler);
     }, []);
 
     const handleClose = () => {
-        if (ref.current) { ref.current.style.opacity = '0'; ref.current.style.transform = 'scale(0.8)'; ref.current.style.visibility = 'hidden'; }
+        if (ref.current) {
+            ref.current.style.opacity = '0';
+            ref.current.style.transform = 'scale(0.8)';
+            ref.current.style.visibility = 'hidden';
+        }
         setTimeout(onClose, 200);
     };
 
     return (
         <div ref={ref} className="routine-context-menu" style={{
             position: 'fixed', top: rect.top - 85, right: window.innerWidth - rect.right,
-            left: 'auto', bottom: 'auto', zIndex: 10000,
-            opacity: 0, visibility: 'hidden', transform: 'scale(0.8)',
+            left: 'auto', bottom: 'auto', zIndex: 10001, transform: 'scale(0.8)',
             transformOrigin: 'bottom right', transition: 'opacity 0.2s ease, transform 0.2s ease, visibility 0.2s',
             }}>
             <div className="menu-item edit" onClick={e => { e.stopPropagation(); onEdit(routineId); handleClose(); }}>
@@ -414,18 +429,35 @@ function ActiveExerciseCard({ ex, exIdx, onChange, onShowGif }: {
     );
 }
 
+const intensityLabels: Record<number, string> = {
+    1: 'Very easy, could keep going',
+    2: 'Easy pace, recovery-like',
+    3: 'Light effort, still comfortable',
+    4: 'Moderate, steady breathing',
+    5: 'Solid effort, talking is okay',
+    6: 'Challenging, short phrases only',
+    7: 'Hard breathing, hard to speak',
+    8: 'Very hard, long rests needed',
+    9: 'Near-max effort, gasping',
+    10: 'Hard breathing, not being able to speak, long rests',
+};
+
 function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     session: WorkoutSession;
     onClose: () => void;
-    onFinish: (session: WorkoutSession) => void;
+    onFinish: (session: WorkoutSession, intensity: number) => void;
     }) {
     const overlayRef = useRef<HTMLDivElement>(null);
     const modalRef = useRef<HTMLDivElement>(null);
     const handleZoneRef = useRef<HTMLDivElement>(null);
+    const contentWrapperRef = useRef<HTMLDivElement>(null);
     const [session, setSession] = useState<WorkoutSession>(initSession);
     const [elapsed, setElapsed] = useState(0);
     const [minimized, setMinimized] = useState(false);
     const [gifModal, setGifModal] = useState<{ url: string; name: string } | null>(null);
+    const [ratingMode, setRatingMode] = useState(false);
+    const [rating, setRating] = useState<number | null>(null);
+    const [panelHeight, setPanelHeight] = useState<number | undefined>(undefined);
     const dragY = useRef(0);
     const dragStartT = useRef(0);
     const isDragging = useRef(false);
@@ -470,7 +502,25 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
         setTimeout(onClose, 400);
     };
 
-    const finish = () => { onFinish(session); };
+    const finish = () => {
+        if (!ratingMode) {
+            setRatingMode(true);
+            return;
+        }
+        if (!rating) return;
+        if (overlayRef.current) overlayRef.current.classList.remove('visible');
+        if (modalRef.current) {
+            modalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4,0,0.2,1)';
+            modalRef.current.style.transform = 'translateY(110%)';
+        }
+        setTimeout(() => {
+            onFinish({
+                ...session,
+                intensity: String(rating),
+                exercises: session.exercises.map(ex => ({ ...ex, intensity: String(rating) })),
+            }, rating);
+        }, 380);
+    };
 
     const updateSet = (exIdx: number, setIdx: number, patch: Partial<SessionSet>) => {
         setSession(prev => ({
@@ -485,6 +535,14 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     const doneSets = session.exercises.reduce((s, ex) => s + ex.sets.filter(x => x.state === 'completed').length, 0);
     const m = Math.floor(elapsed / 60), sec = elapsed % 60;
     const timerStr = `${m}:${String(sec).padStart(2, '0')}`;
+
+    useLayoutEffect(() => {
+        if (!contentWrapperRef.current) return;
+        const activePanel = contentWrapperRef.current.querySelector<HTMLDivElement>(ratingMode ? '.intensity-panel' : '.exercises-panel');
+        if (!activePanel) return;
+        const height = activePanel.getBoundingClientRect().height;
+        setPanelHeight(height);
+    }, [ratingMode, session.exercises.length, rating]);
 
     return (
         <>
@@ -520,19 +578,68 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                     <div className="modal-header" style={{ position: 'relative' }}>
                         <div className="modal-title" id="activeWorkoutTimer">{timerStr}</div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 24px 0' }}>
-                        <span style={{ fontSize: 13, color: 'var(--text2)' }} id="activeWorkoutTitle">{session.routineName}</span>
-                        <span style={{ fontSize: 12, color: 'var(--text3)' }} id="activeWorkoutProgress">{doneSets} / {totalSets} sets done</span>
-                    </div>
                     <div className="modal-body" id="activeWorkoutBody" style={{ padding: '0 16px 20px', overflowY: 'auto' }}>
-                        {session.exercises.map((ex, exIdx) => (
-                        <ActiveExerciseCard key={ex.exerciseId} ex={ex} exIdx={exIdx}
-                            onChange={updateSet} onShowGif={(url, name) => setGifModal({ url, name })} />
-                        ))}
+                        <div ref={contentWrapperRef} style={{ position: 'relative', overflow: 'hidden', width: '100%', height: panelHeight ? `${panelHeight}px` : undefined, transition: 'height 0.28s ease' }}>
+                            <div style={{
+                                width: '200%',
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                transition: 'transform 0.28s ease',
+                                transform: ratingMode ? 'translateX(-50%)' : 'translateX(0)',
+                            }}>
+                                <div className="exercises-panel" style={{ width: '50%', minWidth: 0, paddingRight: 12, height: ratingMode ? 0 : undefined, overflow: ratingMode ? 'hidden' : undefined }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                        <span style={{ fontSize: 13, color: 'var(--text2)' }} id="activeWorkoutTitle">{session.routineName}</span>
+                                        <span style={{ fontSize: 12, color: 'var(--text3)' }} id="activeWorkoutProgress">{doneSets} / {totalSets} sets done</span>
+                                    </div>
+                                    {session.exercises.map((ex, exIdx) => (
+                                    <ActiveExerciseCard key={ex.exerciseId} ex={ex} exIdx={exIdx}
+                                        onChange={updateSet} onShowGif={(url, name) => setGifModal({ url, name })} />
+                                    ))}
+                                </div>
+                                <div className="intensity-panel" style={{ width: '50%', minWidth: 0, pointerEvents: ratingMode ? 'auto' : 'none', height: ratingMode ? undefined : 0, overflow: ratingMode ? undefined : 'hidden', opacity: ratingMode ? 1 : 0, visibility: ratingMode ? 'visible' : 'hidden', transition: 'all 0.28s ease' }}>
+                                    <div style={{
+                                        padding: 16,
+                                        borderRadius: 16,
+                                        background: 'rgba(255,255,255,0.04)',
+                                        minHeight: 260,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 14,
+                                    }}>
+                                        <div style={{ fontSize: 14, color: 'var(--text2)' }}>Select how hard the workout felt.</div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+                                            {Array.from({ length: 10 }, (_, i) => i + 1).map(value => (
+                                                <button
+                                                    key={value}
+                                                    className={`confirm-btn${rating === value ? ' active' : ''}`}
+                                                    style={{ padding: '10px 0', fontSize: 14 }}
+                                                    onClick={() => setRating(value)}
+                                                >{value}</button>
+                                            ))}
+                                        </div>
+                                        <div style={{ fontSize: 13, color: 'var(--text3)', minHeight: 42 }}>
+                                            {rating ? <><strong>{rating}. </strong>{intensityLabels[rating]}</> : 'Pick a rating before closing the workout.'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div className="modal-footer" id="activeWorkoutFooter">
-                        <button className="option-btn" id="discardWorkoutBtn" onClick={discard}>Discard&nbsp;Workout</button>
-                        <button className="confirm-btn" id="finishWorkoutBtn" onClick={finish}>Finish&nbsp;Workout</button>
+                        <button
+                            className="option-btn"
+                            id="discardWorkoutBtn"
+                            onClick={discard}
+                            disabled={ratingMode}
+                            style={ratingMode ? { width: 0, padding: 0, minWidth: 0, opacity: 0, pointerEvents: 'none' } : undefined}
+                        >Discard&nbsp;Workout</button>
+                        <button
+                            className="confirm-btn"
+                            id="finishWorkoutBtn"
+                            disabled={ratingMode && !rating}
+                            onClick={finish}
+                        >{ratingMode ? 'Done' : 'Finish&nbsp;Workout'}</button>
                     </div>
                 </div>
             </div>
@@ -567,10 +674,12 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
     const { user, showToast } = useAuth();
 
     const [routines, setRoutines] = useState<Routine[]>([]);
-    const [contextMenu, setContextMenu] = useState<{ btn: HTMLElement; id: string } | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ rect: DOMRect; id: string } | null>(null);
     const [createModal, setCreateModal] = useState<{ edit: Routine | null } | null>(null);
     const [sortModal, setSortModal] = useState<Routine | null>(null);
     const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
+    const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+    const positions = useRef(new Map<string, DOMRect>());
 
     useEffect(() => {
         if (isOpen) {
@@ -579,6 +688,38 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
             setTimeout(() => sheet.snapToExpanded(), 80);
         } else if (sheet.stateRef.current !== 'closed') sheet.close();
     }, [isOpen]);
+
+    useLayoutEffect(() => {
+        const next = new Map<string, DOMRect>();
+        routines.forEach(routine => {
+            const el = itemRefs.current.get(routine.id);
+            if (el) next.set(routine.id, el.getBoundingClientRect());
+        });
+        if (positions.current.size) {
+            routines.forEach(routine => {
+                const prev = positions.current.get(routine.id);
+                const nextRect = next.get(routine.id);
+                if (prev && nextRect) {
+                    const dx = prev.left - nextRect.left;
+                    const dy = prev.top - nextRect.top;
+                    if (dx || dy) {
+                        const el = itemRefs.current.get(routine.id);
+                        if (el) {
+                            el.style.transition = 'none';
+                            el.style.transform = `translate(${dx}px, ${dy}px)`;
+                            requestAnimationFrame(() => {
+                                if (el) {
+                                    el.style.transition = 'transform 0.32s cubic-bezier(0.34, 1.15, 0.64, 1)';
+                                    el.style.transform = 'translate(0, 0)';
+                                }
+                            });
+                        }
+                    }
+                }
+            });
+        }
+        positions.current = next;
+    }, [routines]);
 
     const save = (list: Routine[]) => {
         saveRoutinesToStorage(list);
@@ -628,14 +769,15 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
         setTimeout(() => setActiveSession(session), 420);
     };
 
-    const handleFinish = async (session: WorkoutSession) => {
+    const handleFinish = async (session: WorkoutSession, rating: number) => {
         const endTime = Date.now();
         const duration = Math.floor((endTime - session.startTime) / 1000);
         const log = {
             id: session.id, routineId: session.routineId, routineName: session.routineName,
             startTime: session.startTime, endTime, duration,
+            intensity: String(rating),
             exercises: session.exercises.map(ex => ({
-                exerciseId: ex.exerciseId, name: ex.name,
+                exerciseId: ex.exerciseId, name: ex.name, intensity: ex.intensity ?? String(rating),
                 sets: ex.sets.map(s => ({ weight: s.weight, reps: s.reps, completed: s.state === 'completed', activeStartTime: s.activeStartTime, completedAt: s.completedAt })),
             })),
         };
@@ -649,6 +791,7 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
                 exercises: session.exercises.map(ex => ({
                 exerciseId: ex.exerciseId,
                 exerciseName: ex.name,
+                intensity: ex.intensity ?? String(rating),
                 sets: ex.sets.map(s => ({ reps: s.reps, weight: s.weight, done: s.state === 'completed' })),
                 })),
             }, user.id);
@@ -683,7 +826,8 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
                                 : routines.map((r, index) => {
                                     const { ex, sets } = getCount(r);
                                     return (
-                                    <div key={r.id} className="routine-item" data-id={r.id} data-index={index}>
+                                    <div key={r.id} className="routine-item" data-id={r.id} data-index={index}
+                                        ref={el => { if (el) itemRefs.current.set(r.id, el); else itemRefs.current.delete(r.id); }}>
                                         <div className="routine-main">
                                         <div className="routine-info">
                                             <div className="routine-name">{r.name}</div>
@@ -697,7 +841,8 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
                                             <button className="routine-menu-btn" data-id={r.id}
                                             onClick={e => {
                                                 e.stopPropagation();
-                                                setContextMenu(prev => prev?.id === r.id ? null : { btn: e.currentTarget as HTMLElement, id: r.id });
+                                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                                setContextMenu(prev => prev?.id === r.id ? null : { rect, id: r.id });
                                             }}>
                                             <i className="fa-solid fa-ellipsis-vertical" />
                                             </button>
@@ -714,7 +859,7 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
 
             {contextMenu && (
                 <RoutineContextMenu
-                btn={contextMenu.btn}
+                rect={contextMenu.rect}
                 routineId={contextMenu.id}
                 onEdit={id => { setCreateModal({ edit: routines.find(r => r.id === id) ?? null }); setContextMenu(null); }}
                 onSort={id => { setSortModal(routines.find(r => r.id === id) ?? null); setContextMenu(null); }}

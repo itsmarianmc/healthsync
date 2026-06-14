@@ -6,6 +6,7 @@ import { pushSettings } from '../../_lib/sync';
 import { supabase } from '../../_lib/supabase';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
+
 interface SettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -196,6 +197,32 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         downloadFile('dropsync_export.csv', [header, ...rows].join('\n'), 'text/csv');
         showToast('DropSync CSV exported');
     };
+    const exportAllData = () => {
+        const calEntries = JSON.parse(localStorage.getItem('calsync_v1') || '[]');
+        const dsEntries = JSON.parse(localStorage.getItem('dropsync_v3') || '[]');
+        const allData = {
+            exportDate: new Date().toISOString(),
+            calsyncEntries: calEntries,
+            dropsyncEntries: dsEntries,
+            goals: {
+                calorie: localStorage.getItem('calsync_goal'),
+                protein: localStorage.getItem('calsync_goal_protein'),
+                carbs: localStorage.getItem('calsync_goal_carbs'),
+                fat: localStorage.getItem('calsync_goal_fat'),
+                water: localStorage.getItem('dropsync_goal'),
+            },
+        };
+        downloadFile('healthsync_export.json', JSON.stringify(allData, null, 2), 'application/json');
+        showToast('All data exported');
+    };
+    const deleteAllData = () => {
+        if (!confirm('Delete ALL data? This cannot be undone.')) return;
+        localStorage.removeItem('calsync_v1');
+        localStorage.removeItem('dropsync_v3');
+        window.dispatchEvent(new Event('storage'));
+        showToast('All data deleted');
+        sheet.close();
+    };
     const clearCalData = () => {
         if (!confirm('Delete ALL CalSync data?')) return;
         const all = JSON.parse(localStorage.getItem('calsync_v1') || '[]');
@@ -268,7 +295,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                         </div>
                         <div className="settings-section" id="aiDetection">
                             <div className="settings-section-title">
-                                <svg width="20" height="20" viewBox="0 0 382.442 382.442" fill="currentColor"><path d="M378.133,129.175l-44.828-31.047l15.69-52.227c1.06-3.525,0.097-7.346-2.507-9.949c-2.604-2.602-6.424-3.566-9.947-2.506 l-52.229,15.691L253.265,4.309c-2.096-3.026-5.687-4.661-9.341-4.244c-3.657,0.412-6.792,2.8-8.162,6.216l-20.294,50.615 l-54.406-3.677c-3.679-0.25-7.184,1.54-9.142,4.656s-2.047,7.056-0.229,10.257l26.918,47.424l-36.798,40.248 c-2.482,2.716-3.273,6.577-2.059,10.05c1.216,3.474,4.241,6,7.876,6.574l31.891,5.046L2.929,354.065 c-3.903,3.904-3.903,10.236,0,14.143l11.307,11.305c1.951,1.952,4.512,2.93,7.069,2.93c2.561,0,5.119-0.978,7.071-2.93 l176.592-176.592l5.046,31.891c0.575,3.636,3.103,6.66,6.574,7.877c3.473,1.217,7.335,0.425,10.051-2.06l40.247-36.798 l47.423,26.918c3.201,1.816,7.144,1.729,10.258-0.229c3.115-1.959,4.904-5.47,4.656-9.142l-3.676-54.407l50.614-20.294 c3.416-1.37,5.804-4.505,6.216-8.162C382.789,134.859,381.159,131.271,378.133,129.175z M296.8,141.963 c-4.021,1.613-6.548,5.632-6.256,9.956l1.851,27.401l-23.882-13.556c-3.769-2.139-8.485-1.607-11.684,1.316l-20.271,18.531 l-4.293-27.124c-0.677-4.28-4.031-7.637-8.312-8.314l-27.125-4.293l18.531-20.268c2.925-3.198,3.456-7.916,1.315-11.685 l-13.557-23.881l27.398,1.85c4.319,0.295,8.345-2.233,9.956-6.255l10.22-25.487l15.636,22.574 c2.467,3.562,6.944,5.13,11.098,3.883l26.305-7.903l-7.902,26.304c-1.246,4.15,0.32,8.631,3.884,11.099l22.573,15.634 L296.8,141.963z"/></svg>
+                            <i className="fa-solid fa-wand-magic-sparkles"></i>
                                 AI Detection [BETA]
                             </div>
                             <div className="settings-section-body">
@@ -281,7 +308,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                 </div>
                                 <div className="ai-info-box" id="aiInfoBox">
                                     <i className="fa-solid fa-circle-info" />
-                                    <p>AI Detection uses Google&apos;s Gemini API to analyze food images and estimate nutrition values. This feature is experimental and requires your own API key.</p>
+                                    <p>AI Detection uses Google's Gemini API to analyze food images and estimate nutrition values. This feature is experimental and requires your own API key. Important nutrition information should be verified. Results may be inaccurate or inconsistent. Use at your own risk.</p>
                                 </div>
                                 {aiEnabled && (
                                     <div id="aiSettings">
@@ -325,7 +352,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                         </div>
                         <div className="settings-section">
                             <div className="settings-section-title">
-                                <svg height="20" viewBox="0 -960 960 960" width="20" fill="#ffffff"><path d="M360-720h80v-80h-80v80Zm160 0v-80h80v80h-80ZM360-400v-80h80v80h-80Zm320-160v-80h80v80h-80Zm0 160v-80h80v80h-80Zm-160 0v-80h80v80h-80Zm160-320v-80h80v80h-80Zm-240 80v-80h80v80h-80ZM200-160v-640h80v80h80v80h-80v80h80v80h-80v320h-80Zm400-320v-80h80v80h-80Zm-160 0v-80h80v80h-80Zm-80-80v-80h80v80h-80Zm160 0v-80h80v80h-80Zm80-80v-80h80v80h-80Z"/></svg>
+                            <i className="fa-solid fa-flag-checkered"></i>
                                 Calorie/Hydration Goal/s
                             </div>
                             <div className="settings-section-body">
@@ -349,7 +376,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                         </div>
                         <div className="settings-section">
                             <div className="settings-section-title">
-                                <svg width="20" height="20" viewBox="0 0 382.442 382.442" fill="currentColor"><path d="M378.133,129.175l-44.828-31.047l15.69-52.227c1.06-3.525,0.097-7.346-2.507-9.949c-2.604-2.602-6.424-3.566-9.947-2.506 l-52.229,15.691L253.265,4.309c-2.096-3.026-5.687-4.661-9.341-4.244c-3.657,0.412-6.792,2.8-8.162,6.216l-20.294,50.615 l-54.406-3.677c-3.679-0.25-7.184,1.54-9.142,4.656s-2.047,7.056-0.229,10.257l26.918,47.424l-36.798,40.248 c-2.482,2.716-3.273,6.577-2.059,10.05c1.216,3.474,4.241,6,7.876,6.574l31.891,5.046L2.929,354.065 c-3.903,3.904-3.903,10.236,0,14.143l11.307,11.305c1.951,1.952,4.512,2.93,7.069,2.93c2.561,0,5.119-0.978,7.071-2.93 l176.592-176.592l5.046,31.891c0.575,3.636,3.103,6.66,6.574,7.877c3.473,1.217,7.335,0.425,10.051-2.06l40.247-36.798 l47.423,26.918c3.201,1.816,7.144,1.729,10.258-0.229c3.115-1.959,4.904-5.47,4.656-9.142l-3.676-54.407l50.614-20.294 c3.416-1.37,5.804-4.505,6.216-8.162C382.789,134.859,381.159,131.271,378.133,129.175z M296.8,141.963 c-4.021,1.613-6.548,5.632-6.256,9.956l1.851,27.401l-23.882-13.556c-3.769-2.139-8.485-1.607-11.684,1.316l-20.271,18.531 l-4.293-27.124c-0.677-4.28-4.031-7.637-8.312-8.314l-27.125-4.293l18.531-20.268c2.925-3.198,3.456-7.916,1.315-11.685 l-13.557-23.881l27.398,1.85c4.319,0.295,8.345-2.233,9.956-6.255l10.22-25.487l15.636,22.574 c2.467,3.562,6.944,5.13,11.098,3.883l26.305-7.903l-7.902,26.304c-1.246,4.15,0.32,8.631,3.884,11.099l22.573,15.634 L296.8,141.963z"/></svg>
+                            <i className="fa-regular fa-sliders"></i>
                                 Personalization
                             </div>
                         <div className="settings-section-body">
@@ -406,17 +433,12 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                     </div>
                     <div className="settings-section">
                         <div className="settings-section-title">
-                            <svg height="20" viewBox="0 -960 960 960" width="20" fill="#ffffff"><path d="M840-680v480q0 33-23.5 56.5T760-120H200q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h480l160 160Zm-80 34L646-760H200v560h560v-446ZM565-275q35-35 35-85t-35-85q-35-35-85-35t-85 35q-35 35-35 85t35 85q35 35 85 35t85-35ZM240-560h360v-160H240v160Zm-40-86v446-560 114Z"/></svg>
+                        <i className="fa-solid fa-database"></i>
                             Data
                         </div>
                         <div className="settings-section-body" style={{ gap:8, display:'flex', flexDirection:'column' }}>
-                            <button className="data-btn" id="exportJsonBtn" onClick={exportCalJson}><svg height="20" viewBox="0 -960 960 960" width="20" fill="currentColor"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>Export Calsync data (JSON)</button>
-                            <button className="data-btn" id="exportCsvBtn" onClick={exportCalCsv}><svg height="20" viewBox="0 -960 960 960" width="20" fill="currentColor"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm240-240H200v160h240v-160Zm80 0v160h240v-160H520Zm-80-80v-160H200v160h240Zm80 0h240v-160H520v160ZM200-680h560v-80H200v80Z"/></svg>Export Calsync data (CSV)</button>
-                            <button className="data-btn danger" id="clearDataBtn" onClick={clearCalData}><svg height="20" viewBox="0 -960 960 960" width="20" fill="#FF453A"><path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/></svg>Delete all Calsync data</button>
-                            <div className="divider" />
-                            <button className="data-btn" id="ds-exportJsonBtn" onClick={exportDsJson}><svg height="20" viewBox="0 -960 960 960" width="20" fill="currentColor"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>Export Dropsync data (JSON)</button>
-                            <button className="data-btn" id="ds-exportCsvBtn" onClick={exportDsCsv}><svg height="20" viewBox="0 -960 960 960" width="20" fill="currentColor"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm240-240H200v160h240v-160Zm80 0v160h240v-160H520Zm-80-80v-160H200v160h240Zm80 0h240v-160H520v160ZM200-680h560v-80H200v80Z"/></svg>Export Dropsync data (CSV)</button>
-                            <button className="data-btn danger" id="ds-clearDataBtn" onClick={clearDsData}><svg height="20" viewBox="0 -960 960 960" width="20" fill="#FF453A"><path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/></svg>Delete all Dropsync data</button>
+                            <button className="data-btn" id="exportAllDataBtn" onClick={exportAllData}><svg height="20" viewBox="0 -960 960 960" width="20" fill="currentColor"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>Download All Data</button>
+                            <button className="data-btn" id="deleteAllDataBtn" onClick={deleteAllData} style={{ color: '#ef4444' }}><svg height="20" viewBox="0 -960 960 960" width="20" fill="currentColor"><path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h120v-40h320v40h120v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360Z"/></svg>Delete All Data</button>
                         </div>
                     </div>
                     <div className="settings-legal">
@@ -437,8 +459,12 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                     </tr>
                                 </tbody>
                             </table>
-                            <p style={{ marginTop:8 }}><a id="openNotes" onClick={e => { e.preventDefault(); sheet.close(); setTimeout(onOpenNotes, 200); }}>About / Licenses</a></p>
-                            <footer />
+                            <p style={{ marginTop:8 }}><a id="openNotes" onClick={e => { e.preventDefault(); setTimeout(onOpenNotes, 200); }}>About / Licenses</a></p>
+                            <footer>
+                                <p><a href="https://contact.itsmarian.dev/">Contact</a> • <a href="https://itsmarian.dev/legal/cookies">Cookies</a> • <a href="https://itsmarian.dev/legal/privacy">Privacy Policy</a> • <a href="https://itsmarian.dev/legal/terms">Terms of Use</a></p>
+                                <p className="change-settings">Change Cookie Preferences</p>
+                                <p style={{ marginTop: 'calc(1rem - 7.5px)' }}>© 2026 itsmarian | All rights reserved!</p>
+                            </footer>
                         </div>
                     </div>
                 </div>

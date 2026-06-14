@@ -71,6 +71,7 @@ export interface WorkoutSet {
 export interface WorkoutSessionExercise {
     exerciseId: string;
     exerciseName: string;
+    intensity?: string;
     sets: WorkoutSet[];
 }
 
@@ -81,6 +82,7 @@ export interface WorkoutSession {
     startTime: number;
     endTime?: number;
     duration?: number;
+    intensity?: string;
     exercises: WorkoutSessionExercise[];
 }
 

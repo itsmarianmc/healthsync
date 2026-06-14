@@ -77,18 +77,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const handleExtraAction = useCallback((action: string) => {
         setExtraMenuOpen(false);
         if (action === 'describe-food') {
-            router.push('/food');
-            window.dispatchEvent(new CustomEvent('navigate:food', { detail: { openModal: true, mode: 'describe' } }));
+            router.push('/food?openModal=true&mode=describe');
         } else if (action === 'import-food') {
-            router.push('/food');
-            window.dispatchEvent(new CustomEvent('navigate:food', { detail: { openModal: true, mode: 'import' } }));
+            router.push('/food?openModal=true&mode=import');
         } else if (action === 'capture-food') {
-            router.push('/food');
-            window.dispatchEvent(new CustomEvent('navigate:food', { detail: { openModal: true, mode: 'capture' } }));
+            router.push('/food?openModal=true&mode=capture');
         } else if (action === 'scan-barcode') setExtraScannerOpen(true);
         else if (action === 'log-drink') {
-            router.push('/drinks');
-            window.dispatchEvent(new CustomEvent('navigate:drinks', { detail: { openModal: true } }));
+            router.push('/drinks?openModal=true');
         } else if (action === 'training') openWorkout();
         else if (action === 'workout-history') openWorkoutHistory();
     }, [router, setExtraMenuOpen, openWorkout, openWorkoutHistory]);
@@ -98,8 +94,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const handleScanScanned = useCallback((barcode: string) => {
         closeScanModal();
         setCalScanValue(barcode);
-        router.push('/food');
-        window.dispatchEvent(new CustomEvent('navigate:food', { detail: { openModal: true, barcode } }));
+        router.push(`/food?openModal=true&barcode=${encodeURIComponent(barcode)}`);
     }, [closeScanModal, setCalScanValue, router]);
 
     const handleSettingsClose = useCallback(() => {

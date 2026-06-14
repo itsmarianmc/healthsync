@@ -37,6 +37,7 @@ export default function GlassInput({ amount, onChange }: GlassInputProps) {
     const dragRaw0Ref = useRef(amount);
     const lastSnappedRef = useRef<number | null>(null);
     const [displayAmt, setDisplayAmt] = useState(amount);
+    const [animatingFill, setAnimatingFill] = useState(false);
 
     const fillPct = Math.max(0, Math.min(1, displayAmt / 1000));
     const fillY = G_BOT - G_H * fillPct;
@@ -78,6 +79,13 @@ export default function GlassInput({ amount, onChange }: GlassInputProps) {
 
     const quickSet = (ml: number) => { lastSnappedRef.current = ml; commit(ml); };
 
+    const quickSetWithAnim = (ml: number) => {
+        lastSnappedRef.current = ml;
+        setAnimatingFill(true);
+        commit(ml);
+        window.setTimeout(() => setAnimatingFill(false), 300);
+    };
+
     return (
         <div className="modal-step active" id="ds-step2">
             <div className="amount-step-inner">
@@ -106,7 +114,8 @@ export default function GlassInput({ amount, onChange }: GlassInputProps) {
                         <svg className="glass-svg" viewBox="0 0 140 300">
                             <defs>
                                 <clipPath id="ds-fillClip">
-                                    <rect id="ds-fillRect" x="0" y={fillY} width="140" height={fillHeight + 10} />
+                                    <rect id="ds-fillRect" x="0" y={fillY} width="140" height={fillHeight + 10}
+                                        style={animatingFill ? { transition: 'all 0.3s ease' } : undefined} />
                                 </clipPath>
                                 <linearGradient id="ds-fillGrad" x1="0" y1="6" x2="0" y2="294" gradientUnits="userSpaceOnUse">
                                     <stop offset="0%" stopColor="#00d2e5" />
@@ -187,7 +196,7 @@ export default function GlassInput({ amount, onChange }: GlassInputProps) {
                 <div className="quick-amounts">
                     {QUICK_AMOUNTS.map(ml => (
                         <button key={ml} className={`quick-btn${displayAmt === ml ? ' active' : ''}`}
-                        data-ml={ml} onClick={() => quickSet(ml)}>
+                        data-ml={ml} onClick={() => quickSetWithAnim(ml)}>
                             {ml} ml
                         </button>
                     ))}

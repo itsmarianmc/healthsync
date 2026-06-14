@@ -416,7 +416,6 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
             modalRef.current.style.height = 'auto';
             modalRef.current.style.transform = 'translateY(100%)';
             if (!openWithAi) {
-                if (overlayRef.current) overlayRef.current.classList.add('visible');
                 document.body.classList.add('modal-open');
             }
             requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -428,8 +427,12 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
                 naturalH.current = 429;
                 modalRef.current.style.height = '429px';
                 if (!openWithAi) {
-                setTrans(['transform']);
-                modalRef.current.style.transform = 'translateY(0)';
+                    setTimeout(() => {
+                        if (!modalRef.current) return;
+                        setTrans(['transform']);
+                        modalRef.current.style.transform = 'translateY(0)';
+                        if (overlayRef.current) overlayRef.current.classList.add('visible');
+                    }, 100);
                 }
             }));
         } else if (!isOpen && modalState !== 'closed') {

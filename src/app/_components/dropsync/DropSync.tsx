@@ -119,6 +119,12 @@ export default function DropSync({
         externalOnModalClose?.();
     }, [externalOnModalClose]);
 
+    
+    useEffect(() => {
+        if (modalOpen) removeHeaderBtn('ds-openModalBtn');
+        else addHeaderBtn('ds-openModalBtn');
+    }, [modalOpen]);
+
     const fmtGoal = goal >= 1000 ? (goal/1000).toFixed(1).replace('.',',') + 'L' : goal + 'ml';
     const latestEntry = todayEntries[todayEntries.length - 1];
 

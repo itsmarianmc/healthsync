@@ -2,8 +2,10 @@ import type { Metadata, Viewport } from 'next';
 import { DM_Sans } from 'next/font/google';
 import Script from 'next/script';
 import './styles.css';
+import './cookiebanner.css'
 import { AuthProvider } from './_context/AuthContext';
 import { AppShellProvider } from './_context/AppShellContext';
+import CookieBanner from '@/app/_components/shared/CookieBanner'
 import AppShell from './_components/AppShell';
 import Tooltip from './_components/onboarding/Tooltip';
 
@@ -45,16 +47,37 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <link rel="stylesheet" href="https://static.itsmarian.dev/global/variables.css" />
                 <link rel="stylesheet" href="https://static.itsmarian.dev/global/colors.css" />
                 <meta name="mobile-web-app-capable" content="yes" />
+                <Script
+                    src="https://www.googletagmanager.com/gtag/js?id=G-EHN4P1ET7W"
+                    strategy="lazyOnload"
+                />
+                <Script id="google-analytics" strategy="lazyOnload">
+                    {`
+                        window.dataLayer = window.dataLayer || [];
+                        function gtag(){dataLayer.push(arguments);}
+                        gtag('js', new Date());
+                        gtag('consent', 'default', {
+                            'ad_storage': 'denied',
+                            'ad_user_data': 'denied',
+                            'ad_personalization': 'denied',
+                            'analytics_storage': 'denied',
+                            'functionality_storage': 'denied',
+                            'personalization_storage': 'denied',
+                            'security_storage': 'granted'
+                        });
+                    `}
+                </Script>
             </head>
             <body suppressHydrationWarning>
                 <AuthProvider>
-                <AppShellProvider>
-                    <AppShell>
-                    {children}
-                    </AppShell>
-                </AppShellProvider>
+                    <AppShellProvider>
+                        <AppShell>
+                            {children}
+                        </AppShell>
+                    </AppShellProvider>
                 </AuthProvider>
                 <Tooltip />
+                <CookieBanner />
                 <Script 
                     src="https://unpkg.com/@zxing/browser@latest" 
                     strategy="afterInteractive" 

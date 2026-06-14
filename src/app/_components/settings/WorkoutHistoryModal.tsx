@@ -12,6 +12,7 @@ interface LogSet {
 interface LogExercise {
     exerciseId: string;
     name: string;
+    intensity?: string;
     sets: LogSet[];
     }
 
@@ -22,6 +23,7 @@ interface WorkoutLog {
     startTime: number;
     endTime: number;
     duration: number;
+    intensity?: string;
     exercises: LogExercise[];
 }
 
@@ -106,7 +108,7 @@ export default function WorkoutHistoryModal({ isOpen, onClose }: WorkoutHistoryM
                                     <div>
                                         <span className="routine-name">{log.routineName}</span>
                                         <span className="workout-history-meta">
-                                            {fmtDate(log.startTime)} · {fmtTime(log.startTime)}
+                                            {fmtDate(log.startTime)} · {fmtTime(log.startTime)}{log.intensity ? ` · Intensity ${log.intensity}` : ''}
                                         </span>
                                     </div>
                                     <div className="workout-history-right">
