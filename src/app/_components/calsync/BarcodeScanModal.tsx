@@ -114,16 +114,18 @@ export default function BarcodeScanModal({ isOpen, onClose, onScanned }: Barcode
                 </div>
                 <div className="modal-header">
                     <div className="modal-title">Scan Barcode</div>
-                    <button
-                        id="closeCameraBtn"
-                        className="back-btn"
-                        style={{ position: 'absolute', right: 24, top: 6, background: 'var(--surface3)' }}
-                        onClick={sheet.close}
-                        >
-                        <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
-                            <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
-                        </svg>
-                    </button>
+                    <div className="modal-btn--right">
+                        <button
+                            id="closeCameraBtn"
+                            className="back-btn"
+                            style={{ background: 'var(--surface3)' }}
+                            onClick={sheet.close}
+                            >
+                            <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div className="modal-body" style={{ padding: 16 }}>
                 <div style={{ position: 'relative' }}>

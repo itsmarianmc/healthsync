@@ -5,6 +5,7 @@ import { useAuth } from '../../_context/AuthContext';
 import { pushSettings } from '../../_lib/sync';
 import { supabase } from '../../_lib/supabase';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
+import { calcSupplements, persistSupplementGoals } from '../../_lib/supplements';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -80,6 +81,8 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     const [macroProtein, setMacroProtein] = useState('');
     const [macroCarbs, setMacroCarbs] = useState('');
     const [macroFat, setMacroFat] = useState('');
+    const [trackSupplements, setTrackSupplements] = useState(false);
+    const [supplementGoals, setSupplementGoals] = useState<{ creatine_g: number; magnesium_mg: number } | null>(null);
 
     useEffect(() => {
         setTheme(localStorage.getItem('calsync_theme') || 'dark');
@@ -95,6 +98,9 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         setMacroProtein(localStorage.getItem('calsync_goal_protein') || '');
         setMacroCarbs(localStorage.getItem('calsync_goal_carbs') || '');
         setMacroFat(localStorage.getItem('calsync_goal_fat') || '');
+        setTrackSupplements(localStorage.getItem('calsync_track_supplements') === 'true');
+        const storedW = parseFloat(localStorage.getItem('calsync_user_weight_kg') || '0') || 0;
+        setSupplementGoals(calcSupplements(storedW));
     }, []);
 
     useEffect(() => {
@@ -104,7 +110,16 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         .select('display_name, avatar_url')
         .eq('id', user.id)
         .single()
-        .then(({ data }) => setProfile(data ?? null));
+        .then(({ data }) => {
+            setProfile(data ?? null);
+            const remoteName = (data?.display_name || '').trim();
+            if (!remoteName) return;
+            const stored = (localStorage.getItem('calsync_first_name') || '').trim();
+            if (stored) return;
+            localStorage.setItem('calsync_first_name', remoteName);
+            setFirstName(remoteName);
+            window.dispatchEvent(new Event('storage'));
+        });
     }, [user?.id]);
     const [calcFields, setCalcFields] = useState<CalcFields>({ gender: 'female', activity: 'sedentary', goalType: 'maintain', hydrationClimate: 'mild' });
     const [calcWeight, setCalcWeight] = useState('');
@@ -122,6 +137,20 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         setCalcResult(runCalc(calcFields, parseFloat(calcWeight), parseFloat(calcHeight), parseFloat(calcAge)));
         } else { setCalcResult(null); }
     }, [calcFields, calcWeight, calcHeight, calcAge]);
+
+    useEffect(() => {
+        const w = parseFloat(calcWeight);
+        if (!w || w <= 0) return;
+        const goals = persistSupplementGoals(w);
+        setSupplementGoals(goals);
+        if (user) {
+            pushSettings(user.id, {
+                weight_kg: w,
+                creatine_goal: goals?.creatine_g ?? null,
+                magnesium_goal: goals?.magnesium_mg ?? null,
+            }).catch(() => {});
+        }
+    }, [calcWeight, user]);
 
     const syncSettings = async () => {
         if (!user) return;
@@ -153,9 +182,16 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
 
     const handleTheme = (t: string) => { setTheme(t); applyTheme(t); };
     const handleDeleteWarn = () => { const n = !deleteWarn; setDeleteWarn(n); localStorage.setItem('dropsync_delete_warning', String(n)); };
-    const handleDisplayName = () => { const n = !displayName; setDisplayName(n); localStorage.setItem('calsync_display_name', String(n)); };
+    const handleDisplayName = () => { const n = !displayName; setDisplayName(n); localStorage.setItem('calsync_display_name', String(n)); window.dispatchEvent(new Event('storage')); };
     const handleSplashEnabled = () => { const n = !splashEnabled; setSplashEnabled(n); localStorage.setItem('calsync_splash_enabled', String(n)); };
-    const handleSetFirstName = () => { localStorage.setItem('calsync_first_name', firstName); showToast('Changes Saved!'); };
+    const handleTrackSupplements = () => {
+        const n = !trackSupplements;
+        setTrackSupplements(n);
+        localStorage.setItem('calsync_track_supplements', String(n));
+        window.dispatchEvent(new Event('storage'));
+        if (user) pushSettings(user.id, { track_supplements: n }).catch(() => {});
+    };
+    const handleSetFirstName = () => { localStorage.setItem('calsync_first_name', firstName); window.dispatchEvent(new Event('storage')); showToast('Changes Saved!'); };
     const handleAiToggle = () => { const n = !aiEnabled; setAiEnabled(n); localStorage.setItem('calsync_ai_enabled', String(n)); };
     const handleAiAccept = () => { setAiTermsAccepted(true); localStorage.setItem('calsync_ai_terms_accepted', 'true'); showToast('Terms accepted'); };
     const handleAiDecline = () => { setAiEnabled(false); setAiTermsAccepted(false); localStorage.setItem('calsync_ai_enabled', 'false'); showToast('AI Detection disabled'); };
@@ -393,17 +429,39 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                             </div>
                             <div className="settings-toggle-row">
                                 <div className="settings-toggle-label">
-                                    <span>Show splash screen on startup</span>
-                                    <span className="settings-toggle-sub">Display the loading screen when the app opens</span>
+                                    <span>Show splash screen</span>
+                                    <span className="settings-toggle-sub">Display the splash screen when the app opens, you return to the app, or switch tabs</span>
                                 </div>
                                 <button className="app-toggle-switch" id="splashScreenToggle" aria-pressed={String(splashEnabled) as 'true'|'false'} onClick={handleSplashEnabled} />
                             </div>
                             <div className="settings-toggle-row">
                                 <div className="settings-toggle-label">
+                                    <span>Track Supplements</span>
+                                    <span className="settings-toggle-sub">Show recommended daily creatine &amp; magnesium based on your body weight.</span>
+                                    {trackSupplements && (
+                                        <div className="form-row" style={{ marginTop: 8 }}>
+                                            {supplementGoals ? (
+                                                <ul className="supplement-list">
+                                                    <li><span>Creatine</span><strong>{supplementGoals.creatine_g} g/day</strong></li>
+                                                    <li><span>Magnesium</span><strong>{supplementGoals.magnesium_mg} mg/day</strong></li>
+                                                </ul>
+                                            ) : (
+                                                <p className="settings-toggle-sub" style={{ margin: 0 }}>
+                                                    <i className="fa-solid fa-circle-info" style={{ marginRight: 6 }} />
+                                                    Open <em>Calculate Goal</em> and enter your weight to compute supplement targets.
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                                <button className="app-toggle-switch" id="trackSupplementsToggle" aria-pressed={String(trackSupplements) as 'true'|'false'} onClick={handleTrackSupplements} />
+                            </div>
+                            <div className="settings-toggle-row">
+                                <div className="settings-toggle-label">
                                     <span>Show name on start</span>
-                                    <span className="settings-toggle-sub">Displays a welcome message instead of the app name</span>
+                                    <span className="settings-toggle-sub">Displays a welcome message containing your name instead of the app name</span>
                                     <div className="form-row">
-                                        <label className="form-label" htmlFor="firstName">First Name:</label>
+                                        <label className="form-label" htmlFor="firstName">Name:</label>
                                         <div className="flex-container gap-10px">
                                             <input className="form-input" name="firstName" id="firstName" type="text" autoComplete="given-name"
                                             value={firstName} onChange={e => setFirstName(e.target.value)}

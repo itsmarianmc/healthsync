@@ -13,6 +13,8 @@ function getCurrentStats() {
   if (typeof localStorage === 'undefined') return {
     totalCal: 0, calGoal: 2000, totalWater: 0, waterGoal: 2500,
     totalProtein: 0, proteinGoal: 0, entryCount: 0,
+    suppTracking: false, creatineGoal: 0, magnesiumGoal: 0,
+    creatineTaken: false, magnesiumTaken: false,
     _hash: ''
   };
   const today = new Date().toDateString();
@@ -27,9 +29,25 @@ function getCurrentStats() {
   const totalWater = todayWater.reduce((s: number, e: { amount: number }) => s + (e.amount || 0), 0);
   const waterGoal = parseInt(localStorage.getItem('dropsync_goal') || '2500');
   const entryCount = todayCal.length + todayWater.length;
+  const suppTracking = localStorage.getItem('calsync_track_supplements') === 'true';
+  const creatineGoal = parseFloat(localStorage.getItem('calsync_creatine_goal') || '0') || 0;
+  const magnesiumGoal = parseFloat(localStorage.getItem('calsync_magnesium_goal') || '0') || 0;
+  const todayKey = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+  const taken = (() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('calsync_supplements_taken') || '{}');
+      return raw && typeof raw === 'object' ? (raw[todayKey] || {}) : {};
+    } catch { return {}; }
+  })();
+  const creatineTaken = !!taken.creatine;
+  const magnesiumTaken = !!taken.magnesium;
   return {
     totalCal, calGoal, totalWater, waterGoal, totalProtein, proteinGoal, entryCount,
-    _hash: `${today}|${totalCal}|${totalWater}|${totalProtein}|${entryCount}|${calGoal}|${waterGoal}|${proteinGoal}`
+    suppTracking, creatineGoal, magnesiumGoal, creatineTaken, magnesiumTaken,
+    _hash: `${today}|${totalCal}|${totalWater}|${totalProtein}|${entryCount}|${calGoal}|${waterGoal}|${proteinGoal}|${suppTracking ? 1 : 0}|${creatineGoal}|${magnesiumGoal}|${creatineTaken ? 1 : 0}|${magnesiumTaken ? 1 : 0}`
   };
 }
 
@@ -37,13 +55,20 @@ function fmt(ml: number) { return ml >= 1000 ? (ml / 1000).toFixed(1).replace('.
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function pickMessage(stats: ReturnType<typeof getCurrentStats>): { title: string; text: string } {
-  const { totalCal, calGoal, totalWater, waterGoal, totalProtein, proteinGoal, entryCount } = stats;
+  const {
+    totalCal, calGoal, totalWater, waterGoal, totalProtein, proteinGoal, entryCount,
+    suppTracking, creatineGoal, magnesiumGoal, creatineTaken, magnesiumTaken,
+  } = stats;
   const calPct = totalCal / calGoal;
   const waterPct = totalWater / waterGoal;
   const protPct = proteinGoal > 0 ? totalProtein / proteinGoal : null;
   const calLeft = Math.round(calGoal - totalCal);
   const waterLeft = Math.round(waterGoal - totalWater);
   const hour = new Date().getHours();
+  const hasCreatine = suppTracking && creatineGoal > 0;
+  const hasMagnesium = suppTracking && magnesiumGoal > 0;
+  const anySupp = hasCreatine || hasMagnesium;
+  const allSuppDone = (!hasCreatine || creatineTaken) && (!hasMagnesium || magnesiumTaken);
 
   if (entryCount === 0) {
     if (hour < 10) return { title: '<i class="fa-regular fa-sun"></i> Good morning!', text: 'Start the day with your first entry - small steps, big impact.' };
@@ -52,7 +77,7 @@ function pickMessage(stats: ReturnType<typeof getCurrentStats>): { title: string
     return { title: '<i class="fa-regular fa-moon"></i> Still time today', text: 'Log what you ate - every entry counts for your overview.' };
   }
 
-  if (calPct >= 0.97 && waterPct >= 0.97 && (protPct === null || protPct >= 0.97))
+  if (calPct >= 0.97 && waterPct >= 0.97 && (protPct === null || protPct >= 0.97) && allSuppDone)
     return { title: '<i class="fa-solid fa-trophy"></i> Perfect day!', text: 'All goals in the green. That\'s how tracking is fun!' };
 
   if (calPct > 1.15) {
@@ -70,6 +95,22 @@ function pickMessage(stats: ReturnType<typeof getCurrentStats>): { title: string
 
   if (hour >= 18 && waterPct < 0.8)
     return { title: '<i class="fa-regular fa-moon"></i> Evening check: Water', text: `${fmt(waterLeft)} left to your water goal. Actively drink now.` };
+
+  if (anySupp && hour >= 19 && !allSuppDone) {
+    const missing: string[] = [];
+    if (hasCreatine && !creatineTaken) missing.push(`creatine (${creatineGoal} g)`);
+    if (hasMagnesium && !magnesiumTaken) missing.push(`magnesium (${magnesiumGoal} mg)`);
+    return { title: '<i class="fa-solid fa-capsules"></i> Supplement reminder', text: `Don\'t forget your ${missing.join(' and ')} before the day ends.` };
+  }
+
+  if (anySupp && allSuppDone && calPct >= 0.5)
+    return { title: '<i class="fa-solid fa-circle-check"></i> Supplements done', text: 'Nice - your supplements are checked off for today. Keep the streak going.' };
+
+  if (hasCreatine && !creatineTaken && hour >= 12 && hour < 19)
+    return { title: '<i class="fa-solid fa-dumbbell"></i> Creatine pending', text: `Take your ${creatineGoal} g of creatine - easiest with your next drink.` };
+
+  if (hasMagnesium && !magnesiumTaken && hour >= 17)
+    return { title: '<i class="fa-solid fa-bolt"></i> Magnesium tonight', text: `${magnesiumGoal} mg of magnesium in the evening can support recovery and sleep.` };
 
   if (calPct >= 0.5 && calPct <= 1.0 && waterPct >= 0.5)
     return { title: '<i class="fa-solid fa-chart-line"></i> Good progress', text: `Calories and water are balanced. ${calLeft > 0 ? calLeft + ' kcal left to daily goal.' : 'Calorie goal reached!'}` };

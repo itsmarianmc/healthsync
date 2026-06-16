@@ -149,10 +149,12 @@ export default function Tooltip() {
 
     const reposition = useCallback(() => {
         if (!state || !boxRef.current) return;
+        const liveTarget = document.getElementById(state.elementId);
+        const targetRect = liveTarget ? liveTarget.getBoundingClientRect() : state.targetRect;
         const { width, height } = boxRef.current.getBoundingClientRect();
-        const pos = calcPosition(state.targetRect, width, height);
+        const pos = calcPosition(targetRect, width, height);
         setPosition(pos);
-        setArrowStyle(calcArrowStyle(state.targetRect, pos.left, pos.positionedAbove));
+        setArrowStyle(calcArrowStyle(targetRect, pos.left, pos.positionedAbove));
     }, [state]);
 
     useEffect(() => {
@@ -168,8 +170,21 @@ export default function Tooltip() {
 
     useEffect(() => {
         if (!state) return;
-        window.addEventListener('resize', reposition);
-        return () => window.removeEventListener('resize', reposition);
+        let raf = 0;
+        const schedule = () => {
+            if (raf) return;
+            raf = requestAnimationFrame(() => {
+                raf = 0;
+                reposition();
+            });
+        };
+        window.addEventListener('resize', schedule);
+        window.addEventListener('scroll', schedule, { passive: true, capture: true });
+        return () => {
+            if (raf) cancelAnimationFrame(raf);
+            window.removeEventListener('resize', schedule);
+            window.removeEventListener('scroll', schedule, { capture: true } as EventListenerOptions);
+        };
     }, [state, reposition]);
 
     useEffect(() => {

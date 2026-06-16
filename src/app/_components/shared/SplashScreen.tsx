@@ -29,7 +29,7 @@ export default function SplashScreen() {
     return (
         <div id="splashScreen" className={`splash-screen${hiding ? ' SplashHidden' : ''}`}>
             <div className="splash-logo">
-                <span className="splash-app-name">Health<span>Sync</span></span>
+                <img src="/favicon.png" alt="HealthSync" />
             </div>
         </div>
     );

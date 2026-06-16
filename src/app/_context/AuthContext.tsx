@@ -64,6 +64,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('dropsync_goal', String(data.goal_ml));
         localStorage.setItem('calsync_goal_ml', String(data.goal_ml));
         }
+        if (data.weight_kg !== undefined && data.weight_kg !== null)
+        localStorage.setItem('calsync_user_weight_kg', String(data.weight_kg));
+        if (data.creatine_goal !== undefined && data.creatine_goal !== null)
+        localStorage.setItem('calsync_creatine_goal', String(data.creatine_goal));
+        if (data.magnesium_goal !== undefined && data.magnesium_goal !== null)
+        localStorage.setItem('calsync_magnesium_goal', String(data.magnesium_goal));
+        if (data.track_supplements !== undefined && data.track_supplements !== null)
+        localStorage.setItem('calsync_track_supplements', String(data.track_supplements));
+        if (data.supplements_taken)
+        localStorage.setItem('calsync_supplements_taken', JSON.stringify(data.supplements_taken));
     }, []);
 
     const checkAndNotifyMissingMacros = useCallback((data: UserSettings) => {

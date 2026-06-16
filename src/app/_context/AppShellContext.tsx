@@ -20,6 +20,9 @@ interface AppShellContextType {
 	workoutHistoryOpen: boolean;
 	openWorkoutHistory: () => void;
 	closeWorkoutHistory: () => void;
+	supplementsOpen: boolean;
+	openSupplements: () => void;
+	closeSupplements: () => void;
 	scanModalOpen: boolean;
 	openScanModal: () => void;
 	closeScanModal: () => void;
@@ -41,6 +44,7 @@ export function AppShellProvider({
 	const [notesOpen, setNotesOpen] = useState(false);
 	const [workoutOpen, setWorkoutOpen] = useState(false);
 	const [workoutHistoryOpen, setWorkoutHistoryOpen] = useState(false);
+	const [supplementsOpen, setSupplementsOpen] = useState(false);
 	const [scanModalOpen, setScanModalOpen] = useState(false);
 	const [calScanValue, setCalScanValue] = useState < string | null > (null);
 	const [extraMenuOpen, setExtraMenuOpen] = useState(false);
@@ -60,6 +64,9 @@ export function AppShellProvider({
 			workoutHistoryOpen,
 			openWorkoutHistory: () => setWorkoutHistoryOpen(true),
 			closeWorkoutHistory: () => setWorkoutHistoryOpen(false),
+			supplementsOpen,
+			openSupplements: () => setSupplementsOpen(true),
+			closeSupplements: () => setSupplementsOpen(false),
 			scanModalOpen,
 			openScanModal: () => setScanModalOpen(true),
 			closeScanModal: () => setScanModalOpen(false),
