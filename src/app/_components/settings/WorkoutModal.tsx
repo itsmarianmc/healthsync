@@ -210,9 +210,11 @@ function SortExercisesModal({ routine, onSave, onClose }: { routine: Routine; on
                 <div className="modal-handle-zone" {...sheet.handleProps}><div className="modal-handle" /></div>
                 <div className="modal-header">
                     <div className="modal-title">Sort Exercises</div>
-                    <button className="back-btn" style={{ position: 'absolute', right: 24, top: 6 }} onClick={sheet.close}>
-                        <i className="fa-regular fa-circle-xmark" />
-                    </button>
+                    <div className="modal-btn--right">
+                        <button className="back-btn" onClick={sheet.close}>
+                            <i className="fa-regular fa-circle-xmark" />
+                        </button>
+                    </div>
                 </div>
                 <div className="modal-body" style={{ padding: '0 16px 20px' }}>
                     <div className="sort-exercises-list">
@@ -297,7 +299,7 @@ function CreateModal({ editRoutine, onSave, onClose }: {
     onClose: () => void;
     }) {
     const sheet = useDraggableSheet({ onClose });
-    const [name, setName] = useState(editRoutine?.name ?? 'New Workout');
+    const [name, setName] = useState(editRoutine?.name ?? '');
     const [exercises, setExercises] = useState<RoutineExercise[]>(
         editRoutine ? editRoutine.exercises.map(ex => ({ ...ex, sets: ex.sets.map(s => ({ ...s })) })) : []
     );
@@ -305,7 +307,11 @@ function CreateModal({ editRoutine, onSave, onClose }: {
     const [searchResults, setSearchResults] = useState<ExerciseCacheItem[]>([]);
     const [gifModal, setGifModal] = useState<{ url: string; name: string } | null>(null);
 
-    useEffect(() => { sheet.open(); }, []);
+    useEffect(() => {
+        sheet.open();
+        const t = setTimeout(() => sheet.snapToExpanded(), 80);
+        return () => clearTimeout(t);
+    }, []);
 
     const handleSearch = async (q: string) => {
         setSearchQuery(q);

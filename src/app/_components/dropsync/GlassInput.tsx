@@ -6,7 +6,7 @@ const SNAP_POINTS = [100, 150, 200, 250, 330, 400, 500, 750, 1000];
 const SNAP_THRESH = 28;
 const G_TOP = 6;
 const G_BOT = 294;
-const G_H = G_BOT - G_TOP; // 288
+const G_H = G_BOT - G_TOP;
 
 const SCALE_LEFT = [1000,900,800,700,600,500,400,300,200,100,0];
 const SCALE_RIGHT = [1000,900,800,700,600,500,400,300,200,100,0];

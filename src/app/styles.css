@@ -98,7 +98,8 @@
 #onboardingOverlay,
 #workoutHistoryModal,
 .cookie-banner,
-.settings-panel {
+.settings-panel,
+#supplementsModal {
 	--accent: #e8282a;
 	--accent-shadow: rgb(232, 40, 42, 0.3);
 }
@@ -2961,9 +2962,15 @@ input::-webkit-inner-spin-button {
 	flex-shrink: 0;
 	height: 40px;
 	padding: 6px 24px 0;
+	position: relative;
 }
 
 .modal-btn {
+	z-index: 89;
+}
+
+.modal-btn--right {
+	margin-left: auto;
 	z-index: 89;
 }
 
@@ -3813,6 +3820,237 @@ input::-webkit-inner-spin-button {
 	font-weight: 400;
 }
 
+.supplement-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	width: 100%;
+}
+
+.supplement-list li {
+	align-items: center;
+	background: var(--surface2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	display: flex;
+	font-size: 13px;
+	justify-content: space-between;
+	padding: 8px 12px;
+}
+
+.supplement-list li span {
+	color: var(--text2);
+	font-weight: 500;
+}
+
+.supplement-list li strong {
+	color: var(--text);
+	font-feature-settings: 'tnum' 1;
+	font-weight: 600;
+}
+
+.supp-date-label {
+	color: var(--text);
+	font-size: 16px;
+	font-weight: 600;
+	margin: 4px 0 12px;
+	text-align: center;
+}
+
+.supp-week-strip {
+	display: grid;
+	gap: 6px;
+	grid-template-columns: repeat(7, 1fr);
+	margin-bottom: 16px;
+}
+
+.supp-day {
+	align-items: center;
+	background: var(--surface2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	color: var(--text);
+	cursor: pointer;
+	display: flex;
+	flex-direction: column;
+	font: inherit;
+	gap: 2px;
+	padding: 8px 4px;
+	transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.supp-day:hover {
+	background: var(--surface3);
+}
+
+.supp-day.today {
+	border-color: var(--accent);
+}
+
+.supp-day.selected {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: #fff;
+}
+
+.supp-day.selected .supp-day-name,
+.supp-day.selected .supp-day-progress {
+	color: rgba(255, 255, 255, 0.85);
+}
+
+.supp-day.future {
+	opacity: 0.55;
+}
+
+.supp-day.all-done:not(.selected) {
+	border-color: #34d399;
+}
+
+.supp-day-name {
+	color: var(--text2);
+	font-size: 11px;
+	font-weight: 500;
+	text-transform: uppercase;
+}
+
+.supp-day-num {
+	font-feature-settings: 'tnum' 1;
+	font-size: 18px;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.supp-day-progress {
+	color: var(--text2);
+	font-feature-settings: 'tnum' 1;
+	font-size: 11px;
+	font-weight: 500;
+}
+
+.supp-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.supp-row {
+	align-items: center;
+	background: var(--surface2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	display: flex;
+	gap: 12px;
+	padding: 12px 14px;
+	transition: background 0.15s ease;
+}
+
+.supp-row:hover:not(.disabled) {
+	background: var(--surface3);
+}
+
+.supp-row.disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+.supp-row-icon {
+	align-items: center;
+	background: rgba(228, 132, 15, 0.12);
+	border-radius: 50%;
+	color: var(--accent);
+	display: flex;
+	flex-shrink: 0;
+	font-size: 14px;
+	height: 36px;
+	justify-content: center;
+	width: 36px;
+}
+
+.supp-row-text {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.supp-row-name {
+	color: var(--text);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.supp-row-goal {
+	color: var(--text2);
+	font-feature-settings: 'tnum' 1;
+	font-size: 12px;
+}
+
+.supp-check {
+	height: 0;
+	opacity: 0;
+	pointer-events: none;
+	position: absolute;
+	width: 0;
+}
+
+.supp-check-box {
+	align-items: center;
+	background: var(--surface3);
+	border: 1.5px solid var(--border);
+	border-radius: 8px;
+	color: transparent;
+	display: flex;
+	flex-shrink: 0;
+	font-size: 16px;
+	font-weight: 700;
+	height: 26px;
+	justify-content: center;
+	line-height: 1;
+	transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s var(--ease);
+	width: 26px;
+}
+
+.supp-row:hover:not(.disabled) .supp-check-box {
+	border-color: var(--accent);
+}
+
+.supp-check:checked + .supp-check-box {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: #fff;
+	transform: scale(1.05);
+}
+
+.supp-check:focus-visible + .supp-check-box {
+	box-shadow: 0 0 0 3px rgba(228, 132, 15, 0.35);
+}
+
+.supp-row.disabled .supp-check-box {
+	cursor: not-allowed;
+}
+
+.supp-hint {
+	align-items: center;
+	background: var(--surface2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	color: var(--text2);
+	display: flex;
+	font-size: 12px;
+	gap: 8px;
+	margin: 0 0 12px;
+	padding: 10px 12px;
+}
+
+.supp-hint i {
+	color: var(--accent);
+	flex-shrink: 0;
+}
+
 .app-toggle-switch {
 	background: var(--surface3);
 	border: none;
@@ -4159,7 +4397,8 @@ input::-webkit-inner-spin-button {
 #goalModal,
 #dsGoalModalBody,
 #aiTextModalBody,
-#workoutHistoryModalBody {
+#workoutHistoryModalBody,
+#supplementsModalBody {
 	padding: 0 16px;
 }
 
@@ -4594,6 +4833,8 @@ input::-webkit-inner-spin-button {
 
 .splash-logo img {
 	border-radius: 24px;
+	width: 128px;
+	height: 128px;
 }
 
 .loading {

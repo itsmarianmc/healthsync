@@ -9,7 +9,8 @@ declare global {
 export default function CookieBanner() {
     const [panelVisible, setPanelVisible] = useState(false)
     const [panelActive, setPanelActive] = useState(false)
-    const [bannerVisible, setBannerVisible] = useState(true)
+
+    const [bannerVisible, setBannerVisible] = useState(false) 
     const [bannerClosing, setBannerClosing] = useState(false)
     
     const [analytics, setAnalytics] = useState(false)
@@ -125,25 +126,22 @@ export default function CookieBanner() {
         }
 
         const bannerAccepted = localStorage.getItem('bannerAccepted') === 'true'
-        
+
         if (bannerAccepted) {
             loadCookieSettings()
-            if (bannerRef.current) {
-                bannerRef.current.style.display = 'none'
-            }
-            setBannerVisible(false)
-        } else {
-            localStorage.removeItem('cookieSettings')
-            setAnalytics(false)
-            setPreferences(false)
-            setThirdparty(false)
-            setMarketing(false)
-            if (typeof window.gtag !== 'undefined') {
-                window.gtag('consent', 'default', defaultConsent)
-            }
-            setBannerVisible(true)
-            setBannerClosing(false)
+            return
         }
+
+        localStorage.removeItem('cookieSettings')
+        setAnalytics(false)
+        setPreferences(false)
+        setThirdparty(false)
+        setMarketing(false)
+        if (typeof window.gtag !== 'undefined') {
+            window.gtag('consent', 'default', defaultConsent)
+        }
+        setBannerVisible(true)
+        setBannerClosing(false)
     }, [])
 
     useEffect(() => {

@@ -7,6 +7,7 @@ import WeekChart from './WeekChart';
 import RecentList from './RecentList';
 import NextWidget from './NextWidget';
 import AiTips from './AiTips';
+import HeaderTitle from '../shared/HeaderTitle';
 
 interface DashboardProps {
     nfl?: boolean;
@@ -41,7 +42,7 @@ export default function Dashboard({ nfl, onOpenCalSync, onOpenDropSync, onOpenSe
         <div id="dashboard-view" className={`app-view active${nfl ? ' nfl' : ''}`}>
             <div className="header">
                 <div className="header-title-row">
-                    <div className="header-title">Health<span>Sync</span></div>
+                    <HeaderTitle />
                     <div className="button-box">
                         <button className="settings-button" id="db-openSettingsBtn" data-order="3" title="Settings" onClick={onOpenSettings}>
                         {settingsIcon}

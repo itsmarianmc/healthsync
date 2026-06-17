@@ -8,6 +8,7 @@ import HistoryModal from './HistoryModal';
 import { useAuth } from '../../_context/AuthContext';
 import { syncDrinkToCloud, deleteDrinkFromCloud } from '../../_lib/sync';
 import { removeHeaderBtn, addHeaderBtn } from '../../_lib/headerBtns';
+import HeaderTitle from '../shared/HeaderTitle';
 
 const RING_CIRC = 2 * Math.PI * 95;
 
@@ -140,7 +141,7 @@ export default function DropSync({
         <div id="dropsync-view" className={`app-view active${nfl ? ' nfl' : ''}`}>
             <div className="header">
                 <div className="header-title-row">
-                    <div className="header-title">Drop<span>Sync</span></div>
+                    <HeaderTitle />
                     <div className="button-box">
                         <button id="ds-openModalBtn" data-order="1" title="Add New Drink" onClick={() => setModalOpen(true)}>{addIcon}</button>
                         <button id="ds-openHistoryBtn" data-order="2" title="History" onClick={() => setHistoryOpen(true)}>{historyIcon}</button>

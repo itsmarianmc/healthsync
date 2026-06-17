@@ -5,15 +5,16 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAppShell } from '../_context/AppShellContext';
 import BottomNav from './navigation/BottomNav';
 import Toast from './shared/Toast';
-import SplashScreen from './shared/SplashScreen';
 import PullToRefresh from './shared/PullToRefresh';
 import SettingsModal from './settings/SettingsModal';
 import NotesModal from './settings/NotesModal';
 import WorkoutModal from './settings/WorkoutModal';
 import WorkoutHistoryModal from './settings/WorkoutHistoryModal';
+import SupplementsModal from './settings/SupplementsModal';
 import BarcodeScanModal from './calsync/BarcodeScanModal';
 import ExtraScanner from './calsync/ExtraScanner';
 import { removeHeaderBtn, addHeaderBtn } from '../_lib/headerBtns';
+import { consumePendingTour, startTourWhenReady } from '../_lib/tour';
 
 const ONBOARDING_KEY = 'calsync_onboarding_done';
 
@@ -27,6 +28,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         notesOpen, openNotes, closeNotes,
         workoutOpen, openWorkout, closeWorkout,
         workoutHistoryOpen, openWorkoutHistory, closeWorkoutHistory,
+        supplementsOpen, openSupplements, closeSupplements,
         scanModalOpen, openScanModal, closeScanModal,
         calScanValue, setCalScanValue,
         extraMenuOpen, setExtraMenuOpen,
@@ -50,6 +52,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         router.replace('/onboarding');
         }
     }, [onboardingDone, pathname, router]);
+
+    useEffect(() => {
+        if (!onboardingDone) return;
+        if (pathname !== '/dash') return;
+        if (!consumePendingTour()) return;
+        startTourWhenReady();
+    }, [onboardingDone, pathname]);
 
     useEffect(() => {
         const theme = localStorage.getItem('calsync_theme');
@@ -87,7 +96,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             router.push('/drinks?openModal=true');
         } else if (action === 'training') openWorkout();
         else if (action === 'workout-history') openWorkoutHistory();
-    }, [router, setExtraMenuOpen, openWorkout, openWorkoutHistory]);
+        else if (action === 'supplements') openSupplements();
+    }, [router, setExtraMenuOpen, openWorkout, openWorkoutHistory, openSupplements]);
 
     const [extraScannerOpen, setExtraScannerOpen] = useState(false);
 
@@ -110,47 +120,53 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         return <>{children}</>;
     }
 
+    const showFooter = pathname !== '/login';
+
     return (
         <>
-            <SplashScreen />
             <PullToRefresh />
 
-            <div className="app-footer">
-                <BottomNav />
-                <div
-                    className={`extra-btn${extraMenuOpen ? ' open' : ''}`}
-                    id="extraActionBtn"
-                    ref={extraBtnRef}
-                    onClick={() => setExtraMenuOpen(!extraMenuOpen)}
-                    >
-                    <div className="extra-icon">
-                        <i className="fa-solid fa-plus" />
-                    </div>
-                    <div className="extra-menu-grid" id="extraMenuGrid" onClick={e => e.stopPropagation()}>
-                        <div className="grid-item" data-action="describe-food" onClick={() => handleExtraAction('describe-food')}>
-                        <i className="fa-solid fa-font" /><span>Describe Food</span>
+            {showFooter && (
+                <div className="app-footer">
+                    <BottomNav />
+                    <div
+                        className={`extra-btn${extraMenuOpen ? ' open' : ''}`}
+                        id="extraActionBtn"
+                        ref={extraBtnRef}
+                        onClick={() => setExtraMenuOpen(!extraMenuOpen)}
+                        >
+                        <div className="extra-icon">
+                            <i className="fa-solid fa-plus" />
                         </div>
-                        <div className="grid-item" data-action="import-food" onClick={() => handleExtraAction('import-food')}>
-                        <i className="fa-solid fa-image-circle-plus" /><span>Import Food</span>
-                        </div>
-                        <div className="grid-item" data-action="capture-food" onClick={() => handleExtraAction('capture-food')}>
-                        <i className="fa-utility-fill fa-semibold fa-camera" /><span>Capture Food</span>
-                        </div>
-                        <div className="grid-item" data-action="scan-barcode" onClick={() => handleExtraAction('scan-barcode')}>
-                        <i className="fa-solid fa-barcode-read" /><span>Scan Barcode</span>
-                        </div>
-                        <div className="grid-item" data-action="training" onClick={() => handleExtraAction('training')}>
-                        <i className="fa-solid fa-dumbbell" /><span>View Templates</span>
-                        </div>
-                        <div className="grid-item" data-action="log-drink" onClick={() => handleExtraAction('log-drink')}>
-                        <i className="fa-solid fa-droplet" /><span>Log Drink</span>
-                        </div>
-                        <div className="grid-item" data-action="workout-history" onClick={() => handleExtraAction('workout-history')}>
-                        <i className="fa-solid fa-clock-rotate-left" /><span>View Workouts</span>
+                        <div className="extra-menu-grid" id="extraMenuGrid" onClick={e => e.stopPropagation()}>
+                            <div className="grid-item" data-action="describe-food" onClick={() => handleExtraAction('describe-food')}>
+                            <i className="fa-solid fa-font" /><span>Describe Food</span>
+                            </div>
+                            <div className="grid-item" data-action="import-food" onClick={() => handleExtraAction('import-food')}>
+                            <i className="fa-solid fa-image-circle-plus" /><span>Import Food</span>
+                            </div>
+                            <div className="grid-item" data-action="capture-food" onClick={() => handleExtraAction('capture-food')}>
+                            <i className="fa-utility-fill fa-semibold fa-camera" /><span>Capture Food</span>
+                            </div>
+                            <div className="grid-item" data-action="scan-barcode" onClick={() => handleExtraAction('scan-barcode')}>
+                            <i className="fa-solid fa-barcode-read" /><span>Scan Barcode</span>
+                            </div>
+                            <div className="grid-item" data-action="training" onClick={() => handleExtraAction('training')}>
+                            <i className="fa-solid fa-dumbbell" /><span>View Templates</span>
+                            </div>
+                            <div className="grid-item" data-action="log-drink" onClick={() => handleExtraAction('log-drink')}>
+                            <i className="fa-solid fa-droplet" /><span>Log Drink</span>
+                            </div>
+                            <div className="grid-item" data-action="workout-history" onClick={() => handleExtraAction('workout-history')}>
+                            <i className="fa-solid fa-clock-rotate-left" /><span>View Workouts</span>
+                            </div>
+                            <div className="grid-item" data-action="supplements" onClick={() => handleExtraAction('supplements')}>
+                            <i className="fa-solid fa-capsules" /><span>Supplements</span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             <div className="views">
                 {children}
@@ -165,6 +181,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <NotesModal isOpen={notesOpen} onClose={closeNotes} />
             <WorkoutModal isOpen={workoutOpen} onClose={closeWorkout} />
             <WorkoutHistoryModal isOpen={workoutHistoryOpen} onClose={closeWorkoutHistory} />
+            <SupplementsModal isOpen={supplementsOpen} onClose={closeSupplements} />
             <BarcodeScanModal
                 isOpen={scanModalOpen}
                 onClose={closeScanModal}

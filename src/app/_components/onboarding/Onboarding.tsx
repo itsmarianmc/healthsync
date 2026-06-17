@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { markTourPending } from '../../_lib/tour';
 
 const STORAGE_KEY = 'calsync_onboarding_done';
 
@@ -96,22 +97,8 @@ export default function Onboarding({ onDone }: OnboardingProps) {
 
     const finish = () => {
         localStorage.setItem(STORAGE_KEY, '1');
+        if (setupTour) markTourPending();
         onDone();
-        if (setupTour) {
-            setTimeout(() => {
-                startTooltipTour([
-                { elementId: 'bottomNav', message: 'The bottom navigation bar allows you to easily switch between the Dashboard, the Food Section, and the Hydration section.', progress: '1/8', buttonText: 'Next' },
-                { elementId: 'extraActionBtn', message: 'The Quick Add button gives you instant access to add a new food or beverage entry from anywhere in the app.', progress: '2/8', buttonText: 'Next' },
-                { elementId: 'db-openSettingsBtn', message: 'The Settings menu allows you to manage your data, set goals, and customise the app.', progress: '3/8', buttonText: 'Next' },
-                { elementId: 'quickAddCal', message: 'This button opens the food logging dialogue where you can search, scan barcodes, or enter manually.', progress: '4/8', buttonText: 'Next' },
-                { elementId: 'quickAddWater', message: 'This button launches the DropSync dialogue to quickly log a beverage.', progress: '5/8', buttonText: 'Next' },
-                { elementId: 'dashboardMetricGrid', message: 'Here you see your daily progress for calories and hydration as progress bars.', progress: '6/8', buttonText: 'Next' },
-                { elementId: 'dashboardMacroGrid', message: 'Here your macronutrients - protein, carbs and fat - are displayed clearly.', progress: '7/8', buttonText: 'Next' },
-                { elementId: 'dashboardWeekCard', message: 'This card shows an overview of your last seven days of calorie and water intake.', progress: '8/8', buttonText: 'Next' },
-                { elementId: 'ptr-indicator', message: 'Thank you for using HealthSync! If you have any questions, feel free to report them, to help us improve the app.', progress: '', buttonText: 'Got it!' },
-                ]);
-            }, 400);
-        }
     };
 
     return (
@@ -122,8 +109,8 @@ export default function Onboarding({ onDone }: OnboardingProps) {
                 <div className="onboarding-app-name">Health<span>Sync</span></div>
                 </div>
                 <button className="onboarding-login" id="onboardingLogin" onClick={() => {
-                localStorage.setItem(STORAGE_KEY, '1');
-                window.location.href = '/login/?signinginto=healthsync';
+                    localStorage.setItem(STORAGE_KEY, '1');
+                    window.location.href = '/login/';
                 }}>Login</button>
             </div>
 
@@ -230,25 +217,4 @@ export default function Onboarding({ onDone }: OnboardingProps) {
             </div>
         </div>
     );
-    }
-
-    function startTooltipTour(steps: { elementId: string; message: string; progress: string; buttonText: string }[]) {
-    let i = 0;
-    function show(idx: number) {
-        if (idx >= steps.length) return;
-        const s = steps[idx];
-        const el = document.getElementById(s.elementId);
-        if (!el) { show(idx + 1); return; }
-        const isLast = idx === steps.length - 1;
-        window.dispatchEvent(new CustomEvent('__showTooltip', {
-            detail: {
-                elementId: s.elementId,
-                message: s.message,
-                progress: s.progress,
-                buttonText: isLast ? (s.buttonText || 'Done') : (s.buttonText || 'Next'),
-                onNext: () => { i = idx + 1; setTimeout(() => show(i), 300); }
-            }
-        }));
-    }
-    show(i);
 }

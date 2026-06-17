@@ -36,6 +36,11 @@ export interface UserSettings {
     carbs_goal: number;
     fat_goal: number;
     goal_ml: number;
+    creatine_goal?: number | null;
+    magnesium_goal?: number | null;
+    track_supplements?: boolean | null;
+    weight_kg?: number | null;
+    supplements_taken?: Record<string, Record<string, boolean>> | null;
     workout_routines?: WorkoutRoutines | null;
     updated_at?: string;
 }

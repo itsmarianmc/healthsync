@@ -9,6 +9,7 @@ import CalHistoryModal from './CalHistoryModal';
 import { useAuth } from '../../_context/AuthContext';
 import { pushFoodEntriesToCloud, deleteFoodFromCloud, syncDrinkToCloud } from '../../_lib/sync';
 import { removeHeaderBtn, addHeaderBtn } from '../../_lib/headerBtns';
+import HeaderTitle from '../shared/HeaderTitle';
 
 interface CalSyncProps {
     nfl?: boolean;
@@ -170,7 +171,7 @@ export default function CalSync({
         <div id="calsync-view" className={`app-view active${nfl ? ' nfl' : ''}`}>
             <div className="header">
                 <div className="header-title-row">
-                    <div className="header-title">Cal<span>Sync</span></div>
+                    <HeaderTitle />
                     <div className="button-box">
                         <button id="cs-openModalBtn" data-order="1" title="Add Food" onClick={() => setModalOpen(true)}>{addIcon}</button>
                         <button id="cs-openHistoryBtn" data-order="2" title="History" onClick={() => setHistoryOpen(true)}>{historyIcon}</button>
