@@ -7,11 +7,11 @@ export default function Footer() {
             <p>
                 <a href="https://contact.itsmarian.dev/">Contact</a>
                 {' • '}
-                <a href="https://itsmarian.dev/legal/cookies">Cookies</a>
+                <a href="https://healthsync.itsmarian.dev/legal/cookies">Cookies</a>
                 {' • '}
-                <a href="https://itsmarian.dev/legal/privacy">Privacy Policy</a>
+                <a href="https://healthsync.itsmarian.dev/legal/privacy">Privacy Policy</a>
                 {' • '}
-                <a href="https://itsmarian.dev/legal/terms">Terms of Use</a>
+                <a href="https://healthsync.itsmarian.dev/legal/terms">Terms of Use</a>
             </p>
             <p className="change-settings">Change Cookie Preferences</p>
             <p style={{ marginTop: 'calc(1rem - 7.5px)' }}>
