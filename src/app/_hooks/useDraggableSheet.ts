@@ -10,6 +10,7 @@ interface DraggableSheetConfig {
 type SheetState = 'closed' | 'open' | 'expanded';
 const SHEET_TOP_MARGIN = 24;
 const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
+const FLING_CLOSE_VEL = 1500;
 
 export function useDraggableSheet(config: DraggableSheetConfig) {
     const modalRef = useRef<HTMLDivElement>(null);
@@ -116,7 +117,9 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
         const dy = dragDYRef.current;
         const vel = velRef.current;
 
-        if (dy > 80 || vel > 400) {
+        if (vel > FLING_CLOSE_VEL && dy > 0) {
+            close();
+        } else if (dy > 80 || vel > 400) {
             if (stateRef.current === 'expanded') {
                 snapToOpen();
             }
@@ -146,7 +149,7 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
             if (!modalRef.current) return;
             naturalHeightRef.current = modalRef.current.offsetHeight;
             setTransition(['transform']);
-            modalRef.current.style.transform = 'translateY(18px)';
+            modalRef.current.style.transform = 'translateY(0)';
             modalRef.current.style.height = naturalHeightRef.current + 'px';
             isOpeningRef.current = false;
         }));

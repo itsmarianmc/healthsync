@@ -905,6 +905,12 @@ input::-webkit-inner-spin-button {
 	pointer-events: none;
 }
 
+.grid-item.disabled {
+	cursor: not-allowed;
+	opacity: 0.4;
+	pointer-events: none;
+}
+
 .views {
 	width: 100%;
 }
@@ -3402,6 +3408,9 @@ input::-webkit-inner-spin-button {
 }
 
 .amount-big-input {
+	appearance: textfield;
+	-moz-appearance: textfield;
+	-webkit-appearance: textfield;
 	background: var(--surface2);
 	border: 1.5px solid var(--border);
 	border-radius: var(--radius-sm);
@@ -3411,7 +3420,6 @@ input::-webkit-inner-spin-button {
 	font-size: 28px;
 	font-weight: 600;
 	letter-spacing: -1px;
-	-moz-appearance: textfield;
 	outline: none;
 	padding: 12px 12px;
 	transition: border-color 0.15s;
@@ -3527,6 +3535,9 @@ input::-webkit-inner-spin-button {
 }
 
 .form-input {
+	appearance: textfield;
+	-moz-appearance: textfield;
+	-webkit-appearance: textfield;
 	background: var(--surface3);
 	border: 1.5px solid var(--border);
 	border-radius: var(--radius-sm);
@@ -3534,7 +3545,6 @@ input::-webkit-inner-spin-button {
 	font-family: 'DM Sans', sans-serif;
 	font-size: 15px;
 	font-weight: 500;
-	-moz-appearance: textfield;
 	outline: none;
 	padding: 10px 14px;
 	transition: border-color 0.15s;

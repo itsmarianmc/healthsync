@@ -167,9 +167,11 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
         isCapturingRef.current = false;
         const dy = dragDYRef.current;
         const vel = velRef.current;
-        if (dy > 80 || vel > 400) {
-        if (modalState === 'expanded') snapToOpen();
-        else snapToClosed();
+        if (vel > 1500 && dy > 0) {
+            snapToClosed();
+        } else if (dy > 80 || vel > 400) {
+            if (modalState === 'expanded') snapToOpen();
+            else snapToClosed();
         } else if (dy < -60 || vel < -400) {
             snapToExpanded();
         } else {

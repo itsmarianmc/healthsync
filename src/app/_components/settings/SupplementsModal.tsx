@@ -117,6 +117,7 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
     }, [user]);
 
     const toggle = useCallback((suppId: string) => {
+        if (!trackingEnabled) return;
         const day = week.find(d => d.iso === selected);
         if (!day || day.isFuture) return;
         setTaken(prev => {
@@ -126,7 +127,7 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
             persist(next);
             return next;
         });
-    }, [selected, week, persist]);
+    }, [selected, week, persist, trackingEnabled]);
 
     const selectedDay = week.find(d => d.iso === selected);
     const selectedTaken = taken[selected] || {};
@@ -190,9 +191,10 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
 
                     <div className="supp-list">
                         {supplements.map(s => {
-                            const checked = !!selectedTaken[s.id];
+                            const checked = !!selectedTaken[s.id] && trackingEnabled;
+                            const rowDisabled = futureSelected || !trackingEnabled;
                             return (
-                                <label key={s.id} className={`supp-row${futureSelected ? ' disabled' : ''}`}>
+                                <label key={s.id} className={`supp-row${rowDisabled ? ' disabled' : ''}`}>
                                     <span className="supp-row-icon"><i className={s.icon} /></span>
                                     <span className="supp-row-text">
                                         <span className="supp-row-name">{s.label}</span>
@@ -202,7 +204,7 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
                                         type="checkbox"
                                         className="supp-check"
                                         checked={checked}
-                                        disabled={futureSelected}
+                                        disabled={rowDisabled}
                                         onChange={() => toggle(s.id)}
                                     />
                                     <span className="supp-check-box" aria-hidden="true">✓</span>

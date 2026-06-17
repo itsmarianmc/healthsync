@@ -501,7 +501,8 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
     const handlePointerUp = () => {
         if (!isCapturing.current) return; isCapturing.current = false;
         const dy = dragDY.current; const v = vel.current;
-        if (dy > 80 || v > 400) { if (modalState === 'expanded') snapToOpen(); else snapToClosed(); }
+        if (v > 1500 && dy > 0) { snapToClosed(); }
+        else if (dy > 80 || v > 400) { if (modalState === 'expanded') snapToOpen(); else snapToClosed(); }
         else if (dy < -60 || v < -400) snapToExpanded();
         else { if (modalState === 'expanded') snapToExpanded(); else snapToOpen(); }
         dragDY.current = 0;
