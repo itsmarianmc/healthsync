@@ -1,6 +1,6 @@
 # HealthSync
 
-A mobile-first Progressive Web App for personal health tracking. HealthSync combines calorie counting, hydration tracking, and workout logging in a single, unified interface - designed to feel like a native app in the browser.
+A mobile-first Progressive Web App for personal health tracking. HealthSync combines calorie counting, hydration tracking and workout logging in a single, unified interface that feels like a native app in the browser. HealthSync is a personal project and part of [itsmarian](https://github.com/itsmarianmc)'s projects.
 
 Live at [healthsync.itsmarian.dev](https://healthsync.itsmarian.dev)
 
@@ -17,14 +17,23 @@ Log meals via free-text search, barcode scanning (ZXing / Open Food Facts), or m
 **DropSync - Hydration Tracking**
 A two-step bottom sheet: pick a drink, then set the amount by dragging a glass up or down. Snap points at common volumes (100 to 1000 ml). Swipe to close, pull up to expand. A history sheet shows all entries grouped by date.
 
+**Workouts**
+Built-in 4-day split (Pull / Push / Legs / Arms) with editable routines, drag-to-reorder exercises and per-exercise GIF previews. Live session timer, per-set weight and reps logging, and a history view of finished sessions.
+
 **Settings**
-Goals for calories, water, and macros. A built-in calorie calculator using the Mifflin-St-Jeor formula. Workout routines with a live session timer and per-set logging. AI tip toggle with optional Gemini API key.
+Goals for calories, water and macros. A built-in calorie calculator using the Mifflin-St-Jeor formula. Workout routines with a live session timer and per-set logging. AI tip toggle with optional Gemini API key. Multiple themes (Dark, Light, Ocean, Forest, Sunset, Lavender).
+
+**AI Detection (opt-in)**
+Optional Google Gemini integration inside CalSync to estimate nutrition from a photo, camera capture or text description. Disabled by default, uses the user's own API key, never proxies through the HealthSync backend. See the in-app [AI Guidelines](https://healthsync.itsmarian.dev/legal/ai-guidelines) for details.
 
 **Auth**
-Email and password login with optional TOTP two-factor authentication. Register, forgot password, and change password flows. "Remember this device" skips the 2FA step on trusted devices.
+Email and password login with optional TOTP two-factor authentication. Register, forgot password, and change password flows. "Remember this device" skips the 2FA step on trusted devices. Session tokens are stored in secure cookies (not localStorage).
 
-**PWA**
-Installable on mobile via the browser's add-to-home-screen prompt. Offline-capable for previously loaded data via local storage.
+**Offline & PWA**
+Installable on mobile via the browser's add-to-home-screen prompt. Fully usable without an account - entries then live only in your browser's local storage. Cloud sync is opt-in via a free user account.
+
+**Pull-to-refresh, haptics & sheet system**
+Native-feeling pull-to-refresh from the top of the dashboard, drag-to-dismiss / drag-to-expand bottom sheets with snap points, and short haptic feedback on important interactions.
 
 ---
 
@@ -32,128 +41,30 @@ Installable on mobile via the browser's add-to-home-screen prompt. Offline-capab
 
 | Area | Technology |
 |---|---|
-| Framework | Next.js 15 (App Router) |
+| Framework | Next.js 16 (App Router, Turbopack) |
 | Language | TypeScript (strict) |
-| Styling | Vanilla CSS with CSS custom properties |
+| Styling | Vanilla CSS with CSS custom properties (no Tailwind for app styles) |
 | Backend | Supabase (PostgreSQL + Row Level Security) |
-| Auth | Supabase Auth with TOTP MFA |
+| Auth | Supabase Auth with TOTP MFA, sessions via cookies |
 | Font | DM Sans |
 | Icons | Font Awesome 7 |
-| Barcode | ZXing (`@zxing/browser`) |
-| Deployment | Vercel |
+| Barcode | ZXing |
+| AI (opt-in) | Google Gemini API (BYO key, called directly from the browser) |
+| Testing | Playwright (E2E), Vitest |
+| Deployment | Vercel (default) - any Node.js host works |
 
 ---
 
-## Self-Hosting
+## Legal & Compliance
 
-### Prerequisites
+HealthSync ships with full GDPR-aligned legal pages, all reachable from the in-app footer:
 
-- Node.js 18 or later
-- A Supabase project
-- A Vercel account (or any Node.js-capable host)
+- [Privacy Policy](https://healthsync.itsmarian.dev/legal/privacy) - includes a dedicated **Health data (Art. 9 GDPR)** section.
+- [Cookie Policy](https://healthsync.itsmarian.dev/legal/cookies) - documents cookies, browser storage and Google Consent Mode v2.
+- [Terms of Use](https://healthsync.itsmarian.dev/legal/terms) - acceptable use, no-medical-advice, liability.
+- [AI Guidelines](https://healthsync.itsmarian.dev/legal/ai-guidelines) - what AI may and must not be used for, plus risks and your responsibilities.
 
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/itsmarian/healthsync.git
-cd healthsync
-npm install
-```
-
-### 2. Set up Supabase
-
-In your Supabase project, open the SQL editor and run the following to create the required tables:
-
-```sql
--- Create Food Entries Table
-create table calsync_entries (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null,
-  entry_id text unique not null,
-  food text not null,
-  brand text,
-  kcal numeric not null default 0,
-  amount numeric,
-  unit text,
-  prot numeric not null default 0,
-  carb numeric not null default 0,
-  fat numeric not null default 0,
-  barcode text,
-  is_drink boolean default false,
-  ts bigint not null,
-  date text not null,
-  created_at timestamptz default now()
-);
-
---- Add RLS To Table
-alter table calsync_entries enable row level security;
-create policy "Users access own food entries"
-  on calsync_entries for all
-  using (auth.uid() = user_id);
-
--- Create Drink Entries Table
-create table dropsync_entries (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null,
-  entry_id text unique not null,
-  drink text not null,
-  emoji text,
-  color text,
-  amount integer not null default 0,
-  ts bigint not null,
-  date text not null,
-  created_at timestamptz default now(),
-  source text
-);
-
---- Add RLS To Table
-alter table dropsync_entries enable row level security;
-create policy "Users access own drink entries"
-  on dropsync_entries for all
-  using (auth.uid() = user_id);
-
--- Create User Settings Table
-create table user_settings (
-  user_id uuid primary key references auth.users not null,
-  calorie_goal integer default 2000,
-  protein_goal integer default 0,
-  carbs_goal integer default 0,
-  fat_goal integer default 0,
-  goal_ml integer default 2500,
-  workout_routines jsonb,
-  updated_at timestamptz default now()
-);
-
---- Add RLS To Table
-alter table user_settings enable row level security;
-create policy "Users access own settings"
-  on user_settings for all
-  using (auth.uid() = user_id);
-```
-
-### 3. Configure environment variables
-
-Create a `.env.local` file in the project root:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://abcdefghijklmnopqrst.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_abcdefghijklmnopqrstuvwxyzabcde
-```
-
-Both values can be found in your Supabase project under Settings > API Keys.
-
-### 4. Configure Supabase Auth
-
-In your Supabase dashboard under Authentication > URL Configuration, set:
-
-- **Site URL**: Add the sites you need to have auth access for. Example, for local development, or your production domain
-- **Redirect URLs**: Example, add your local development domain and your production domain with `/**`
-
-### 6. Deploy/Host
-
-Push the repository to GitHub or keep it local (when pushing to GitHub DO NOT PUSH YOUR ENVIRONMENT VARIABLES!), then import it into any third party provider.
-
-Once deployed, update the Supabase Site URL and Redirect URLs to your production domain.
+HealthSync is **not** a medical device. It does not provide medical advice and must not be used as a substitute for professional health consultation.
 
 ---
 
@@ -161,38 +72,58 @@ Once deployed, update the Supabase Site URL and Redirect URLs to your production
 
 ```
 app/
-├── layout.tsx              # Root layout: AuthProvider, global CSS
+├── layout.tsx              # Root layout: AuthProvider, global CSS, splash, GA Consent Mode v2
 ├── page.tsx                # App shell: view switching, all modals
-├── styles.css              # Global styles
+├── styles.css              # Global styles + theme tokens
 ├── login/
 │   ├── layout.tsx          # Loads QRCode.js for 2FA setup
 │   └── page.tsx            # Full login, register, MFA, reset flows
+├── legal/
+│   ├── components/         # LegalLayout, LegalSection, LegalList, LegalEnumeration, Linkout, BackToTop, LegalScroller
+│   ├── legal.css           # HealthSync-tokenised legal stylesheet
+│   ├── privacy/page.tsx    # Privacy Policy
+│   ├── cookies/page.tsx    # Cookie Policy
+│   ├── terms/page.tsx      # Terms of Use
+│   └── ai-guidelines/page.tsx  # AI Guidelines
+├── api/
+│   └── proxy/route.ts      # Edge-style proxy for the optional local AI endpoint
 ├── _lib/
 │   ├── supabase.ts         # Supabase browser client
 │   ├── types.ts            # TypeScript interfaces
 │   └── sync.ts             # All Supabase CRUD functions
 ├── _context/
-│   └── AuthContext.tsx     # Auth state, user, settings
+│   ├── AuthContext.tsx     # Auth state, user, settings, syncEnabled
+│   └── AppShellContext.tsx # Cross-cutting UI state for the shell
 ├── _hooks/
 │   ├── useDashboardData.ts # Dashboard calculations
 │   ├── useDraggableSheet.ts # Shared sheet drag logic
+│   ├── useLocalStorage.ts  # SSR-safe localStorage hook
 │   └── useOnboarding.ts    # Onboarding state
 └── _components/
-    ├── shared/             # Toast, Tooltip, SplashScreen, PullToRefresh
+    ├── shared/             # Toast, Tooltip, SplashScreen, PullToRefresh, CookieBanner, Footer
     ├── navigation/         # BottomNav with animated slider
     ├── dashboard/          # ScoreRing, MetricGrid, MacroGrid, WeekChart, RecentList, NextWidget, AiTips
-    ├── calsync/            # CalSync view, modal, food list, barcode scanner
+    ├── calsync/            # CalSync view, modal, food list, barcode scanner, extra scanner
     ├── dropsync/           # DropSync view, modal, drink picker, glass input, history
-    ├── settings/           # Settings sheet, goals, account, AI section, workout
+    ├── settings/           # Settings sheet, goals, account, AI section, workout, supplements, notes
     ├── notes/              # Notes modal
     └── onboarding/         # Onboarding slides and tooltip tour
 ```
 
 ---
 
+## Self-Hosting
+
+HealthSync can be self-hosted on Vercel, any Node.js host, or in Docker, with either Supabase or a SQLite-backed DIY backend. The full setup walkthrough - prerequisites, environment variables, SQL schema, Row Level Security policies, authentication, optional AI integrations, deployment, backups and a hardening checklist - lives in a dedicated guide:
+
+> See [hosting.md](./hosting.md) for the complete self-hosting and deployment guide.
+
+---
+
 ## Documentation
 
-For a detailed breakdown of the app's functionality, component structure, database schema, localStorage keys, and implementation notes, see [FUNCTIONALITY.md](./FUNCTIONALITY.md).
+- [hosting.md](./hosting.md) - full self-hosting guide (Supabase + SQLite, RLS, deployment, AI setup, testing).
+- [FUNCTIONALITY.md](./FUNCTIONALITY.md) - detailed breakdown of the app's functionality, component structure, database schema, localStorage keys, and implementation notes.
 
 ---
 

@@ -107,9 +107,20 @@ export default function HistoryModal({ entries, isOpen, onClose }: HistoryModalP
             requestAnimationFrame(() => requestAnimationFrame(() => {
                 if (!modalRef.current) return;
                 naturalHeightRef.current = modalRef.current.offsetHeight;
-                setTransition(['transform']);
-                modalRef.current.style.transform = 'translateY(0)';
-                modalRef.current.style.height = naturalHeightRef.current + 'px';
+                const preferExpanded = (() => {
+                    try { return localStorage.getItem('healthsync_modals_expanded') === 'true'; }
+                    catch { return false; }
+                })();
+                if (preferExpanded) {
+                    setTransition(['height', 'transform']);
+                    modalRef.current.style.transform = 'translateY(0)';
+                    modalRef.current.style.height = expandedHeight() + 'px';
+                    setModalState('expanded');
+                } else {
+                    setTransition(['transform']);
+                    modalRef.current.style.transform = 'translateY(0)';
+                    modalRef.current.style.height = naturalHeightRef.current + 'px';
+                }
             }));
         } else if (!isOpen && modalState !== 'closed') {
         snapToClosed();

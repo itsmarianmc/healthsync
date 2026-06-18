@@ -12,6 +12,8 @@ export default function Footer() {
                 <a href="https://healthsync.itsmarian.dev/legal/privacy">Privacy Policy</a>
                 {' • '}
                 <a href="https://healthsync.itsmarian.dev/legal/terms">Terms of Use</a>
+                {' • '}
+                <a href="https://healthsync.itsmarian.dev/legal/ai-guidelines">AI Guidelines</a>
             </p>
             <p className="change-settings">Change Cookie Preferences</p>
             <p style={{ marginTop: 'calc(1rem - 7.5px)' }}>

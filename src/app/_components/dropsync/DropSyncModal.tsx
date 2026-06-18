@@ -27,6 +27,7 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
     const step2Ref = useRef<HTMLDivElement>(null);
     const bodyHRef = useRef(0);
     const naturalHeightRef = useRef(0);
+    const chromeHRef = useRef(0);
     const dragStartYRef = useRef(0);
     const dragDYRef = useRef(0);
     const velRef = useRef(0);
@@ -45,11 +46,13 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
     const snapToOpen = useCallback(() => {
         setModalState('open');
         setTransition(['height', 'transform']);
-        if (modalRef.current) {
-            modalRef.current.style.height = naturalHeightRef.current + 'px';
-            modalRef.current.style.transform = 'translateY(0)';
+        if (!modalRef.current || !bodyRef.current) return;
+        if (chromeHRef.current > 0 && bodyHRef.current > 0) {
+            naturalHeightRef.current = chromeHRef.current + bodyHRef.current;
         }
-        if (bodyRef.current && bodyHRef.current > 0) { bodyRef.current.style.height = bodyHRef.current + 'px'; }
+        modalRef.current.style.height = naturalHeightRef.current + 'px';
+        modalRef.current.style.transform = 'translateY(0)';
+        if (bodyHRef.current > 0) bodyRef.current.style.height = bodyHRef.current + 'px';
     }, []);
 
     const snapToExpanded = useCallback(() => {
@@ -114,9 +117,30 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
             bodyHRef.current = initBodyH;
             bodyRef.current.style.height = initBodyH + 'px';
             naturalHeightRef.current = modalRef.current.offsetHeight;
-            setTransition(['transform']);
-            modalRef.current.style.transform = 'translateY(0)';
+            chromeHRef.current = Math.max(0, naturalHeightRef.current - initBodyH);
+            const preferExpanded = (() => {
+                try { return localStorage.getItem('healthsync_modals_expanded') === 'true'; }
+                catch { return false; }
+            })();
+            // Lock in an explicit pixel height before enabling transitions so we
+            // can animate height (CSS cannot animate from `auto`). The modal is
+            // still translateY(100%) at this point so this is invisible.
             modalRef.current.style.height = naturalHeightRef.current + 'px';
+            // Force a reflow so the explicit height is committed before the
+            // transition is enabled in the next frame.
+            void modalRef.current.offsetHeight;
+            requestAnimationFrame(() => {
+                if (!modalRef.current) return;
+                if (preferExpanded) {
+                    setTransition(['height', 'transform']);
+                    modalRef.current.style.transform = 'translateY(0)';
+                    modalRef.current.style.height = expandedHeight() + 'px';
+                    setModalState('expanded');
+                } else {
+                    setTransition(['transform']);
+                    modalRef.current.style.transform = 'translateY(0)';
+                }
+            });
         }));
         }
         else if (!isOpen && modalState !== 'closed') {
@@ -182,24 +206,23 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
     };
 
     useEffect(() => {
-        if (modalState !== 'open' || !modalRef.current || !bodyRef.current || naturalHeightRef.current === 0) return;
+        if (modalState === 'closed' || !modalRef.current || !bodyRef.current || naturalHeightRef.current === 0) return;
         const el = step === 1 ? step1Ref.current : step2Ref.current;
         if (!el) return;
         const newBodyH = el.offsetHeight;
         if (newBodyH === 0) return;
         bodyHRef.current = newBodyH;
-        const fixedH = Math.max(0, naturalHeightRef.current - bodyRef.current.offsetHeight);
-        const newTotalH = fixedH + newBodyH;
-        naturalHeightRef.current = newTotalH;
+        if (chromeHRef.current > 0) naturalHeightRef.current = chromeHRef.current + newBodyH;
+        if (modalState === 'expanded') return;
         bodyRef.current.style.transition = 'height 0.38s cubic-bezier(0.4,0,0.2,1)';
         bodyRef.current.style.height = newBodyH + 'px';
         modalRef.current.style.transition = 'height 0.38s cubic-bezier(0.4,0,0.2,1)';
-        modalRef.current.style.height = newTotalH + 'px';
+        modalRef.current.style.height = naturalHeightRef.current + 'px';
         setTimeout(() => {
             if (bodyRef.current) bodyRef.current.style.transition = '';
             if (modalRef.current) modalRef.current.style.transition = '';
         }, 400);
-    }, [step, selectedDrink]);
+    }, [step, selectedDrink, modalState]);
 
     const handleSelectDrink = (drink: DrinkOption) => {
         setSelectedDrink(drink);

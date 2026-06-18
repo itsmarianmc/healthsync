@@ -304,7 +304,7 @@ function CreateModal({ editRoutine, onSave, onClose }: {
         editRoutine ? editRoutine.exercises.map(ex => ({ ...ex, sets: ex.sets.map(s => ({ ...s })) })) : []
     );
     const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<ExerciseCacheItem[]>([]);
+    const [allExercises, setAllExercises] = useState<ExerciseCacheItem[]>([]);
     const [gifModal, setGifModal] = useState<{ url: string; name: string } | null>(null);
 
     useEffect(() => {
@@ -313,19 +313,33 @@ function CreateModal({ editRoutine, onSave, onClose }: {
         return () => clearTimeout(t);
     }, []);
 
-    const handleSearch = async (q: string) => {
-        setSearchQuery(q);
-        if (q.length < 2) { setSearchResults([]); return; }
-        const all = await loadExercisesCache();
-        setSearchResults(all.filter(e => e.name.toLowerCase().includes(q.toLowerCase())).slice(0, 20));
-    };
+    useEffect(() => {
+        let cancelled = false;
+        loadExercisesCache().then(list => {
+            if (!cancelled) setAllExercises(list);
+        });
+        return () => { cancelled = true; };
+    }, []);
+
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const matches = (item: ExerciseCacheItem) =>
+        !normalizedQuery
+        || item.name.toLowerCase().includes(normalizedQuery)
+        || item.category.toLowerCase().includes(normalizedQuery);
+
+    // Render only the first slice when idle to save bandwidth/DOM. When the user
+    // searches we render the full list so the hide/show animation can play.
+    const INITIAL_LIMIT = 50;
+    const renderedExercises = normalizedQuery
+        ? allExercises
+        : allExercises.slice(0, INITIAL_LIMIT);
+    const hasMoreHidden = !normalizedQuery && allExercises.length > INITIAL_LIMIT;
 
     const addExercise = (item: ExerciseCacheItem) => {
         if (exercises.find(e => e.name === item.name)) return;
         const id = item.name.replace(/\s/g, '_') + '_' + Date.now();
         setExercises(prev => [...prev, { exerciseId: id, name: item.name, image: item.image, gif: item.gif, sets: [{ reps: 8, weight: 0 }] }]);
         setSearchQuery('');
-        setSearchResults([]);
     };
 
     const handleSave = () => {
@@ -350,22 +364,35 @@ function CreateModal({ editRoutine, onSave, onClose }: {
                             <label className="form-label">Add exercises</label>
                             <div id="exerciseSearchContainerCreate">
                                 <input type="text" className="form-input" id="exerciseSearchInputCreate" placeholder="Search exercise..."
-                                value={searchQuery} onChange={e => handleSearch(e.target.value)} />
-                                {searchResults.length > 0 && (
-                                    <div className="exercise-search-results" id="exerciseSearchResultsCreate">
-                                        {searchResults.map(item => (
-                                            <div key={item.name} className="exercise-result-item" onClick={() => addExercise(item)}>
-                                                <img className="exercise-result-img" src={item.image}
+                                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                                <div className="exercise-search-results" id="exerciseSearchResultsCreate">
+                                    {renderedExercises.map(item => {
+                                        const visible = matches(item);
+                                        const alreadyAdded = exercises.some(e => e.name === item.name);
+                                        return (
+                                            <div
+                                                key={item.name}
+                                                className={`exercise-result-item${visible ? '' : ' is-hidden'}${alreadyAdded ? ' is-added' : ''}`}
+                                                onClick={() => visible && !alreadyAdded && addExercise(item)}
+                                                aria-hidden={!visible}
+                                            >
+                                                <img className="exercise-result-img" src={item.image} loading="lazy"
                                                 onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40'; }} alt={item.name} />
                                                 <div className="exercise-result-info">
                                                     <div className="exercise-result-name">{item.name}</div>
                                                     <div className="exercise-result-muscle">{item.category}</div>
                                                 </div>
-                                                <i className="fa-solid fa-plus" />
+                                                <i className={`fa-solid ${alreadyAdded ? 'fa-check' : 'fa-plus'}`} />
                                             </div>
-                                        ))}
-                                    </div>
-                                )}
+                                        );
+                                    })}
+                                    {hasMoreHidden && (
+                                        <div className="exercise-result-more">
+                                            <i className="fa-solid fa-magnifying-glass" />
+                                            <span>Search for more results</span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             <div className="selected-exercises" id="selectedExercisesListCreate">
                                 {exercises.map((ex, idx) => (

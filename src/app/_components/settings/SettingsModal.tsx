@@ -71,6 +71,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     const [deleteWarn, setDeleteWarn] = useState(true);
     const [displayName, setDisplayName] = useState(false);
     const [splashEnabled, setSplashEnabled] = useState(false);
+    const [modalsExpanded, setModalsExpanded] = useState(false);
     const [firstName, setFirstName] = useState('');
     const [aiEnabled, setAiEnabled] = useState(false);
     const [aiTermsAccepted, setAiTermsAccepted] = useState(false);
@@ -89,6 +90,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         setDeleteWarn(localStorage.getItem('dropsync_delete_warning') !== 'false');
         setDisplayName(localStorage.getItem('calsync_display_name') === 'true');
         setSplashEnabled(localStorage.getItem('calsync_splash_enabled') === 'true');
+        setModalsExpanded(localStorage.getItem('healthsync_modals_expanded') === 'true');
         setFirstName(localStorage.getItem('calsync_first_name') || '');
         setAiEnabled(localStorage.getItem('calsync_ai_enabled') === 'true');
         setAiTermsAccepted(localStorage.getItem('calsync_ai_terms_accepted') === 'true');
@@ -184,6 +186,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     const handleDeleteWarn = () => { const n = !deleteWarn; setDeleteWarn(n); localStorage.setItem('dropsync_delete_warning', String(n)); };
     const handleDisplayName = () => { const n = !displayName; setDisplayName(n); localStorage.setItem('calsync_display_name', String(n)); window.dispatchEvent(new Event('storage')); };
     const handleSplashEnabled = () => { const n = !splashEnabled; setSplashEnabled(n); localStorage.setItem('calsync_splash_enabled', String(n)); };
+    const handleModalsExpanded = () => { const n = !modalsExpanded; setModalsExpanded(n); localStorage.setItem('healthsync_modals_expanded', String(n)); };
     const handleTrackSupplements = () => {
         const n = !trackSupplements;
         setTrackSupplements(n);
@@ -433,6 +436,13 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                     <span className="settings-toggle-sub">Display the splash screen when the app opens, you return to the app, or switch tabs</span>
                                 </div>
                                 <button className="app-toggle-switch" id="splashScreenToggle" aria-pressed={String(splashEnabled) as 'true'|'false'} onClick={handleSplashEnabled} />
+                            </div>
+                            <div className="settings-toggle-row">
+                                <div className="settings-toggle-label">
+                                    <span>Open every menu as expanded</span>
+                                    <span className="settings-toggle-sub">Menus open fullscreen by default. Swipe down to collapse back to the normal view.</span>
+                                </div>
+                                <button className="app-toggle-switch" id="modalsExpandedToggle" aria-pressed={String(modalsExpanded) as 'true'|'false'} onClick={handleModalsExpanded} />
                             </div>
                             <div className="settings-toggle-row">
                                 <div className="settings-toggle-label">

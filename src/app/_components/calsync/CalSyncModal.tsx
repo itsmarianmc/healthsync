@@ -224,6 +224,7 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
     const overlayRef = useRef<HTMLDivElement>(null);
     const bodyRef = useRef<HTMLDivElement>(null);
     const naturalH = useRef(0);
+    const chromeHRef = useRef(0);
     const dragStartY = useRef(0);
     const dragDY = useRef(0);
     const vel = useRef(0);
@@ -246,8 +247,13 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
     const snapToOpen = useCallback(() => {
         setModalState('open');
         setTrans(['height', 'transform']);
-        if (modalRef.current) { modalRef.current.style.height = naturalH.current + 'px'; modalRef.current.style.transform = 'translateY(0)'; }
-        if (bodyRef.current && bodyHRef.current > 0) { bodyRef.current.style.height = bodyHRef.current + 'px'; }
+        if (!modalRef.current || !bodyRef.current) return;
+        if (chromeHRef.current > 0 && bodyHRef.current > 0) {
+            naturalH.current = chromeHRef.current + bodyHRef.current;
+        }
+        modalRef.current.style.height = naturalH.current + 'px';
+        modalRef.current.style.transform = 'translateY(0)';
+        if (bodyHRef.current > 0) bodyRef.current.style.height = bodyHRef.current + 'px';
     }, []);
 
     const snapToExpanded = useCallback(() => {
@@ -425,12 +431,24 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
                 const initBodyH = stepEl?.offsetHeight ?? 0;
                 bodyHRef.current = initBodyH;
                 naturalH.current = 429;
+                chromeHRef.current = 429 - 269;
                 modalRef.current.style.height = '429px';
                 if (!openWithAi) {
+                    const preferExpanded = (() => {
+                        try { return localStorage.getItem('healthsync_modals_expanded') === 'true'; }
+                        catch { return false; }
+                    })();
                     setTimeout(() => {
                         if (!modalRef.current) return;
-                        setTrans(['transform']);
-                        modalRef.current.style.transform = 'translateY(0)';
+                        if (preferExpanded) {
+                            setTrans(['height', 'transform']);
+                            modalRef.current.style.height = expandedH() + 'px';
+                            modalRef.current.style.transform = 'translateY(0)';
+                            setModalState('expanded');
+                        } else {
+                            setTrans(['transform']);
+                            modalRef.current.style.transform = 'translateY(0)';
+                        }
                         if (overlayRef.current) overlayRef.current.classList.add('visible');
                     }, 100);
                 }
@@ -442,7 +460,6 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
 
     useEffect(() => {
         if (!modalRef.current || !bodyRef.current || modalState === 'closed') return;
-        if (modalState === 'expanded') return;
         if (naturalH.current === 0) return;
         const refs = [step1Ref, step2Ref, step3Ref, step4Ref];
         const el = refs[step - 1].current;
@@ -450,13 +467,12 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
         const newBodyH = el.offsetHeight;
         if (newBodyH === 0) return;
         bodyHRef.current = newBodyH;
-        const fixedH = Math.max(0, naturalH.current - bodyRef.current.offsetHeight);
-        const newTotalH = fixedH + newBodyH;
-        naturalH.current = newTotalH;
+        if (chromeHRef.current > 0) naturalH.current = chromeHRef.current + newBodyH;
+        if (modalState === 'expanded') return;
         bodyRef.current.style.transition = 'height 0.38s cubic-bezier(0.4,0,0.2,1)';
         bodyRef.current.style.height = newBodyH + 'px';
         modalRef.current.style.transition = 'height 0.38s cubic-bezier(0.4,0,0.2,1)';
-        modalRef.current.style.height = newTotalH + 'px';
+        modalRef.current.style.height = naturalH.current + 'px';
         setTimeout(() => {
             if (bodyRef.current) bodyRef.current.style.transition = '';
             if (modalRef.current) modalRef.current.style.transition = '';
