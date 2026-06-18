@@ -22,9 +22,9 @@ export default function LinkOut({
     children,
 }: LinkOutProps) {
     const router = useRouter();
-    const [open, setOpen] = useState(false);          // Steuert inhaltlich den geöffneten Zustand
-    const [showPortal, setShowPortal] = useState(false); // Ob das Portal im DOM existiert
-    const [animateIn, setAnimateIn] = useState(false);   // Ob die open-Klasse gesetzt ist
+    const [open, setOpen] = useState(false);
+    const [showPortal, setShowPortal] = useState(false);
+    const [animateIn, setAnimateIn] = useState(false);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     function handleClick(e: React.MouseEvent<HTMLAnchorElement>) {
@@ -35,11 +35,9 @@ export default function LinkOut({
             return;
         }
 
-        // Portal erstellen (noch ohne open-Klasse)
         setShowPortal(true);
         setOpen(true);
 
-        // Kurze Verzögerung, damit das Element in den DOM kommt, dann open-Klasse hinzufügen
         setTimeout(() => {
             setAnimateIn(true);
         }, 10);
@@ -49,7 +47,6 @@ export default function LinkOut({
         setOpen(false);
         setAnimateIn(false);
 
-        // Nach Ende der CSS‑Transition (0.25s) das Portal aus dem DOM entfernen
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         timeoutRef.current = setTimeout(() => {
             setShowPortal(false);
@@ -73,14 +70,12 @@ export default function LinkOut({
         }
     }
 
-    // Timer beim Unmount bereinigen
     useEffect(() => {
         return () => {
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
         };
     }, []);
 
-    // Link immer rendern, Portal nur wenn nötig
     return (
         <>
             <a

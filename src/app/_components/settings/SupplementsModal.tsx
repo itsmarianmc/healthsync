@@ -120,14 +120,12 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
         if (!trackingEnabled) return;
         const day = week.find(d => d.iso === selected);
         if (!day || day.isFuture) return;
-        setTaken(prev => {
-            const dayMap = { ...(prev[selected] || {}) };
-            dayMap[suppId] = !dayMap[suppId];
-            const next = { ...prev, [selected]: dayMap };
-            persist(next);
-            return next;
-        });
-    }, [selected, week, persist, trackingEnabled]);
+        const dayMap = { ...(taken[selected] || {}) };
+        dayMap[suppId] = !dayMap[suppId];
+        const next = { ...taken, [selected]: dayMap };
+        setTaken(next);
+        persist(next);
+    }, [selected, week, persist, trackingEnabled, taken]);
 
     const selectedDay = week.find(d => d.iso === selected);
     const selectedTaken = taken[selected] || {};

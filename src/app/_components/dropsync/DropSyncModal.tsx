@@ -122,12 +122,7 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
                 try { return localStorage.getItem('healthsync_modals_expanded') === 'true'; }
                 catch { return false; }
             })();
-            // Lock in an explicit pixel height before enabling transitions so we
-            // can animate height (CSS cannot animate from `auto`). The modal is
-            // still translateY(100%) at this point so this is invisible.
             modalRef.current.style.height = naturalHeightRef.current + 'px';
-            // Force a reflow so the explicit height is committed before the
-            // transition is enabled in the next frame.
             void modalRef.current.offsetHeight;
             requestAnimationFrame(() => {
                 if (!modalRef.current) return;

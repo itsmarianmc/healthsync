@@ -327,8 +327,6 @@ function CreateModal({ editRoutine, onSave, onClose }: {
         || item.name.toLowerCase().includes(normalizedQuery)
         || item.category.toLowerCase().includes(normalizedQuery);
 
-    // Render only the first slice when idle to save bandwidth/DOM. When the user
-    // searches we render the full list so the hide/show animation can play.
     const INITIAL_LIMIT = 50;
     const renderedExercises = normalizedQuery
         ? allExercises
