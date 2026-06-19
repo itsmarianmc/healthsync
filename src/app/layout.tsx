@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { DM_Sans } from 'next/font/google';
 import Script from 'next/script';
+import { Analytics } from '@vercel/analytics/next';
 import './styles.css';
 import './cookiebanner.css'
 import { AuthProvider } from './_context/AuthContext';
@@ -164,6 +165,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                     src="https://unpkg.com/@zxing/browser@latest" 
                     strategy="afterInteractive" 
                 />
+                <Analytics />
             </body>
         </html>
     );
