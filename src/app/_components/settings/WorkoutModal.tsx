@@ -30,6 +30,49 @@ interface SessionSet extends ExerciseSet {
     state: 'pending' | 'active' | 'completed';
     activeStartTime: number | null;
     completedAt: number | null;
+    isPR?: boolean;
+}
+
+interface ExerciseBest {
+    maxWeight: number;
+    maxE1RM: number;
+}
+
+function epley(weight: number, reps: number): number {
+    if (!weight || !reps) return 0;
+    if (reps === 1) return weight;
+    return weight * (1 + reps / 30);
+}
+
+function loadExerciseBests(): Record<string, ExerciseBest> {
+    try {
+        const raw = localStorage.getItem('healthsync_workout_logs');
+        if (!raw) return {};
+        const logs = JSON.parse(raw) as Array<{
+            exercises?: Array<{
+                exerciseId?: string;
+                sets?: Array<{ weight?: number; reps?: number; completed?: boolean }>;
+            }>;
+        }>;
+        const bests: Record<string, ExerciseBest> = {};
+        for (const log of logs) {
+            for (const ex of log.exercises ?? []) {
+                const key = ex.exerciseId;
+                if (!key) continue;
+                for (const s of ex.sets ?? []) {
+                    if (!s.completed) continue;
+                    const w = Number(s.weight) || 0;
+                    const r = Number(s.reps) || 0;
+                    if (!w || !r) continue;
+                    const e = epley(w, r);
+                    const cur = bests[key] ?? (bests[key] = { maxWeight: 0, maxE1RM: 0 });
+                    if (w > cur.maxWeight) cur.maxWeight = w;
+                    if (e > cur.maxE1RM) cur.maxE1RM = e;
+                }
+            }
+        }
+        return bests;
+    } catch { return {}; }
 }
 
 interface SessionExercise {
@@ -435,8 +478,11 @@ function ActiveExerciseCard({ ex, exIdx, onChange, onShowGif }: {
                         const done = set.state === 'completed';
                         const active = set.state === 'active';
                         return (
-                            <div key={setIdx} className={`set-row${done ? ' set-done' : ''}`}>
-                                <div className="set-number">{setIdx + 1}</div>
+                            <div key={setIdx} className={`set-row${done ? ' set-done' : ''}${set.isPR ? ' set-pr' : ''}`}>
+                                <div className="set-number">
+                                    {setIdx + 1}
+                                    {set.isPR && <span className="set-pr-pill" title="New personal record">PR</span>}
+                                </div>
                                 <input type="number" className="active-set-weight" value={set.weight} placeholder="0" step={2.5} min={0}
                                 disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { weight: parseFloat(e.target.value) || 0 })} />
                                 <input type="number" className="active-set-reps" value={set.reps} placeholder="8" min={1} step={1}
@@ -473,6 +519,66 @@ const intensityLabels: Record<number, string> = {
     10: 'Hard breathing, not being able to speak, long rests',
 };
 
+const REST_DURATION_KEY = 'healthsync_rest_seconds';
+const DEFAULT_REST_SECONDS = 90;
+
+function loadRestDuration(): number {
+    if (typeof window === 'undefined') return DEFAULT_REST_SECONDS;
+    const raw = window.localStorage.getItem(REST_DURATION_KEY);
+    const n = raw ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : DEFAULT_REST_SECONDS;
+}
+
+function RestTimerBar({ remaining, active, duration, onAdjust, onSkip, onStart, onDurationChange }: {
+    remaining: number;
+    active: boolean;
+    duration: number;
+    onAdjust: (delta: number) => void;
+    onSkip: () => void;
+    onStart: () => void;
+    onDurationChange: (next: number) => void;
+}) {
+    const display = active ? remaining : duration;
+    const mm = Math.floor(display / 60);
+    const ss = String(display % 60).padStart(2, '0');
+    const pct = active && duration > 0 ? Math.max(0, Math.min(100, (remaining / duration) * 100)) : 0;
+    return (
+        <div className={`rest-timer-bar${active ? ' active' : ''}`}>
+            <div className="rest-timer-row">
+                <div className="rest-timer-label">
+                    <i className="fa-regular fa-clock" />
+                    <span>{active ? 'Rest' : 'Rest timer'}</span>
+                </div>
+                <div className="rest-timer-time">{mm}:{ss}</div>
+                <div className="rest-timer-actions">
+                    {active ? (
+                        <>
+                            <button type="button" onClick={() => onAdjust(-15)} title="-15s">-15</button>
+                            <button type="button" onClick={() => onAdjust(15)} title="+15s">+15</button>
+                            <button type="button" onClick={onSkip} title="Skip">
+                                <i className="fa-solid fa-forward" />
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button type="button" onClick={() => onDurationChange(duration - 15)} title="-15s">-15</button>
+                            <button type="button" onClick={() => onDurationChange(duration + 15)} title="+15s">+15</button>
+                            <button type="button" onClick={onStart} title="Start rest">
+                                <i className="fa-solid fa-play" />
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
+            {active && (
+                <div className="rest-timer-track">
+                    <div className="rest-timer-fill" style={{ width: `${pct}%` }} />
+                </div>
+            )}
+        </div>
+    );
+}
+
 function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     session: WorkoutSession;
     onClose: () => void;
@@ -489,9 +595,17 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     const [ratingMode, setRatingMode] = useState(false);
     const [rating, setRating] = useState<number | null>(null);
     const [panelHeight, setPanelHeight] = useState<number | undefined>(undefined);
+    const [restDuration, setRestDuration] = useState<number>(DEFAULT_REST_SECONDS);
+    const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
+    const [restRemaining, setRestRemaining] = useState<number>(0);
     const dragY = useRef(0);
     const dragStartT = useRef(0);
     const isDragging = useRef(false);
+    const prBaselineRef = useRef<Record<string, ExerciseBest>>({});
+    const sessionBestsRef = useRef<Record<string, ExerciseBest>>({});
+
+    useEffect(() => { setRestDuration(loadRestDuration()); }, []);
+    useEffect(() => { prBaselineRef.current = loadExerciseBests(); }, []);
 
     useEffect(() => {
         requestAnimationFrame(() => {
@@ -505,6 +619,41 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
         const t = setInterval(() => setElapsed(s => s + 1), 1000);
         return () => { clearInterval(t); document.body.classList.remove('modal-open'); };
     }, []);
+
+    useEffect(() => {
+        if (restEndsAt === null) { setRestRemaining(0); return; }
+        const tick = () => {
+            const left = Math.max(0, Math.ceil((restEndsAt - Date.now()) / 1000));
+            setRestRemaining(left);
+            if (left <= 0) {
+                if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([180, 60, 180]);
+                setRestEndsAt(null);
+            }
+        };
+        tick();
+        const id = setInterval(tick, 250);
+        return () => clearInterval(id);
+    }, [restEndsAt]);
+
+    const startRest = useCallback((seconds: number) => {
+        if (seconds <= 0) { setRestEndsAt(null); return; }
+        setRestEndsAt(Date.now() + seconds * 1000);
+    }, []);
+
+    const adjustRest = (delta: number) => {
+        if (restEndsAt === null) return;
+        const next = Math.max(0, restEndsAt + delta * 1000);
+        if (next <= Date.now()) { setRestEndsAt(null); }
+        else { setRestEndsAt(next); }
+    };
+
+    const skipRest = () => setRestEndsAt(null);
+
+    const updateRestDuration = (next: number) => {
+        const clamped = Math.max(15, Math.min(600, next));
+        setRestDuration(clamped);
+        if (typeof window !== 'undefined') window.localStorage.setItem(REST_DURATION_KEY, String(clamped));
+    };
 
     const minimize = useCallback(() => {
         setMinimized(true);
@@ -556,10 +705,31 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     const updateSet = (exIdx: number, setIdx: number, patch: Partial<SessionSet>) => {
         setSession(prev => ({
         ...prev,
-        exercises: prev.exercises.map((ex, i) =>
-            i !== exIdx ? ex : { ...ex, sets: ex.sets.map((s, j) => j !== setIdx ? s : { ...s, ...patch }) }
-        ),
+        exercises: prev.exercises.map((ex, i) => {
+            if (i !== exIdx) return ex;
+            return {
+                ...ex,
+                sets: ex.sets.map((s, j) => {
+                    if (j !== setIdx) return s;
+                    const next: SessionSet = { ...s, ...patch };
+                    if (patch.state === 'completed' && next.weight > 0 && next.reps > 0) {
+                        const baseline = prBaselineRef.current[ex.exerciseId] ?? { maxWeight: 0, maxE1RM: 0 };
+                        const sessionBest = sessionBestsRef.current[ex.exerciseId] ?? { maxWeight: 0, maxE1RM: 0 };
+                        const e = epley(next.weight, next.reps);
+                        const beatsWeight = next.weight > baseline.maxWeight && next.weight > sessionBest.maxWeight;
+                        const beatsE1RM = e > baseline.maxE1RM && e > sessionBest.maxE1RM;
+                        if (beatsWeight || beatsE1RM) next.isPR = true;
+                        sessionBestsRef.current[ex.exerciseId] = {
+                            maxWeight: Math.max(sessionBest.maxWeight, next.weight),
+                            maxE1RM: Math.max(sessionBest.maxE1RM, e),
+                        };
+                    }
+                    return next;
+                }),
+            };
+        }),
         }));
+        if (patch.state === 'completed') startRest(restDuration);
     };
 
     const totalSets = session.exercises.reduce((s, ex) => s + ex.sets.length, 0);
@@ -573,7 +743,7 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
         if (!activePanel) return;
         const height = activePanel.getBoundingClientRect().height;
         setPanelHeight(height);
-    }, [ratingMode, session.exercises.length, rating]);
+    }, [ratingMode, session.exercises.length, rating, restEndsAt, restRemaining]);
 
     return (
         <>
@@ -623,6 +793,15 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                                         <span style={{ fontSize: 13, color: 'var(--text2)' }} id="activeWorkoutTitle">{session.routineName}</span>
                                         <span style={{ fontSize: 12, color: 'var(--text3)' }} id="activeWorkoutProgress">{doneSets} / {totalSets} sets done</span>
                                     </div>
+                                    <RestTimerBar
+                                        remaining={restRemaining}
+                                        active={restEndsAt !== null}
+                                        duration={restDuration}
+                                        onAdjust={adjustRest}
+                                        onSkip={skipRest}
+                                        onStart={() => startRest(restDuration)}
+                                        onDurationChange={updateRestDuration}
+                                    />
                                     {session.exercises.map((ex, exIdx) => (
                                     <ActiveExerciseCard key={ex.exerciseId} ex={ex} exIdx={exIdx}
                                         onChange={updateSet} onShowGif={(url, name) => setGifModal({ url, name })} />
@@ -670,19 +849,30 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                             id="finishWorkoutBtn"
                             disabled={ratingMode && !rating}
                             onClick={finish}
-                        >{ratingMode ? 'Done' : 'Finish&nbsp;Workout'}</button>
+                        >{ratingMode ? 'Done' : 'Finish Workout'}</button>
                     </div>
                 </div>
             </div>
 
             <div id="miniWorkoutBar" className={`mini-workout-bar${minimized ? '' : ' hidden'}`}>
                 <div className="mini-workout-content">
-                    <div className="mini-workout-icon" onClick={restore}><i className="fa-solid fa-dumbbell" /></div>
+                    <div className="mini-workout-icon" onClick={restore}>
+                        {restEndsAt !== null
+                            ? <span style={{ fontSize: 13, fontWeight: 700 }}>{Math.floor(restRemaining / 60)}:{String(restRemaining % 60).padStart(2, '0')}</span>
+                            : <i className="fa-solid fa-dumbbell" />}
+                    </div>
                     <div className="mini-workout-info" onClick={restore}>
-                        <div className="mini-workout-title" id="miniWorkoutTitle">{session.routineName} - {timerStr}</div>
+                        <div className="mini-workout-title" id="miniWorkoutTitle">
+                            {restEndsAt !== null ? 'Resting…' : `${session.routineName} - ${timerStr}`}
+                        </div>
                         <div className="mini-workout-progress" id="miniWorkoutProgress">{doneSets} / {totalSets} sets</div>
                     </div>
                     <div className="mini-workout-actions">
+                        {restEndsAt !== null && (
+                            <button title="Skip rest" onClick={skipRest}>
+                                <i className="fa-solid fa-forward" />
+                            </button>
+                        )}
                         <button id="miniWorkoutFinishBtn" title="Finish" onClick={() => { if (confirm('Finish workout?')) finish(); }}>
                             <i className="fa-solid fa-check" />
                         </button>
@@ -829,6 +1019,22 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
         }
         const m = Math.floor(duration / 60), s = duration % 60;
         showToast(`Workout saved! ${m}:${String(s).padStart(2, '0')} min`);
+
+        const prs: string[] = [];
+        for (const ex of session.exercises) {
+            const best = ex.sets.filter(set => set.isPR && set.weight > 0 && set.reps > 0)
+                .reduce<{ weight: number; reps: number } | null>((acc, set) => {
+                    if (!acc || set.weight > acc.weight || (set.weight === acc.weight && set.reps > acc.reps)) {
+                        return { weight: set.weight, reps: set.reps };
+                    }
+                    return acc;
+                }, null);
+            if (best) prs.push(`${ex.name} ${best.weight}kg × ${best.reps}`);
+        }
+        if (prs.length) {
+            const label = prs.length === 1 ? `New PR: ${prs[0]}` : `New PRs: ${prs.join(', ')}`;
+            setTimeout(() => showToast(label), 600);
+        }
         setActiveSession(null);
     };
 

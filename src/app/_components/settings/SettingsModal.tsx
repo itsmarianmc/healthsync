@@ -224,54 +224,107 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     };
 
     const exportAllDataAsCSV = () => {
-        const calEntries = JSON.parse(localStorage.getItem('calsync_v1') || '[]');
-        const dsEntries = JSON.parse(localStorage.getItem('dropsync_v3') || '[]');
+        const calEntries = JSON.parse(localStorage.getItem('calsync_v1') || '[]') as Array<Record<string, unknown>>;
+        const dsEntries = JSON.parse(localStorage.getItem('dropsync_v3') || '[]') as Array<Record<string, unknown>>;
+        const workoutLogs = JSON.parse(localStorage.getItem('healthsync_workout_logs') || '[]') as Array<Record<string, unknown>>;
 
-        const getDate = (entry: any): string => {
-            return entry.date || entry.timestamp || entry.created_at || '';
+        const csvEscape = (v: unknown): string => {
+            if (v === null || v === undefined) return '';
+            const s = typeof v === 'string' ? v : String(v);
+            if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+            return s;
+        };
+        const buildCsv = (headers: string[], rows: Array<Record<string, unknown>>): string => {
+            const out = [headers.join(',')];
+            for (const r of rows) out.push(headers.map(h => csvEscape(r[h])).join(','));
+            return out.join('\r\n');
+        };
+        const isoFromTs = (ts: unknown): string => {
+            const n = typeof ts === 'number' ? ts : Number(ts);
+            return Number.isFinite(n) && n > 0 ? new Date(n).toISOString() : '';
         };
 
-        const getAmount = (entry: any): number => {
-            return entry.calories ?? entry.amount ?? entry.ml ?? 0;
-        };
+        const foodHeaders = ['id', 'date', 'datetime_iso', 'food', 'brand', 'kcal', 'protein_g', 'carbs_g', 'fat_g', 'amount', 'unit', 'source', 'is_drink', 'is_barcode', 'barcode'];
+        const foodRows = calEntries.map(e => ({
+            id: e.id ?? '',
+            date: e.date ?? '',
+            datetime_iso: isoFromTs(e.ts),
+            food: e.food ?? '',
+            brand: e.brand ?? '',
+            kcal: e.kcal ?? '',
+            protein_g: e.prot ?? '',
+            carbs_g: e.carb ?? '',
+            fat_g: e.fat ?? '',
+            amount: e.amount ?? e.weight ?? '',
+            unit: e.unit ?? '',
+            source: e.source ?? 'calsync',
+            is_drink: e.isDrink ? 'true' : 'false',
+            is_barcode: (e.isBarcode || !!e.barcode) ? 'true' : 'false',
+            barcode: e.barcode ?? '',
+        }));
 
-        const rows = [
-            ...calEntries.map((entry: any) => ({
-                date: getDate(entry),
-                source: 'calorie',
-                amount: getAmount(entry),
-                notes: entry.notes || entry.foodName || ''
-            })),
-            ...dsEntries.map((entry: any) => ({
-                date: getDate(entry),
-                source: 'hydration',
-                amount: getAmount(entry),
-                notes: entry.notes || ''
-            }))
-        ];
+        const drinkHeaders = ['id', 'date', 'datetime_iso', 'drink', 'amount_ml', 'source'];
+        const drinkRows = dsEntries.map(e => ({
+            id: e.id ?? '',
+            date: e.date ?? '',
+            datetime_iso: isoFromTs(e.ts),
+            drink: e.drink ?? '',
+            amount_ml: e.amount ?? '',
+            source: e.source ?? 'dropsync',
+        }));
 
-        const validRows = rows.filter(row => row.date);
+        const workoutHeaders = ['session_id', 'routine_id', 'routine_name', 'start_iso', 'end_iso', 'duration_seconds', 'intensity', 'exercise_id', 'exercise_name', 'set_index', 'weight_kg', 'reps', 'completed'];
+        const workoutRows: Array<Record<string, unknown>> = [];
+        for (const log of workoutLogs) {
+            const exercises = Array.isArray(log.exercises) ? log.exercises as Array<Record<string, unknown>> : [];
+            for (const ex of exercises) {
+                const sets = Array.isArray(ex.sets) ? ex.sets as Array<Record<string, unknown>> : [];
+                sets.forEach((s, idx) => {
+                    workoutRows.push({
+                        session_id: log.id ?? '',
+                        routine_id: log.routineId ?? '',
+                        routine_name: log.routineName ?? '',
+                        start_iso: isoFromTs(log.startTime),
+                        end_iso: isoFromTs(log.endTime),
+                        duration_seconds: log.duration ?? '',
+                        intensity: log.intensity ?? ex.intensity ?? '',
+                        exercise_id: ex.exerciseId ?? '',
+                        exercise_name: ex.name ?? ex.exerciseName ?? '',
+                        set_index: idx + 1,
+                        weight_kg: s.weight ?? '',
+                        reps: s.reps ?? '',
+                        completed: s.completed ? 'true' : 'false',
+                    });
+                });
+            }
+        }
 
-        if (validRows.length === 0) {
+        const goalRows = [{
+            calorie_kcal: localStorage.getItem('calsync_goal') ?? '',
+            protein_g: localStorage.getItem('calsync_goal_protein') ?? '',
+            carbs_g: localStorage.getItem('calsync_goal_carbs') ?? '',
+            fat_g: localStorage.getItem('calsync_goal_fat') ?? '',
+            water_ml: localStorage.getItem('dropsync_goal') ?? '',
+            exported_at: new Date().toISOString(),
+        }];
+        const goalHeaders = ['calorie_kcal', 'protein_g', 'carbs_g', 'fat_g', 'water_ml', 'exported_at'];
+
+        const files: Array<{ name: string; rows: Array<Record<string, unknown>>; headers: string[] }> = [
+            { name: 'healthsync_food.csv', rows: foodRows, headers: foodHeaders },
+            { name: 'healthsync_drinks.csv', rows: drinkRows, headers: drinkHeaders },
+            { name: 'healthsync_workouts.csv', rows: workoutRows, headers: workoutHeaders },
+            { name: 'healthsync_goals.csv', rows: goalRows, headers: goalHeaders },
+        ].filter(f => f.rows.length > 0);
+
+        if (files.length === 0) {
             showToast('No data to export.');
             return;
         }
 
-        const headers = ['date', 'source', 'amount', 'notes'];
-        const csvRows = [headers.join(',')];
-
-        for (const row of validRows) {
-            const values = headers.map(header => {
-                const val = row[header as keyof typeof row];
-                const escaped = String(val).replace(/"/g, '""');
-                return `"${escaped}"`;
-            });
-            csvRows.push(values.join(','));
-        }
-
-        const csvString = csvRows.join('\n');
-        downloadFile('healthsync_export.csv', csvString, 'text/csv');
-        showToast('All data exported as CSV');
+        files.forEach((f, i) => {
+            setTimeout(() => downloadFile(f.name, '\uFEFF' + buildCsv(f.headers, f.rows), 'text/csv;charset=utf-8'), i * 200);
+        });
+        showToast(`Exported ${files.length} CSV file${files.length === 1 ? '' : 's'}`);
     };
 
     const deleteAllData = () => {
