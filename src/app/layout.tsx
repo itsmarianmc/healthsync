@@ -70,10 +70,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </head>
             <body suppressHydrationWarning>
                 <script
-                    // Paint the splash screen synchronously, before React hydrates,
-                    // so users never see a flash of the app under it. Also re-shows
-                    // the splash on tab return and on pagehide (so the OS app-switcher
-                    // snapshot in PWAs captures the splash, not the live UI).
+                    // Paint the splash screen synchronously, before React hydrates, so users never see a flash of the app under it. Also re-shows the splash on tab return and on pagehide (so the OS app-switcher snapshot in PWAs captures the splash, not the live UI).
                     dangerouslySetInnerHTML={{
                         __html: `(() => {
   try {

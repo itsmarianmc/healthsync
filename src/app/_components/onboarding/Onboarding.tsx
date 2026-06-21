@@ -171,7 +171,7 @@ export default function Onboarding({ onDone }: OnboardingProps) {
                                         <p>By using this feature, you agree to use it at your own risk and verify any nutrition data against trusted sources before relying on it.</p>
                                         <p>Images and prompts are sent to the local proxy for processing. Service availability and proxy limits may affect functionality.</p>
                                         <p>HealthSync does not store your API key on external servers. If you are using a local proxy, ensure it is configured securely and accessible only to trusted clients.</p>
-                                        <p>API usage may generate costs based on Google's current pricing model. HealthSync does not monitor, cap, reimburse, or assume responsibility for any API charges incurred.</p>
+                                        <p>API usage may generate costs based on Google&apos;s current pricing model. HealthSync does not monitor, cap, reimburse, or assume responsibility for any API charges incurred.</p>
                                         <p>Rate limits, service interruptions, quota restrictions, or API changes imposed by Google may affect functionality. HealthSync has no control over external API availability.</p>
                                         <p>HealthSync does not store your API key on external servers unless explicitly stated. If stored locally in your browser or device, you are responsible for its security.</p>
                                         <p>The AI may misidentify foods, underestimate or overestimate calories, or provide incomplete macronutrient information.</p>
@@ -180,7 +180,7 @@ export default function Onboarding({ onDone }: OnboardingProps) {
                                         <p>Do not rely solely on AI-generated values for medical conditions, weight management programs, allergies, diabetes management, or other dietary decisions.</p>
                                         <p>HealthSync assumes no liability for inaccuracies, financial costs, health outcomes, or damages resulting from the use of AI-based nutrition detection.</p>
                                     </div>
-                                    <p className="onboarding-legal-agree">By tapping "Let's go!" you confirm that you have read and agree to the Terms of Service and acknowledge the Privacy Policy as well as the AI and Meal Scanning disclosures.</p>
+                                    <p className="onboarding-legal-agree">By tapping &quot;Let&apos;s go!&quot; you confirm that you have read and agree to the Terms of Service and acknowledge the Privacy Policy as well as the AI and Meal Scanning disclosures.</p>
                                 </div>
                             )}
                             {s.last && (

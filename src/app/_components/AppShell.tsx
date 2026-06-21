@@ -36,9 +36,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     } = useAppShell();
 
     const [onboardingDone, setOnboardingDone] = useState(true);
+    const [supplementsEnabled, setSupplementsEnabled] = useState(false);
 
     useEffect(() => {
         setOnboardingDone(!!localStorage.getItem(ONBOARDING_KEY));
+    }, []);
+
+    useEffect(() => {
+        const read = () => setSupplementsEnabled(localStorage.getItem('calsync_track_supplements') === 'true');
+        read();
+        window.addEventListener('storage', read);
+        return () => window.removeEventListener('storage', read);
     }, []);
 
     useEffect(() => {
@@ -84,6 +92,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }, [settingsOpen]);
 
     const handleExtraAction = useCallback((action: string) => {
+        if (action === 'supplements' && !supplementsEnabled) return;
         setExtraMenuOpen(false);
         if (action === 'describe-food') {
             router.push('/food?openModal=true&mode=describe');
@@ -97,7 +106,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         } else if (action === 'training') openWorkout();
         else if (action === 'workout-history') openWorkoutHistory();
         else if (action === 'supplements') openSupplements();
-    }, [router, setExtraMenuOpen, openWorkout, openWorkoutHistory, openSupplements]);
+    }, [router, setExtraMenuOpen, openWorkout, openWorkoutHistory, openSupplements, supplementsEnabled]);
 
     const [extraScannerOpen, setExtraScannerOpen] = useState(false);
 
@@ -160,7 +169,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                             <div className="grid-item" data-action="workout-history" onClick={() => handleExtraAction('workout-history')}>
                             <i className="fa-solid fa-clock-rotate-left" /><span>View Workouts</span>
                             </div>
-                            <div className="grid-item" data-action="supplements" onClick={() => handleExtraAction('supplements')}>
+                            <div
+                                className={`grid-item${supplementsEnabled ? '' : ' disabled'}`}
+                                data-action="supplements"
+                                aria-disabled={!supplementsEnabled}
+                                onClick={() => handleExtraAction('supplements')}
+                            >
                             <i className="fa-solid fa-capsules" /><span>Supplements</span>
                             </div>
                         </div>

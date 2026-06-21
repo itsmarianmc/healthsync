@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 import type { FoodEntry } from '../../_lib/types';
 
 const MACRO_CIRC = 2 * Math.PI * 16;
@@ -10,18 +10,32 @@ interface MacroRingsProps {
     goal: number;
 }
 
-export default function MacroRings({ entries, goal }: MacroRingsProps) {
-    const [today, setToday] = useState(() => typeof window !== 'undefined' ? new Date().toDateString() : '');
-    const [proteinGoal, setProteinGoal] = useState(() => typeof window !== 'undefined' ? parseInt(localStorage.getItem('calsync_goal_protein') || '0', 10) : 0);
-    const [carbsGoal, setCarbsGoal] = useState(() => typeof window !== 'undefined' ? parseInt(localStorage.getItem('calsync_goal_carbs') || '0', 10) : 0);
-    const [fatGoal, setFatGoal] = useState(() => typeof window !== 'undefined' ? parseInt(localStorage.getItem('calsync_goal_fat') || '0', 10) : 0);
+function subscribeStorage(callback: () => void) {
+    window.addEventListener('storage', callback);
+    return () => window.removeEventListener('storage', callback);
+}
 
-    useEffect(() => {
-        setToday(new Date().toDateString());
-        setProteinGoal(parseInt(localStorage.getItem('calsync_goal_protein') || '0', 10));
-        setCarbsGoal(parseInt(localStorage.getItem('calsync_goal_carbs') || '0', 10));
-        setFatGoal(parseInt(localStorage.getItem('calsync_goal_fat') || '0', 10));
-    }, []);
+function useStorageInt(key: string, fallback: number): number {
+    return useSyncExternalStore(
+        subscribeStorage,
+        () => parseInt(localStorage.getItem(key) || String(fallback), 10),
+        () => fallback,
+    );
+}
+
+function useTodayString(): string {
+    return useSyncExternalStore(
+        () => () => {},
+        () => new Date().toDateString(),
+        () => '',
+    );
+}
+
+export default function MacroRings({ entries, goal }: MacroRingsProps) {
+    const today = useTodayString();
+    const proteinGoal = useStorageInt('calsync_goal_protein', 0);
+    const carbsGoal = useStorageInt('calsync_goal_carbs', 0);
+    const fatGoal = useStorageInt('calsync_goal_fat', 0);
 
     const todayEntries = today ? entries.filter(e => e.date === today) : [];
 

@@ -107,9 +107,20 @@ export default function HistoryModal({ entries, isOpen, onClose }: HistoryModalP
             requestAnimationFrame(() => requestAnimationFrame(() => {
                 if (!modalRef.current) return;
                 naturalHeightRef.current = modalRef.current.offsetHeight;
-                setTransition(['transform']);
-                modalRef.current.style.transform = 'translateY(0)';
-                modalRef.current.style.height = naturalHeightRef.current + 'px';
+                const preferExpanded = (() => {
+                    try { return localStorage.getItem('healthsync_modals_expanded') === 'true'; }
+                    catch { return false; }
+                })();
+                if (preferExpanded) {
+                    setTransition(['height', 'transform']);
+                    modalRef.current.style.transform = 'translateY(0)';
+                    modalRef.current.style.height = expandedHeight() + 'px';
+                    setModalState('expanded');
+                } else {
+                    setTransition(['transform']);
+                    modalRef.current.style.transform = 'translateY(0)';
+                    modalRef.current.style.height = naturalHeightRef.current + 'px';
+                }
             }));
         } else if (!isOpen && modalState !== 'closed') {
         snapToClosed();
@@ -149,7 +160,8 @@ export default function HistoryModal({ entries, isOpen, onClose }: HistoryModalP
         isCapturingRef.current = false;
         const dy = dragDYRef.current;
         const vel = velRef.current;
-        if (dy > 80 || vel > 400) { if (modalState === 'expanded') snapToOpen(); else snapToClosed(); }
+        if (vel > 1500 && dy > 0) { snapToClosed(); }
+        else if (dy > 80 || vel > 400) { if (modalState === 'expanded') snapToOpen(); else snapToClosed(); }
         else if (dy < -60 || vel < -400) snapToExpanded();
         else { if (modalState === 'expanded') snapToExpanded(); else snapToOpen(); }
         dragDYRef.current = 0;

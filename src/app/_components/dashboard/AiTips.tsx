@@ -124,6 +124,24 @@ function pickMessage(stats: ReturnType<typeof getCurrentStats>): { title: string
   ]);
 }
 
+const SECONDARY_TIPS: string[] = [
+  'Small habits add up - keep checking in throughout the day.',
+  'A short walk after meals can help with digestion and energy.',
+  'Try to take a few deep breaths between tasks to reset focus.',
+  'Sleep is a multiplier - aim for a consistent bedtime tonight.',
+  'Drinking a glass of water before each meal helps with hunger cues.',
+  'Stretching for two minutes can ease tension from long sitting.',
+  'Protein with every meal helps keep you full and supports recovery.',
+  'Sunlight in the morning supports better mood and sleep rhythm.',
+  'Plan tomorrow\'s first meal tonight - one less decision in the morning.',
+  'Consistency beats intensity - showing up is what counts.',
+];
+
+function pickSecondaryText(exclude: string): string {
+  const pool = SECONDARY_TIPS.filter(t => t !== exclude);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 interface AiTipsProps {
   score: number;
 }
@@ -131,19 +149,33 @@ interface AiTipsProps {
 export default function AiTips({ score }: AiTipsProps) {
     const [title, setTitle] = useState('');
     const [text, setText] = useState('');
+    const [text2, setText2] = useState('');
     const [loaded, setLoaded] = useState(false);
     const lastHashRef = useRef('');
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const skeletonTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const refresh = useCallback(() => {
-        if (!isAIEnabled()) { setLoaded(false); return; }
+        if (!isAIEnabled()) {
+            if (skeletonTimeoutRef.current) { clearTimeout(skeletonTimeoutRef.current); skeletonTimeoutRef.current = null; }
+            setLoaded(false);
+            return;
+        }
         const stats = getCurrentStats();
         if (stats._hash === lastHashRef.current && loaded) return;
         lastHashRef.current = stats._hash;
         const msg = pickMessage(stats);
-        setTitle(msg.title);
-        setText(msg.text);
-        setLoaded(true);
+        const secondary = pickSecondaryText(msg.text);
+        if (skeletonTimeoutRef.current) clearTimeout(skeletonTimeoutRef.current);
+        setLoaded(false);
+        const delay = 2000 + Math.random() * 1000;
+        skeletonTimeoutRef.current = setTimeout(() => {
+            setTitle(msg.title);
+            setText(msg.text);
+            setText2(secondary);
+            setLoaded(true);
+            skeletonTimeoutRef.current = null;
+        }, delay);
     }, [loaded]);
 
     useEffect(() => {
@@ -155,6 +187,7 @@ export default function AiTips({ score }: AiTipsProps) {
         (window as typeof window & { refreshAITip?: () => void }).refreshAITip = refresh;
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current);
+            if (skeletonTimeoutRef.current) clearTimeout(skeletonTimeoutRef.current);
             window.removeEventListener('storage', refresh);
             window.removeEventListener('requestAITipUpdate', handler);
         };
@@ -181,7 +214,10 @@ export default function AiTips({ score }: AiTipsProps) {
                     {loaded && aiEnabled ? (
                         <>
                             <div className="dashboard-widget-title" id="aiTipTitle" dangerouslySetInnerHTML={{ __html: title }} />
-                            <div className="dashboard-widget-text" id="aiTipText">{text}</div>
+                            <div className="dashboard-widget-text" id="aiTipText">
+                                <div>{text}</div>
+                                <div>{text2}</div>
+                            </div>
                         </>
                     ) : (
                         <>

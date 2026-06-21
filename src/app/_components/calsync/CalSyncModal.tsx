@@ -99,6 +99,7 @@ function mapProduct(product: Record<string, unknown>): FoodSearchResult {
         defaultUnit: isLiquid ? 'ml' : 'g',
         isBarcode: true,
         isPrepared,
+        barcode: ((product.code as string) || (product._id as string) || '') || undefined,
     };
 }
 
@@ -201,6 +202,7 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
     const [showRecent, setShowRecent] = useState(true);
     const [recent, setRecent] = useState<ReturnType<typeof loadRecent>>([]);
     const [favs, setFavs] = useState<FoodSearchResult[]>([]);
+    const [favOpen, setFavOpen] = useState(false);
     const [, forceUpdate] = useState(0);
     const [cameraOpen, setCameraOpen] = useState(false);
     const [modalState, setModalState] = useState<'closed' | 'open' | 'expanded'>('closed');
@@ -224,6 +226,7 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
     const overlayRef = useRef<HTMLDivElement>(null);
     const bodyRef = useRef<HTMLDivElement>(null);
     const naturalH = useRef(0);
+    const chromeHRef = useRef(0);
     const dragStartY = useRef(0);
     const dragDY = useRef(0);
     const vel = useRef(0);
@@ -232,6 +235,10 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
     const isCapturing = useRef(false);
     const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const usedBarcodeRef = useRef<string | null>(null);
+    const favModalRef = useRef<HTMLDivElement>(null);
+    const favDragStartY = useRef(0);
+    const favDragDY = useRef(0);
+    const favIsDragging = useRef(false);
 
     const expandedH = () => window.innerHeight - SHEET_TOP_MARGIN;
     const setNoTrans = () => { if (modalRef.current) modalRef.current.style.transition = 'none'; };
@@ -246,8 +253,13 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
     const snapToOpen = useCallback(() => {
         setModalState('open');
         setTrans(['height', 'transform']);
-        if (modalRef.current) { modalRef.current.style.height = naturalH.current + 'px'; modalRef.current.style.transform = 'translateY(0)'; }
-        if (bodyRef.current && bodyHRef.current > 0) { bodyRef.current.style.height = bodyHRef.current + 'px'; }
+        if (!modalRef.current || !bodyRef.current) return;
+        if (chromeHRef.current > 0 && bodyHRef.current > 0) {
+            naturalH.current = chromeHRef.current + bodyHRef.current;
+        }
+        modalRef.current.style.height = naturalH.current + 'px';
+        modalRef.current.style.transform = 'translateY(0)';
+        if (bodyHRef.current > 0) bodyRef.current.style.height = bodyHRef.current + 'px';
     }, []);
 
     const snapToExpanded = useCallback(() => {
@@ -299,6 +311,7 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
         setSearchResults([]); setSearchStatus(''); setSearchLoading(false);
         setShowRecent(true); setShowNFT(false);
         setRecent(loadRecent()); setFavs(loadFavs());
+        setFavOpen(false);
         setAiMethodOpen(false); setAiTextOpen(false); setAiTextValue(''); setAiProcessing(false);
         isModalHiddenForAiRef.current = false;
         aiProcessingRef.current = false;
@@ -425,12 +438,24 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
                 const initBodyH = stepEl?.offsetHeight ?? 0;
                 bodyHRef.current = initBodyH;
                 naturalH.current = 429;
+                chromeHRef.current = 429 - 269;
                 modalRef.current.style.height = '429px';
                 if (!openWithAi) {
+                    const preferExpanded = (() => {
+                        try { return localStorage.getItem('healthsync_modals_expanded') === 'true'; }
+                        catch { return false; }
+                    })();
                     setTimeout(() => {
                         if (!modalRef.current) return;
-                        setTrans(['transform']);
-                        modalRef.current.style.transform = 'translateY(0)';
+                        if (preferExpanded) {
+                            setTrans(['height', 'transform']);
+                            modalRef.current.style.height = expandedH() + 'px';
+                            modalRef.current.style.transform = 'translateY(0)';
+                            setModalState('expanded');
+                        } else {
+                            setTrans(['transform']);
+                            modalRef.current.style.transform = 'translateY(0)';
+                        }
                         if (overlayRef.current) overlayRef.current.classList.add('visible');
                     }, 100);
                 }
@@ -442,7 +467,6 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
 
     useEffect(() => {
         if (!modalRef.current || !bodyRef.current || modalState === 'closed') return;
-        if (modalState === 'expanded') return;
         if (naturalH.current === 0) return;
         const refs = [step1Ref, step2Ref, step3Ref, step4Ref];
         const el = refs[step - 1].current;
@@ -450,13 +474,12 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
         const newBodyH = el.offsetHeight;
         if (newBodyH === 0) return;
         bodyHRef.current = newBodyH;
-        const fixedH = Math.max(0, naturalH.current - bodyRef.current.offsetHeight);
-        const newTotalH = fixedH + newBodyH;
-        naturalH.current = newTotalH;
+        if (chromeHRef.current > 0) naturalH.current = chromeHRef.current + newBodyH;
+        if (modalState === 'expanded') return;
         bodyRef.current.style.transition = 'height 0.38s cubic-bezier(0.4,0,0.2,1)';
         bodyRef.current.style.height = newBodyH + 'px';
         modalRef.current.style.transition = 'height 0.38s cubic-bezier(0.4,0,0.2,1)';
-        modalRef.current.style.height = newTotalH + 'px';
+        modalRef.current.style.height = naturalH.current + 'px';
         setTimeout(() => {
             if (bodyRef.current) bodyRef.current.style.transition = '';
             if (modalRef.current) modalRef.current.style.transition = '';
@@ -501,7 +524,8 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
     const handlePointerUp = () => {
         if (!isCapturing.current) return; isCapturing.current = false;
         const dy = dragDY.current; const v = vel.current;
-        if (dy > 80 || v > 400) { if (modalState === 'expanded') snapToOpen(); else snapToClosed(); }
+        if (v > 1500 && dy > 0) { snapToClosed(); }
+        else if (dy > 80 || v > 400) { if (modalState === 'expanded') snapToOpen(); else snapToClosed(); }
         else if (dy < -60 || v < -400) snapToExpanded();
         else { if (modalState === 'expanded') snapToExpanded(); else snapToOpen(); }
         dragDY.current = 0;
@@ -537,7 +561,9 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
         const data = await (await fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`)).json();
         setSearchLoading(false);
         if (data.status !== 1 || !data.product) { setSearchResults([]); setSearchStatus('Product not found. Try searching by name.'); return; }
-        const foods = [mapProduct(data.product)];
+        const mapped = mapProduct(data.product);
+        if (!mapped.barcode) mapped.barcode = code.trim();
+        const foods = [mapped];
             setSearchResults(foods);
             setSearchStatus('');
             saveRecent(code.trim(), 'barcode', foods);
@@ -581,6 +607,45 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
         setShowNFT(false);
         setShowRecent(false);
         goToStep(4);
+    };
+
+    const openFavSheet = () => {
+        setFavs(loadFavs());
+        setFavOpen(true);
+    };
+
+    const closeFavSheet = useCallback(() => {
+        if (favModalRef.current) {
+            favModalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4, 0, 0.2, 1)';
+            favModalRef.current.style.transform = 'translateY(110%)';
+        }
+        setTimeout(() => setFavOpen(false), 320);
+    }, []);
+
+    useEffect(() => {
+        if (!favOpen || !favModalRef.current) return;
+        const m = favModalRef.current;
+        m.style.transition = 'none';
+        m.style.height = `${expandedH()}px`;
+        m.style.transform = 'translateY(110%)';
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (!m) return;
+            m.style.transition = `transform 0.42s ${EASE}`;
+            m.style.transform = 'translateY(0)';
+        }));
+    }, [favOpen]);
+
+    const toggleSelFoodFav = () => {
+        if (!selFood) return;
+        if (isFav(selFood.name, selFood.brand ?? '')) {
+            removeFav(selFood.name, selFood.brand ?? '');
+            onShowToast('Removed from favourites');
+        } else {
+            saveFav(selFood);
+            onShowToast('Added to favourites');
+        }
+        setFavs(loadFavs());
+        forceUpdate(n => n + 1);
     };
 
     const startManual = () => {
@@ -638,6 +703,8 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
             ts: Date.now(),
             date: new Date().toDateString(),
             isDrink,
+            isBarcode: !!selFood.isBarcode,
+            barcode: selFood.barcode || undefined,
         };
         onLog(entry);
         snapToClosed();
@@ -808,6 +875,10 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
                                             onClick={() => setCameraOpen(true)}>
                                                 <i className="fa-solid fa-camera" />
                                             </button>
+                                            <button className={`scan-btn${favOpen ? ' active' : ''}`} id="cs-favouritesBtn" title="Favourites"
+                                                onClick={openFavSheet}>
+                                                <i className="fa-solid fa-star" />
+                                            </button>
                                         </div>
 
                                         {showRecent && (
@@ -903,6 +974,17 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
                                             <div className="food-preview-brand" id="foodPreviewBrand">{selFood.brand}</div>
                                             <div className="food-preview-per" id="foodPreviewPer">{selFood.isManual ? 'Enter calories manually below' : `per 100${selFood.defaultUnit}`}</div>
                                         </div>
+                                        {!selFood.isManual && (
+                                            <button
+                                                type="button"
+                                                className={`food-preview-fav${isFav(selFood.name, selFood.brand ?? '') ? ' active' : ''}`}
+                                                onClick={toggleSelFoodFav}
+                                                aria-label={isFav(selFood.name, selFood.brand ?? '') ? 'Remove from favourites' : 'Save to favourites'}
+                                                title={isFav(selFood.name, selFood.brand ?? '') ? 'Remove from favourites' : 'Save to favourites'}
+                                            >
+                                                <i className={isFav(selFood.name, selFood.brand ?? '') ? 'fa-solid fa-star' : 'fa-regular fa-star'} />
+                                            </button>
+                                        )}
                                         </div>
 
                                         {!selFood.isPrepared && (
@@ -1027,6 +1109,70 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
                     </div>
                     <div className="modal-footer">
                         <button className="confirm-btn" id="aiTextSubmitBtn" onClick={handleTextSubmit}>Analyze</button>
+                    </div>
+                </div>
+            </div>
+            <div className={`app-overlay${favOpen ? ' visible' : ''}`} id="favouritesOverlay"
+                onClick={e => { if (e.currentTarget === e.target) closeFavSheet(); }}>
+                <div className="modal" id="favouritesModal" ref={favModalRef}
+                    style={{ transform: 'translateY(110%)' }}>
+                    <div className="modal-handle-zone" id="favouritesHandleZone"
+                        onPointerDown={e => {
+                            if (!favModalRef.current) return;
+                            favIsDragging.current = true;
+                            favDragStartY.current = e.clientY;
+                            favDragDY.current = 0;
+                            favModalRef.current.style.transition = 'none';
+                            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                        }}
+                        onPointerMove={e => {
+                            if (!favIsDragging.current || !favModalRef.current) return;
+                            const dy = Math.max(0, e.clientY - favDragStartY.current);
+                            favDragDY.current = dy;
+                            favModalRef.current.style.transform = `translateY(${dy}px)`;
+                        }}
+                        onPointerUp={() => {
+                            if (!favIsDragging.current || !favModalRef.current) return;
+                            favIsDragging.current = false;
+                            const dy = favDragDY.current;
+                            favDragDY.current = 0;
+                            if (dy > 120) {
+                                closeFavSheet();
+                            } else {
+                                favModalRef.current.style.transition = `transform 0.32s ${EASE}`;
+                                favModalRef.current.style.transform = 'translateY(0)';
+                            }
+                        }}>
+                        <div className="modal-handle" />
+                    </div>
+                    <div className="modal-header">
+                        <div className="modal-title"><i className="fa-solid fa-star" style={{ color: 'var(--accent)', marginRight: 8 }} />Favourites</div>
+                    </div>
+                    <div className="modal-body" id="favouritesModalBody" style={{ padding: '0 16px 16px', overflowY: 'auto', flex: 1 }}>
+                        {favs.length === 0 ? (
+                            <div className="saved-foods-empty">
+                                <i className="fa-regular fa-star" />
+                                <div>No favourites yet.</div>
+                                <div className="saved-foods-empty-sub">Tap the star next to a search result or on the food preview to save it here.</div>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 8 }}>
+                                {favs.map((f, i) => (
+                                    <div key={`fav${i}`} className="recent-item fav-item" onClick={() => { closeFavSheet(); selectFood(f); }}>
+                                        <div className="recent-item-icon">
+                                            <i className={f.emoji || 'fa-solid fa-utensils'} style={{ color: f.color || 'var(--accent)' }} />
+                                        </div>
+                                        <div className="recent-item-info">
+                                            <div className="recent-item-query fav-item-name">{f.name}</div>
+                                            <div className="recent-item-sub">{f.brand || `${Math.round(f.kcalPer100)} kcal/100${f.defaultUnit || 'g'}`}</div>
+                                        </div>
+                                        <button className="fav-remove-btn" onClick={e => { e.stopPropagation(); removeFav(f.name, f.brand ?? ''); setFavs(loadFavs()); onShowToast('Removed from favourites'); }}>
+                                            <i className="fa-solid fa-xmark" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

@@ -29,14 +29,8 @@ export default function CalSync({
         onModalClose: externalOnModalClose,
 }: CalSyncProps) {
     const { user, showToast } = useAuth();
-    const [entries, setEntries] = useState<FoodEntry[]>(() => {
-        if (typeof window === 'undefined') return [];
-        try { return JSON.parse(localStorage.getItem('calsync_v1') || '[]'); } catch { return []; }
-    });
-    const [goal, setGoal] = useState(() => {
-        if (typeof window === 'undefined') return 2000;
-        return parseInt(localStorage.getItem('calsync_goal') || '2000', 10);
-    });
+    const [entries, setEntries] = useState<FoodEntry[]>([]);
+    const [goal, setGoal] = useState(2000);
     const [modalOpen, setModalOpen] = useState(false);
     const [historyOpen, setHistoryOpen] = useState(false);
     const [tick, setTick] = useState(0);
