@@ -3191,6 +3191,7 @@ input::-webkit-inner-spin-button {
 	background: var(--surface);
 	border: 1px solid var(--border);
 	border-radius: var(--radius-sm);
+	margin-bottom: 1rem;
 	margin-top: 20px;
 	padding: 60px 20px;
 	text-align: center;

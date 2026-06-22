@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   const type = req.nextUrl.searchParams.get('type');
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
     headers.set('content-type', res.headers.get('content-type') || 'application/json');
     return new Response(text, { status: res.status, headers });
   } catch (error) {
-    console.error('Proxy error:', error);
+    logger.error('Proxy error occurred');
     return new Response(JSON.stringify({ error: 'Proxy request failed' }), {
       status: 502,
       headers: { 'content-type': 'application/json' },

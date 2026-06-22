@@ -10,6 +10,7 @@ import { useAuth } from '../../_context/AuthContext';
 import { pushFoodEntriesToCloud, deleteFoodFromCloud, syncDrinkToCloud } from '../../_lib/sync';
 import { removeHeaderBtn, addHeaderBtn } from '../../_lib/headerBtns';
 import HeaderTitle from '../shared/HeaderTitle';
+import { logger } from '@/lib/logger';
 
 interface CalSyncProps {
     nfl?: boolean;
@@ -72,7 +73,7 @@ export default function CalSync({
                 const detail = (e as CustomEvent).detail as FoodEntry | undefined;
                 if (detail) handleLog(detail);
             } catch (err) {
-                console.error('Failed to handle sym:logFood event', err);
+                logger.error('Failed to handle sync event');
             }
         };
         window.addEventListener('sym:logFood', onSymLog as EventListener);

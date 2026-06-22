@@ -70,83 +70,86 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </head>
             <body suppressHydrationWarning>
                 <script
+                    id="splash-screen-init"
                     // Paint the splash screen synchronously, before React hydrates, so users never see a flash of the app under it. Also re-shows the splash on tab return and on pagehide (so the OS app-switcher snapshot in PWAs captures the splash, not the live UI).
+                    // Using dangerouslySetInnerHTML here is intentional - we need this script to run before React hydration
                     dangerouslySetInnerHTML={{
                         __html: `(() => {
-  try {
-    var KEY = 'calsync_splash_enabled';
-    var ID = '__hs_splash';
-    var DURATION = 1400;
-    var FADE = 320;
-    var hideTimer = null;
-    var ensured = false;
+                            try {
+                                var KEY = 'calsync_splash_enabled';
+                                var ID = '__hs_splash';
+                                var DURATION = 1400;
+                                var FADE = 320;
+                                var hideTimer = null;
+                                var ensured = false;
 
-    function isEnabled() { try { return localStorage.getItem(KEY) === 'true'; } catch (e) { return false; } }
+                                function isEnabled() { try { return localStorage.getItem(KEY) === 'true'; } catch (e) { return false; } }
 
-    function ensureStyles() {
-      if (document.getElementById('__hs_splash_style')) return;
-      var s = document.createElement('style');
-      s.id = '__hs_splash_style';
-      s.textContent = '#' + ID + '{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0F0F10;z-index:99999;opacity:1;transition:opacity ' + FADE + 'ms ease-out;pointer-events:auto;}'
-        + '#' + ID + '.h{opacity:0;pointer-events:none;}'
-        + '#' + ID + ' img{width:128px;height:128px;border-radius:24px;animation:__hsP 1.5s ease-in-out infinite alternate;}'
-        + '@keyframes __hsP{from{transform:scale(1);opacity:1}to{transform:scale(1.08);opacity:.85}}';
-      (document.head || document.documentElement).appendChild(s);
-    }
+                                function ensureStyles() {
+                                if (document.getElementById('__hs_splash_style')) return;
+                                var s = document.createElement('style');
+                                s.id = '__hs_splash_style';
+                                s.textContent = '#' + ID + '{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0F0F10;z-index:99999;opacity:1;transition:opacity ' + FADE + 'ms ease-out;pointer-events:auto;}'
+                                    + '#' + ID + '.h{opacity:0;pointer-events:none;}'
+                                    + '#' + ID + ' img{width:128px;height:128px;border-radius:24px;animation:__hsP 1.5s ease-in-out infinite alternate;}'
+                                    + '@keyframes __hsP{from{transform:scale(1);opacity:1}to{transform:scale(1.08);opacity:.85}}';
+                                (document.head || document.documentElement).appendChild(s);
+                                }
 
-    function getOrCreate() {
-      var el = document.getElementById(ID);
-      if (el) return el;
-      ensureStyles();
-      el = document.createElement('div');
-      el.id = ID;
-      el.setAttribute('aria-hidden', 'true');
-      var img = document.createElement('img');
-      img.src = '/favicon.png';
-      img.alt = '';
-      el.appendChild(img);
-      var parent = document.body || document.documentElement;
-      parent.appendChild(el);
-      return el;
-    }
+                                function getOrCreate() {
+                                var el = document.getElementById(ID);
+                                if (el) return el;
+                                ensureStyles();
+                                el = document.createElement('div');
+                                el.id = ID;
+                                el.setAttribute('aria-hidden', 'true');
+                                var img = document.createElement('img');
+                                img.src = '/favicon.png';
+                                img.alt = '';
+                                el.appendChild(img);
+                                var parent = document.body || document.documentElement;
+                                parent.appendChild(el);
+                                return el;
+                                }
 
-    function show(autoHide) {
-      if (!isEnabled()) return;
-      var el = getOrCreate();
-      el.classList.remove('h');
-      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-      if (autoHide) hideTimer = setTimeout(hide, DURATION);
-    }
+                                function show(autoHide) {
+                                if (!isEnabled()) return;
+                                var el = getOrCreate();
+                                el.classList.remove('h');
+                                if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+                                if (autoHide) hideTimer = setTimeout(hide, DURATION);
+                                }
 
-    function hide() {
-      var el = document.getElementById(ID);
-      if (!el) return;
-      el.classList.add('h');
-      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, FADE + 20);
-    }
+                                function hide() {
+                                var el = document.getElementById(ID);
+                                if (!el) return;
+                                el.classList.add('h');
+                                setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, FADE + 20);
+                                }
 
-    function ensureInitial() {
-      if (ensured) return;
-      ensured = true;
-      if (!isEnabled()) return;
-      if (document.body) show(true);
-      else document.addEventListener('DOMContentLoaded', function () { show(true); }, { once: true });
-    }
+                                function ensureInitial() {
+                                if (ensured) return;
+                                ensured = true;
+                                if (!isEnabled()) return;
+                                if (document.body) show(true);
+                                else document.addEventListener('DOMContentLoaded', function () { show(true); }, { once: true });
+                                }
 
-    ensureInitial();
+                                ensureInitial();
 
-    document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'hidden') {
-        show(false);
-      } else {
-        show(true);
-      }
-    });
+                                document.addEventListener('visibilitychange', function () {
+                                if (document.visibilityState === 'hidden') {
+                                    show(false);
+                                } else {
+                                    show(true);
+                                }
+                                });
 
-    window.addEventListener('pagehide', function () { show(false); });
-  } catch (e) {}
-})();`,
+                                window.addEventListener('pagehide', function () { show(false); });
+                            } catch (e) {}
+                        })();`,
                     }}
+                    
                 />
                 <AuthProvider>
                     <AppShellProvider>
