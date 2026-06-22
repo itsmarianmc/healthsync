@@ -582,7 +582,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                 <tbody>
                                     <tr>
                                         <td style={{ textAlign:'center', verticalAlign:'middle', width:'47.5%' }}>
-                                        <a className="link" href="https://github.com/itsmarianmc/projects/tree/main/dropsync" target="_blank" rel="noopener">
+                                        <a className="link" href="https://github.com/itsmarianmc/healthsync" target="_blank" rel="noopener">
                                             <img height="42.5" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/available/github_vector.svg" alt="GitHub" />
                                         </a>
                                         </td>
@@ -596,7 +596,9 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                             </table>
                             <p style={{ marginTop:8 }}><a id="openNotes" onClick={e => { e.preventDefault(); setTimeout(onOpenNotes, 200); }}>About / Licenses</a></p>
                             <footer>
-                                <p><a href="https://contact.itsmarian.dev/">Contact</a> • <a href="https://itsmarian.dev/legal/cookies">Cookies</a> • <a href="https://itsmarian.dev/legal/privacy">Privacy Policy</a> • <a href="https://itsmarian.dev/legal/terms">Terms of Use</a></p>
+                                <p>
+                                    <a href="https://healthsync.itsmarian.dev/legal/ai-guidelines">AI Guidelines</a> • <a href="https://contact.itsmarian.dev/">Contact</a> • <a href="https://healthsync.itsmarian.dev/legal/cookies">Cookies</a> • <a href="https://healthsync.itsmarian.dev/legal/privacy">Privacy Policy</a> • <a href="https://healthsync.itsmarian.dev/legal/terms">Terms of Use</a>
+                                </p>
                                 <p className="change-settings">Change Cookie Preferences</p>
                                 <p style={{ marginTop: 'calc(1rem - 7.5px)' }}>© 2026 itsmarian | All rights reserved!</p>
                             </footer>

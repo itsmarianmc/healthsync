@@ -132,7 +132,7 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
     const futureSelected = !!selectedDay?.isFuture;
 
     const headerLabel = selectedDay
-        ? selectedDay.date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
+        ? selectedDay.date.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' })
         : '';
 
     return (
