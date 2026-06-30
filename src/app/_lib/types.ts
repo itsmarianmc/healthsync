@@ -30,6 +30,16 @@ export interface DrinkEntry {
   source?: string;
 }
 
+export type ActivityStatusValue = 'active' | 'sick' | 'injured' | 'on_a_break';
+export type StatusDurationValue = 'until_changed' | 'until_tomorrow' | '7_days' | '14_days' | 'custom';
+
+export interface ActivityStatusRecord {
+  status: ActivityStatusValue;
+  duration: StatusDurationValue;
+  customStartDate?: string | null;
+  customEndDate?: string | null;
+}
+
 export interface UserSettings {
   user_id: string;
   calorie_goal: number;
@@ -43,6 +53,7 @@ export interface UserSettings {
   weight_kg?: number | null;
   supplements_taken?: Record<string, Record<string, boolean>> | null;
   workout_routines?: WorkoutRoutines | null;
+  status?: ActivityStatusRecord | null;
   updated_at?: string;
 }
 

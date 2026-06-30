@@ -150,33 +150,27 @@ export default function AiTips({ score }: AiTipsProps) {
     const [title, setTitle] = useState('');
     const [text, setText] = useState('');
     const [text2, setText2] = useState('');
-    const [loaded, setLoaded] = useState(false);
     const lastHashRef = useRef('');
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const skeletonTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [aiEnabled, setAiEnabled] = useState(() => isAIEnabled());
 
-    const refresh = useCallback(() => {
-        if (!isAIEnabled()) {
-            if (skeletonTimeoutRef.current) { clearTimeout(skeletonTimeoutRef.current); skeletonTimeoutRef.current = null; }
-            setLoaded(false);
-            return;
-        }
-        const stats = getCurrentStats();
-        if (stats._hash === lastHashRef.current && loaded) return;
-        lastHashRef.current = stats._hash;
-        const msg = pickMessage(stats);
-        const secondary = pickSecondaryText(msg.text);
-        if (skeletonTimeoutRef.current) clearTimeout(skeletonTimeoutRef.current);
-        setLoaded(false);
-        const delay = 2000 + Math.random() * 1000;
-        skeletonTimeoutRef.current = setTimeout(() => {
-            setTitle(msg.title);
-            setText(msg.text);
-            setText2(secondary);
-            setLoaded(true);
-            skeletonTimeoutRef.current = null;
-        }, delay);
-    }, [loaded]);
+  const refresh = useCallback(() => {
+    if (!isAIEnabled()) {
+      setAiEnabled(false);
+      return;
+    }
+
+    const stats = getCurrentStats();
+    if (stats._hash === lastHashRef.current) return;
+
+    lastHashRef.current = stats._hash;
+    const msg = pickMessage(stats);
+    const secondary = pickSecondaryText(msg.text);
+    setAiEnabled(true);
+    setTitle(msg.title);
+    setText(msg.text);
+    setText2(secondary);
+  }, []);
 
     useEffect(() => {
         refresh();
@@ -187,17 +181,10 @@ export default function AiTips({ score }: AiTipsProps) {
         (window as typeof window & { refreshAITip?: () => void }).refreshAITip = refresh;
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current);
-            if (skeletonTimeoutRef.current) clearTimeout(skeletonTimeoutRef.current);
             window.removeEventListener('storage', refresh);
             window.removeEventListener('requestAITipUpdate', handler);
         };
     }, [refresh]);
-
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => { setMounted(true); }, []);
-    const aiEnabled = mounted && isAIEnabled();
-
-    if (!mounted) return null;
 
     return (
         <div id="AiBox" className={aiEnabled ? 'ai' : ''}>
@@ -211,7 +198,7 @@ export default function AiTips({ score }: AiTipsProps) {
             </div>
             <div className="dashboard-widget ai-tip-widget">
                 <div className="dashboard-widget-rep">
-                    {loaded && aiEnabled ? (
+                  {aiEnabled ? (
                         <>
                             <div className="dashboard-widget-title" id="aiTipTitle" dangerouslySetInnerHTML={{ __html: title }} />
                             <div className="dashboard-widget-text" id="aiTipText">

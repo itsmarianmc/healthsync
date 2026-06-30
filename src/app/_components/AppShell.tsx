@@ -13,6 +13,7 @@ import WorkoutHistoryModal from './settings/WorkoutHistoryModal';
 import SupplementsModal from './settings/SupplementsModal';
 import BarcodeScanModal from './calsync/BarcodeScanModal';
 import ExtraScanner from './calsync/ExtraScanner';
+import UpdateCenter from './update/UpdateCenter';
 import { removeHeaderBtn, addHeaderBtn } from '../_lib/headerBtns';
 import { consumePendingTour, startTourWhenReady } from '../_lib/tour';
 
@@ -185,6 +186,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="views">
                 {children}
             </div>
+
+            <UpdateCenter />
 
             <SettingsModal
                 isOpen={settingsOpen}

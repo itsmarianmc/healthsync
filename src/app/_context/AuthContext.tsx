@@ -74,6 +74,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('calsync_track_supplements', String(data.track_supplements));
         if (data.supplements_taken)
         localStorage.setItem('calsync_supplements_taken', JSON.stringify(data.supplements_taken));
+        if (data.status) {
+            localStorage.setItem('healthsync_activity_status', JSON.stringify(data.status));
+        }
+        window.dispatchEvent(new Event('storage'));
     }, []);
 
     const checkAndNotifyMissingMacros = useCallback((data: UserSettings) => {

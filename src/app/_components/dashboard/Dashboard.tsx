@@ -7,7 +7,9 @@ import WeekChart from './WeekChart';
 import RecentList from './RecentList';
 import NextWidget from './NextWidget';
 import AiTips from './AiTips';
+import WeatherWidget from './WeatherWidget';
 import HeaderTitle from '../shared/HeaderTitle';
+import ActivityStatus from './ActivityStatus';
 
 interface DashboardProps {
     nfl?: boolean;
@@ -31,13 +33,6 @@ export default function Dashboard({ nfl, onOpenCalSync, onOpenDropSync, onOpenSe
         </svg>
     );
 
-    let statusText = 'Ready when you are.';
-    if (data.entryCount > 0) {
-        if (data.score >= 90) statusText = 'A strong day is coming together.';
-        else if (data.waterPercent < data.calPercent) statusText = 'Food is moving. Hydration can catch up.';
-        else statusText = 'Balanced progress across your day.';
-    }
-
     return (
         <div id="dashboard-view" className={`app-view active${nfl ? ' nfl' : ''}`}>
             <div className="header">
@@ -45,7 +40,7 @@ export default function Dashboard({ nfl, onOpenCalSync, onOpenDropSync, onOpenSe
                     <HeaderTitle />
                     <div className="button-box">
                         <button className="settings-button" id="db-openSettingsBtn" data-order="3" title="Settings" onClick={onOpenSettings}>
-                        {settingsIcon}
+                            {settingsIcon}
                         </button>
                     </div>
                 </div>
@@ -54,6 +49,10 @@ export default function Dashboard({ nfl, onOpenCalSync, onOpenDropSync, onOpenSe
                 </div>
             </div>
             <div className="dashboard-shell">
+                <div className="dashboard-top-row">
+                    <ActivityStatus />
+                    <WeatherWidget />
+                </div>
                 <AiTips score={data.score} />
                 <div className="dashboard-actions">
                     <button id="quickAddCal" className="dashboard-action-btn" onClick={onOpenCalSync}>
@@ -83,6 +82,7 @@ export default function Dashboard({ nfl, onOpenCalSync, onOpenDropSync, onOpenSe
                 />
 
                 <WeekChart weekData={data.weekData} />
+
                 <div className="dashboard-mini-grid">
                     <div className="dashboard-mini-card">
                         <div className="dashboard-mini-icon"><i className="fa-solid fa-list-check" /></div>

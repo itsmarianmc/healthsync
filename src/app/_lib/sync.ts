@@ -3,6 +3,7 @@ import type {
   FoodEntry,
   DrinkEntry,
   UserSettings,
+  ActivityStatusRecord,
   WorkoutSession,
   WorkoutRoutines,
 } from './types';
@@ -155,6 +156,17 @@ export async function pullSettings(
     return null;
   }
   return data;
+}
+
+export function serializeActivityStatus(
+  status: { status: ActivityStatusRecord['status']; duration: ActivityStatusRecord['duration']; customStartDate?: Date; customEndDate?: Date },
+): ActivityStatusRecord {
+  return {
+    status: status.status,
+    duration: status.duration,
+    customStartDate: status.customStartDate ? status.customStartDate.toISOString() : null,
+    customEndDate: status.customEndDate ? status.customEndDate.toISOString() : null,
+  };
 }
 
 export async function ensureSettings(userId: string): Promise<void> {

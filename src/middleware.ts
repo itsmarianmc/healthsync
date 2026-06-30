@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Content Security Policy tailored for the app
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js requires unsafe-eval
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data: https:",
   "font-src 'self'",
@@ -29,7 +28,6 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
-// Apply middleware to all routes except _next/static and other public files
 export const config = {
   matcher: [
     /*
