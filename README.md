@@ -9,7 +9,7 @@ Live at [healthsync.itsmarian.dev](https://healthsync.itsmarian.dev)
 ## Features
 
 **Dashboard**
-A daily overview with a weighted health score, calorie and water progress bars, macro tracking, a 7-day bar chart, recent activity feed, and a rule-based next-step suggestion. Everything reads from local storage - no loading states, no spinners.
+A daily overview with a weighted health score, calorie and water progress bars, macro tracking, a 7-day bar chart, recent activity feed, and a rule-based next-step suggestion. Includes weather information and activity status tracking. Everything reads from local storage - no loading states, no spinners.
 
 **CalSync - Food Tracking**
 Log meals via free-text search, barcode scanning (ZXing / Open Food Facts), or manual entry. Macro rings show daily protein, carbs, and fat progress. Entries sync to the cloud when logged in.
@@ -25,6 +25,9 @@ Goals for calories, water and macros. A built-in calorie calculator using the Mi
 
 **AI Detection (opt-in)**
 Optional Google Gemini integration inside CalSync to estimate nutrition from a photo, camera capture or text description. Disabled by default, uses the user's own API key, never proxies through the HealthSync backend. See the in-app [AI Guidelines](https://healthsync.itsmarian.dev/legal/ai-guidelines) for details.
+
+**Update Center**
+In-app update notifications and changelog browser. Shows what's new in each version and allows seamless one-tap updates when using the PWA. Powered by Supabase-backed changelog.
 
 **Auth**
 Email and password login with optional TOTP two-factor authentication. Register, forgot password, and change password flows. "Remember this device" skips the 2FA step on trusted devices. Session tokens are stored in secure cookies (not localStorage).
@@ -102,12 +105,13 @@ app/
 └── _components/
     ├── shared/             # Toast, Tooltip, SplashScreen, PullToRefresh, CookieBanner, Footer
     ├── navigation/         # BottomNav with animated slider
-    ├── dashboard/          # ScoreRing, MetricGrid, MacroGrid, WeekChart, RecentList, NextWidget, AiTips
+    ├── dashboard/          # ScoreRing, MetricGrid, MacroGrid, WeekChart, RecentList, NextWidget, AiTips, WeatherWidget, ActivityStatus
     ├── calsync/            # CalSync view, modal, food list, barcode scanner, extra scanner
     ├── dropsync/           # DropSync view, modal, drink picker, glass input, history
     ├── settings/           # Settings sheet, goals, account, AI section, workout, supplements, notes
     ├── notes/              # Notes modal
-    └── onboarding/         # Onboarding slides and tooltip tour
+    ├── onboarding/         # Onboarding slides and tooltip tour
+    └── update/             # Update Center component for in-app updates and changelog
 ```
 
 ---
