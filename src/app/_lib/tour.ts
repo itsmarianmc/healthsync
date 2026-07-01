@@ -56,11 +56,6 @@ export function consumePendingTour(): boolean {
     return false;
 }
 
-/**
- * Wait for the first tour element to be present before starting,
- * so the tour works even after a full PWA reload where elements
- * mount asynchronously.
- */
 export function startTourWhenReady(steps: TourStep[] = DEFAULT_TOUR_STEPS, opts: { timeoutMs?: number; intervalMs?: number } = {}) {
     const timeoutMs = opts.timeoutMs ?? 5000;
     const intervalMs = opts.intervalMs ?? 100;

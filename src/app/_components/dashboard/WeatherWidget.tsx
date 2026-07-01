@@ -204,7 +204,7 @@ export default function WeatherWidget() {
           <div className="weather-widget-icon">
             <div className="skeleton-icon"></div>
           </div>
-          <div className="weather-widget-info">
+          <div className="weather-widget-info" style={ { gap: '5px'}}>
             <div className="skeleton-info" >
               <div className="skeleton-line brand"></div>
             </div>

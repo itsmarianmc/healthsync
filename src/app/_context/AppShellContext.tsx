@@ -11,6 +11,9 @@ interface AppShellContextType {
 	settingsOpen: boolean;
 	openSettings: () => void;
 	closeSettings: () => void;
+	updateCenterOpen: boolean;
+	openUpdateCenter: () => void;
+	closeUpdateCenter: () => void;
 	notesOpen: boolean;
 	openNotes: () => void;
 	closeNotes: () => void;
@@ -41,6 +44,7 @@ export function AppShellProvider({
 	children: React.ReactNode
 }) {
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [updateCenterOpen, setUpdateCenterOpen] = useState(false);
 	const [notesOpen, setNotesOpen] = useState(false);
 	const [workoutOpen, setWorkoutOpen] = useState(false);
 	const [workoutHistoryOpen, setWorkoutHistoryOpen] = useState(false);
@@ -55,6 +59,9 @@ export function AppShellProvider({
 			settingsOpen,
 			openSettings: () => setSettingsOpen(true),
 			closeSettings: () => setSettingsOpen(false),
+			updateCenterOpen,
+			openUpdateCenter: () => setUpdateCenterOpen(true),
+			closeUpdateCenter: () => setUpdateCenterOpen(false),
 			notesOpen,
 			openNotes: () => setNotesOpen(true),
 			closeNotes: () => setNotesOpen(false),

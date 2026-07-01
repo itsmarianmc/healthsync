@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/refs */
 'use client';
 
 import { JSX, useEffect, useState } from 'react';
@@ -29,52 +28,101 @@ const DEFAULT_STATE: ActivityStatusState = {
     duration: 'until_changed',
 };
 
+function getActivePeriod(state: ActivityStatusState): { start: Date; end: Date } | null {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    switch (state.duration) {
+        case 'until_changed':
+            return null;
+        case 'until_tomorrow':
+            return { start: today, end: today };
+        case '7_days':
+            return { start: today, end: new Date(today.getTime() + 6 * 86400000) };
+        case '14_days':
+            return { start: today, end: new Date(today.getTime() + 13 * 86400000) };
+        case 'custom':
+            if (!state.customStartDate || !state.customEndDate) return null;
+            const start = new Date(state.customStartDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(state.customEndDate);
+            end.setHours(0, 0, 0, 0);
+            return { start, end };
+        default:
+            return null;
+    }
+}
+
+function isActive(state: ActivityStatusState): boolean {
+    const period = getActivePeriod(state);
+    if (!period) return true;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return today >= period.start && today <= period.end;
+}
+
+function getEffectiveStatus(state: ActivityStatusState): ActivityStatus {
+    return isActive(state) ? state.status : 'active';
+}
+
+function getSubtitle(state: ActivityStatusState): string {
+    const effective = getEffectiveStatus(state);
+    if (effective === state.status) {
+        return formatDurationLabel(state.duration, state.customStartDate, state.customEndDate);
+    } else {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        if (state.duration === 'custom' && state.customStartDate) {
+            const start = new Date(state.customStartDate);
+            start.setHours(0, 0, 0, 0);
+            if (start > today) {
+                return `Until ${formatCustomDate(state.customStartDate)}`;
+            } else {
+                return 'Expired';
+            }
+        } else if (
+            state.duration === 'until_tomorrow' ||
+            state.duration === '7_days' ||
+            state.duration === '14_days'
+        ) {
+            return 'Expired';
+        } else {
+            return '';
+        }
+    }
+}
+
 function RunningIcon({ className }: { className?: string }) {
-    return (
-        <i className={`fa-solid fa-person-running ${className || ''}`}></i>
-    );
+    return <i className={`fa-solid fa-person-running ${className || ''}`}></i>;
 }
 
 function BedIcon({ className }: { className?: string }) {
-    return (
-        <i className={`fa-solid fa-bed ${className || ''}`}></i>
-    );
+    return <i className={`fa-solid fa-bed ${className || ''}`}></i>;
 }
 
 function BandageIcon({ className }: { className?: string }) {
-    return (
-        <i className={`fa-solid fa-bandage ${className || ''}`}></i>
-    );
+    return <i className={`fa-solid fa-bandage ${className || ''}`}></i>;
 }
 
 function BreakIcon({ className }: { className?: string }) {
-    return (
-        <i className={`fa-solid fa-tree-palm ${className || ''}`}></i>
-    );
+    return <i className={`fa-solid fa-tree-palm ${className || ''}`}></i>;
 }
 
 function ChevronDownIcon({ className }: { className?: string }) {
-    return (
-        <i className={`fa-solid fa-chevron-down ${className || ''}`}></i>
-    );
+    return <i className={`fa-solid fa-chevron-down ${className || ''}`}></i>;
 }
 
 function ChevronRightIcon({ className }: { className?: string }) {
-    return (
-        <i className={`fa-solid fa-chevron-right ${className || ''}`}></i>
-    );
+    return <i className={`fa-solid fa-chevron-right ${className || ''}`}></i>;
 }
 
 function ClockIcon({ className }: { className?: string }) {
-    return (
-        <i className={`fa-regular fa-clock ${className || ''}`}></i>
-    );
+    return <i className={`fa-regular fa-clock ${className || ''}`}></i>;
 }
 
 function CalendarIcon({ className }: { className?: string }) {
-    return (
-        <i className={`fa-regular fa-calendar ${className || ''}`}></i>
-    );
+    return <i className={`fa-regular fa-calendar ${className || ''}`}></i>;
 }
 
 function formatCustomDate(date?: Date): string {
@@ -82,7 +130,11 @@ function formatCustomDate(date?: Date): string {
     return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
 }
 
-function formatDurationLabel(duration: StatusDuration, customStartDate?: Date, customEndDate?: Date): string {
+function formatDurationLabel(
+    duration: StatusDuration,
+    customStartDate?: Date,
+    customEndDate?: Date
+): string {
     if (duration === 'until_changed') return 'Until changed';
     if (duration === 'until_tomorrow') return 'Until tomorrow';
     if (duration === '7_days') return '7 days';
@@ -90,12 +142,8 @@ function formatDurationLabel(duration: StatusDuration, customStartDate?: Date, c
     if (customStartDate && customEndDate) {
         return `${formatCustomDate(customStartDate)} - ${formatCustomDate(customEndDate)}`;
     }
-    if (customStartDate) {
-        return `From ${formatCustomDate(customStartDate)}`;
-    }
-    if (customEndDate) {
-        return `Until ${formatCustomDate(customEndDate)}`;
-    }
+    if (customStartDate) return `From ${formatCustomDate(customStartDate)}`;
+    if (customEndDate) return `Until ${formatCustomDate(customEndDate)}`;
     return 'Custom Date';
 }
 
@@ -118,11 +166,34 @@ function loadSavedState(): ActivityStatusState {
     try {
         const raw = window.localStorage.getItem(STORAGE_KEY);
         if (!raw) return DEFAULT_STATE;
-        const parsed = JSON.parse(raw) as Partial<{ status: ActivityStatus; duration: StatusDuration; customDate: string; customStartDate: string; customEndDate: string }>;
-        const status = parsed.status === 'sick' || parsed.status === 'injured' || parsed.status === 'on_a_break' ? parsed.status : 'active';
-        const duration = parsed.duration === 'until_tomorrow' || parsed.duration === '7_days' || parsed.duration === '14_days' || parsed.duration === 'custom' ? parsed.duration : 'until_changed';
-        const customStartDate = parsed.customStartDate ? fromDateInputValue(parsed.customStartDate.slice(0, 10)) : parsed.customDate ? fromDateInputValue(parsed.customDate.slice(0, 10)) : undefined;
-        const customEndDate = parsed.customEndDate ? fromDateInputValue(parsed.customEndDate.slice(0, 10)) : parsed.customDate ? fromDateInputValue(parsed.customDate.slice(0, 10)) : undefined;
+        const parsed = JSON.parse(raw) as Partial<{
+            status: ActivityStatus;
+            duration: StatusDuration;
+            customDate: string;
+            customStartDate: string;
+            customEndDate: string;
+        }>;
+        const status =
+            parsed.status === 'sick' || parsed.status === 'injured' || parsed.status === 'on_a_break'
+                ? parsed.status
+                : 'active';
+        const duration =
+            parsed.duration === 'until_tomorrow' ||
+            parsed.duration === '7_days' ||
+            parsed.duration === '14_days' ||
+            parsed.duration === 'custom'
+                ? parsed.duration
+                : 'until_changed';
+        const customStartDate = parsed.customStartDate
+            ? fromDateInputValue(parsed.customStartDate.slice(0, 10))
+            : parsed.customDate
+              ? fromDateInputValue(parsed.customDate.slice(0, 10))
+              : undefined;
+        const customEndDate = parsed.customEndDate
+            ? fromDateInputValue(parsed.customEndDate.slice(0, 10))
+            : parsed.customDate
+              ? fromDateInputValue(parsed.customDate.slice(0, 10))
+              : undefined;
         return { status, duration, customStartDate, customEndDate };
     } catch {
         return DEFAULT_STATE;
@@ -180,7 +251,6 @@ const DURATION_OPTIONS: Array<{ value: StatusDuration; label: string; icon?: typ
 function StatusBadge({ status }: { status: ActivityStatus }) {
     const meta = STATUS_META[status];
     const Icon = meta.icon;
-
     return (
         <span className="activity-status-badge" style={{ backgroundColor: meta.color }} aria-hidden="true">
             <Icon className="activity-status-badge-icon" />
@@ -207,6 +277,13 @@ export default function ActivityStatus() {
     const [isMainOpen, setIsMainOpen] = useState(false);
     const [isKeepOpen, setIsKeepOpen] = useState(false);
     const [isCustomDateOpen, setIsCustomDateOpen] = useState(false);
+
+    const [, setNow] = useState(() => new Date());
+    useEffect(() => {
+        const interval = setInterval(() => setNow(new Date()), 60000);
+        return () => clearInterval(interval);
+    }, []);
+
     const mainSheet = useDraggableSheet({
         onClose: () => setIsMainOpen(false),
         transitionDurationMs: 300,
@@ -234,7 +311,6 @@ export default function ActivityStatus() {
             const nextState = loadSavedState();
             setSavedState(nextState);
         };
-
         window.addEventListener('storage', syncFromStorage);
         return () => window.removeEventListener('storage', syncFromStorage);
     }, []);
@@ -309,8 +385,12 @@ export default function ActivityStatus() {
         const nextState: ActivityStatusState = {
             status: draftStatus,
             duration: draftDuration,
-            customStartDate: draftDuration === 'custom' ? draftCustomStartDate ?? new Date() : undefined,
-            customEndDate: draftDuration === 'custom' ? draftCustomEndDate ?? draftCustomStartDate ?? new Date() : undefined,
+            customStartDate:
+                draftDuration === 'custom' ? draftCustomStartDate ?? new Date() : undefined,
+            customEndDate:
+                draftDuration === 'custom'
+                    ? draftCustomEndDate ?? draftCustomStartDate ?? new Date()
+                    : undefined,
         };
         setSavedState(nextState);
         setDraftCustomStartDate(nextState.customStartDate);
@@ -321,8 +401,12 @@ export default function ActivityStatus() {
                 status: {
                     status: nextState.status,
                     duration: nextState.duration,
-                    customStartDate: nextState.customStartDate ? nextState.customStartDate.toISOString() : null,
-                    customEndDate: nextState.customEndDate ? nextState.customEndDate.toISOString() : null,
+                    customStartDate: nextState.customStartDate
+                        ? nextState.customStartDate.toISOString()
+                        : null,
+                    customEndDate: nextState.customEndDate
+                        ? nextState.customEndDate.toISOString()
+                        : null,
                 },
             }).catch(() => {});
         }
@@ -337,26 +421,54 @@ export default function ActivityStatus() {
         mainSheet.close();
     };
 
-    const currentStatusMeta = STATUS_META[savedState.status];
-    const triggerDuration = formatDurationLabel(savedState.duration, savedState.customStartDate, savedState.customEndDate);
+    const effectiveStatus = getEffectiveStatus(savedState);
+    const currentStatusMeta = STATUS_META[effectiveStatus];
+    const subtitleText = getSubtitle(savedState);
 
     return (
         <section className="activity-status-section">
-            <button type="button" className="activity-status-trigger" onClick={openMain} aria-haspopup="dialog" aria-expanded={isMainOpen}>
-                <StatusBadge status={savedState.status} />
+            <button
+                type="button"
+                className="activity-status-trigger"
+                onClick={openMain}
+                aria-haspopup="dialog"
+                aria-expanded={isMainOpen}
+            >
+                <StatusBadge status={effectiveStatus} />
                 <span className="activity-status-trigger-copy">
                     <span className="activity-status-trigger-title">{currentStatusMeta.label}</span>
-                    <span className="activity-status-trigger-subtitle">{triggerDuration}</span>
+                    <span className="activity-status-trigger-subtitle">{subtitleText}</span>
                 </span>
                 <ChevronDownIcon className="activity-status-trigger-chevron" />
             </button>
 
-            <div className="app-overlay activity-status-overlay" ref={mainSheet.setOverlayRef} onClick={(event) => { if (event.target === event.currentTarget) closeMain(); }}>
-                <div className="modal activity-status-modal" ref={mainSheet.setModalRef} id="activityStatusModal">
+            <div
+                className="app-overlay activity-status-overlay"
+                ref={mainSheet.setOverlayRef}
+                onClick={(event) => {
+                    if (event.target === event.currentTarget) closeMain();
+                }}
+            >
+                <div
+                    className="modal activity-status-modal"
+                    ref={mainSheet.setModalRef}
+                    id="activityStatusModal"
+                >
                     <div className="modal-handle-zone" {...mainSheet.handleProps}>
                         <div className="modal-handle" />
                     </div>
-                    <div className="modal-header"><div className="modal-btn"><button className="back-btn" id="backBtn" style={{ opacity: 0 }}><svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg></button></div><div className="modal-title" id="modalTitle">Activity Status</div></div>
+                    <div className="modal-header">
+                        <div className="modal-btn">
+                            <button className="back-btn" id="backBtn" style={{ opacity: 0 }}>
+                                <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                    <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="modal-title" id="modalTitle">
+                            Activity Status
+                        </div>
+                    </div>
                     <div className="activity-status-modal-body">
                         <div className="activity-status-option-list">
                             {STATUS_ORDER.map((status) => {
@@ -373,7 +485,9 @@ export default function ActivityStatus() {
                                         <StatusBadge status={status} />
                                         <span className="activity-status-option-copy">
                                             <span className="activity-status-option-title">{meta.label}</span>
-                                            <span className="activity-status-option-description">{meta.description}</span>
+                                            <span className="activity-status-option-description">
+                                                {meta.description}
+                                            </span>
                                         </span>
                                         <RadioMark selected={selected} />
                                     </button>
@@ -387,7 +501,13 @@ export default function ActivityStatus() {
                                 <span>Keep status</span>
                             </span>
                             <span className="activity-status-keep-right">
-                                <span>{formatDurationLabel(draftDuration, draftDuration === 'custom' ? draftCustomStartDate : undefined, draftDuration === 'custom' ? draftCustomEndDate : undefined)}</span>
+                                <span>
+                                    {formatDurationLabel(
+                                        draftDuration,
+                                        draftDuration === 'custom' ? draftCustomStartDate : undefined,
+                                        draftDuration === 'custom' ? draftCustomEndDate : undefined
+                                    )}
+                                </span>
                                 <ChevronRightIcon className="activity-status-keep-chevron" />
                             </span>
                         </button>
@@ -400,12 +520,33 @@ export default function ActivityStatus() {
                 </div>
             </div>
 
-            <div className="app-overlay activity-status-overlay activity-status-overlay--keep" ref={keepSheet.setOverlayRef} onClick={(event) => { if (event.target === event.currentTarget) closeKeep(); }}>
-                <div className="modal activity-status-modal activity-status-modal--keep" ref={keepSheet.setModalRef} id="activityStatusKeepModal">
+            <div
+                className="app-overlay activity-status-overlay activity-status-overlay--keep"
+                ref={keepSheet.setOverlayRef}
+                onClick={(event) => {
+                    if (event.target === event.currentTarget) closeKeep();
+                }}
+            >
+                <div
+                    className="modal activity-status-modal activity-status-modal--keep"
+                    ref={keepSheet.setModalRef}
+                    id="activityStatusKeepModal"
+                >
                     <div className="modal-handle-zone" {...keepSheet.handleProps}>
                         <div className="modal-handle" />
                     </div>
-                    <div className="modal-header"><div className="modal-btn"><button className="back-btn" id="backBtn" style={{ opacity: 0 }}><svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg></button></div><div className="modal-title" id="modalTitle">Keep status</div></div>
+                    <div className="modal-header">
+                        <div className="modal-btn">
+                            <button className="back-btn" id="backBtn" style={{ opacity: 0 }}>
+                                <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                    <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="modal-title" id="modalTitle">
+                            Keep status
+                        </div>
+                    </div>
                     <div className="activity-status-modal-body activity-status-modal-body--keep">
                         <div className="activity-status-duration-list">
                             {DURATION_OPTIONS.map((option) => {
@@ -426,7 +567,9 @@ export default function ActivityStatus() {
                                         aria-pressed={selected}
                                     >
                                         <span className="activity-status-duration-left">
-                                            {OptionIcon ? <OptionIcon className="activity-status-duration-calendar" /> : null}
+                                            {OptionIcon ? (
+                                                <OptionIcon className="activity-status-duration-calendar" />
+                                            ) : null}
                                             <span>{option.label}</span>
                                         </span>
                                         <RadioMark selected={selected} />
@@ -434,7 +577,6 @@ export default function ActivityStatus() {
                                 );
                             })}
                         </div>
-
                     </div>
                     <div className="activity-status-footer">
                         <button type="button" className="activity-status-primary-btn" onClick={handleSaveDuration}>
@@ -444,12 +586,33 @@ export default function ActivityStatus() {
                 </div>
             </div>
 
-            <div className="app-overlay activity-status-overlay activity-status-overlay--keep activity-status-overlay--custom" ref={customDateSheet.setOverlayRef} onClick={(event) => { if (event.target === event.currentTarget) closeCustomDate(); }}>
-                <div className="modal activity-status-modal activity-status-modal--keep activity-status-modal--custom" ref={customDateSheet.setModalRef} id="activityStatusCustomDateModal">
+            <div
+                className="app-overlay activity-status-overlay activity-status-overlay--keep activity-status-overlay--custom"
+                ref={customDateSheet.setOverlayRef}
+                onClick={(event) => {
+                    if (event.target === event.currentTarget) closeCustomDate();
+                }}
+            >
+                <div
+                    className="modal activity-status-modal activity-status-modal--keep activity-status-modal--custom"
+                    ref={customDateSheet.setModalRef}
+                    id="activityStatusCustomDateModal"
+                >
                     <div className="modal-handle-zone" {...customDateSheet.handleProps}>
                         <div className="modal-handle" />
                     </div>
-                    <div className="modal-header"><div className="modal-btn"><button className="back-btn" id="backBtn" style={{ opacity: 0 }}><svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg></button></div><div className="modal-title" id="modalTitle">Custom Date</div></div>
+                    <div className="modal-header">
+                        <div className="modal-btn">
+                            <button className="back-btn" id="backBtn" style={{ opacity: 0 }}>
+                                <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                    <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="modal-title" id="modalTitle">
+                            Custom Date
+                        </div>
+                    </div>
                     <div className="activity-status-modal-body activity-status-modal-body--keep activity-status-modal-body--custom">
                         <div className="activity-status-range-grid">
                             <label className="activity-status-range-field">
@@ -459,7 +622,11 @@ export default function ActivityStatus() {
                                     <input
                                         type="date"
                                         value={toDateInputValue(draftCustomStartDate)}
-                                        onChange={(event) => setDraftCustomStartDate(fromDateInputValue(event.currentTarget.value))}
+                                        onChange={(event) =>
+                                            setDraftCustomStartDate(
+                                                fromDateInputValue(event.currentTarget.value)
+                                            )
+                                        }
                                     />
                                 </div>
                             </label>
@@ -471,7 +638,11 @@ export default function ActivityStatus() {
                                         type="date"
                                         value={toDateInputValue(draftCustomEndDate)}
                                         min={toDateInputValue(draftCustomStartDate)}
-                                        onChange={(event) => setDraftCustomEndDate(fromDateInputValue(event.currentTarget.value))}
+                                        onChange={(event) =>
+                                            setDraftCustomEndDate(
+                                                fromDateInputValue(event.currentTarget.value)
+                                            )
+                                        }
                                     />
                                 </div>
                             </label>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Serwist } from '@serwist/window';
+import { useAppShell } from '../../_context/AppShellContext';
 import { useAuth } from '../../_context/AuthContext';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { compareVersions, fetchChangelogEntries, fetchLastSeenChangelogVersion, storeLastSeenChangelogVersion, type ChangelogEntry } from '../../_lib/changelog';
@@ -16,7 +17,8 @@ type SerwistWindow = Window & {
 function readLocalLastSeen(): string | null {
     try {
         return localStorage.getItem(LAST_SEEN_STORAGE_KEY);
-    } catch {
+    } catch (error) {
+        console.log('[changelog] localStorage read error:', error);
         return null;
     }
 }
@@ -24,8 +26,8 @@ function readLocalLastSeen(): string | null {
 function writeLocalLastSeen(version: string): void {
     try {
         localStorage.setItem(LAST_SEEN_STORAGE_KEY, version);
-    } catch {
-        // Ignore storage failures. The profile sync still persists the value server-side.
+    } catch (error) {
+        console.log('[changelog] localStorage write error:', error);
     }
 }
 
@@ -43,31 +45,33 @@ function sortEntries(entries: ChangelogEntry[]): ChangelogEntry[] {
 
 export default function UpdateCenter() {
     const { user } = useAuth();
+    const { updateCenterOpen, openUpdateCenter, closeUpdateCenter } = useAppShell();
     const [updateAvailable, setUpdateAvailable] = useState(false);
     const [dismissedBanner, setDismissedBanner] = useState(false);
-    const [isChangelogOpen, setIsChangelogOpen] = useState(false);
     const [entries, setEntries] = useState<ChangelogEntry[]>([]);
     const [loadingEntries, setLoadingEntries] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
     const reloadAfterUpdateRef = useRef(false);
     const bootstrapRef = useRef(false);
     const profileSeenVersionRef = useRef<string | null>(null);
+    const expandTimerRef = useRef<number | null>(null);
+    const serverChangelogResponseRef = useRef<{ profileSeenVersion: string | null; entries: ChangelogEntry[] } | null>(null);
 
     const sheet = useDraggableSheet({
         onClose: () => {
-            setIsChangelogOpen(false);
+            closeUpdateCenter();
             const seenVersion = profileSeenVersionRef.current ?? APP_VERSION;
             writeLocalLastSeen(seenVersion);
             if (user?.id) {
                 void storeLastSeenChangelogVersion(user.id, seenVersion);
             }
         },
-        transitionDurationMs: 300,
+        transitionDurationMs: 500,
         transitionEasing: 'cubic-bezier(0.16, 1, 0.3, 1)',
         closeTransitionDurationMs: 260,
         closeTransitionEasing: 'ease-in',
     });
-    const { open, close, handleProps, setOverlayRef, setModalRef, stateRef } = sheet;
+    const { open, close, snapToExpanded, handleProps, setOverlayRef, setModalRef, stateRef } = sheet;
 
     useEffect(() => {
         if (typeof window === 'undefined' || bootstrapRef.current || !('serviceWorker' in navigator)) {
@@ -116,22 +120,29 @@ export default function UpdateCenter() {
                     fetchChangelogEntries(),
                 ]);
 
+                serverChangelogResponseRef.current = {
+                    profileSeenVersion,
+                    entries: allEntries,
+                };
+
                 if (cancelled) return;
 
                 const localSeenVersion = readLocalLastSeen();
                 const lastSeenVersion = profileSeenVersion || localSeenVersion;
-                const visibleEntries = sortEntries(
-                    allEntries.filter((entry) => {
-                        if (compareVersions(entry.version, APP_VERSION) > 0) return false;
-                        if (!lastSeenVersion) return true;
-                        return compareVersions(entry.version, lastSeenVersion) > 0;
-                    })
+                const currentEntries = sortEntries(
+                    allEntries.filter((entry) => compareVersions(entry.version, APP_VERSION) <= 0)
                 );
+                const unseenEntries = currentEntries.filter((entry) => {
+                    if (!lastSeenVersion) return true;
+                    return compareVersions(entry.version, lastSeenVersion) > 0;
+                });
 
-                if (visibleEntries.length > 0) {
+                if (currentEntries.length > 0) {
                     profileSeenVersionRef.current = APP_VERSION;
-                    setEntries(visibleEntries);
-                    setIsChangelogOpen(true);
+                    setEntries(currentEntries);
+                    if (unseenEntries.length > 0) {
+                        openUpdateCenter();
+                    }
                 } else {
                     profileSeenVersionRef.current = APP_VERSION;
                     writeLocalLastSeen(APP_VERSION);
@@ -139,7 +150,7 @@ export default function UpdateCenter() {
                 }
             } catch (error) {
                 if (!cancelled) {
-                    setLoadError('Konnte die neuen Hinweise nicht laden.');
+                    setLoadError('Could not load the latest updates.');
                 }
                 console.error('[changelog] load error:', error);
             } finally {
@@ -155,9 +166,32 @@ export default function UpdateCenter() {
     }, [user?.id]);
 
     useEffect(() => {
-        if (isChangelogOpen) open();
-        else if (stateRef.current !== 'closed') close();
-    }, [close, isChangelogOpen, open, stateRef]);
+        if (expandTimerRef.current) {
+            window.clearTimeout(expandTimerRef.current);
+            expandTimerRef.current = null;
+        }
+
+        if (updateCenterOpen) {
+            if (serverChangelogResponseRef.current) {
+                console.log('[changelog] server response:', serverChangelogResponseRef.current);
+            }
+            open();
+            expandTimerRef.current = window.setTimeout(() => {
+                if (stateRef.current !== 'closed') {
+                    snapToExpanded();
+                }
+            }, 90);
+        } else if (stateRef.current !== 'closed') {
+            close();
+        }
+
+        return () => {
+            if (expandTimerRef.current) {
+                window.clearTimeout(expandTimerRef.current);
+                expandTimerRef.current = null;
+            }
+        };
+    }, [close, open, snapToExpanded, stateRef, updateCenterOpen]);
 
     const applyUpdate = () => {
         const globalWindow = window as SerwistWindow;
@@ -165,46 +199,47 @@ export default function UpdateCenter() {
         globalWindow.serwist?.messageSkipWaiting();
     };
 
-    const visibleBanner = updateAvailable && !dismissedBanner && !isChangelogOpen;
+    const visibleBanner = updateAvailable && !dismissedBanner && !updateCenterOpen;
 
     return (
         <>
             {visibleBanner && (
                 <div className="update-banner" role="status" aria-live="polite">
                     <div className="update-banner-copy">
-                        <div className="update-banner-title">Update verfügbar</div>
-                        <div className="update-banner-subtitle">Eine neue Version ist bereit. Ein Klick lädt sie sofort.</div>
+                        <div className="update-banner-title">Update available</div>
+                        <div className="update-banner-subtitle">A new version is ready. One tap installs it right away.</div>
                     </div>
                     <div className="update-banner-actions">
                         <button type="button" className="option-btn update-banner-btn" onClick={applyUpdate}>
-                            Aktualisieren
+                            Update now
                         </button>
                         <button type="button" className="option-btn update-banner-btn secondary" onClick={() => setDismissedBanner(true)}>
-                            Später
+                            Later
                         </button>
                     </div>
                 </div>
             )}
 
-            <div className="app-overlay whats-new-overlay" ref={setOverlayRef} onClick={(event) => { if (event.target === event.currentTarget) setIsChangelogOpen(false); }}>
+            <div className="app-overlay whats-new-overlay" ref={setOverlayRef} onClick={(event) => { if (event.target === event.currentTarget) closeUpdateCenter(); }}>
                 <div className="modal whats-new-modal" ref={setModalRef} id="whatsNewModal">
-                    <div className="modal-handle-zone" {...handleProps}>
+                    <div className="modal-handle-zone" id="ws-handleZone" {...handleProps}>
                         <div className="modal-handle" />
                     </div>
-                    <div className="whats-new-header">
-                        <div>
-                            <div className="whats-new-kicker">Neues in {APP_VERSION}</div>
-                            <h2 className="whats-new-title">Was ist neu</h2>
+                    <div className="modal-header">
+                        <div className="modal-btn">
+                            <button className="close-btn" id="backBtn" type="button" onClick={closeUpdateCenter} aria-label="Close update center">
+                                <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="#e3e3e3">
+                                    <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+                                </svg>
+                            </button>
                         </div>
-                        <button type="button" className="option-btn whats-new-close-btn" onClick={() => setIsChangelogOpen(false)}>
-                            Schließen
-                        </button>
+                        <div className="modal-title" id="modalTitle">What&apos;s new</div>
                     </div>
-                    <div className="whats-new-content">
-                        {loadingEntries && <div className="whats-new-empty">Lade Neuigkeiten ...</div>}
+                    <div className="modal-body whats-new-content">
+                        {loadingEntries && <div className="whats-new-empty">Loading updates...</div>}
                         {loadError && !loadingEntries && <div className="whats-new-empty error">{loadError}</div>}
                         {!loadingEntries && !loadError && entries.length === 0 && (
-                            <div className="whats-new-empty">Für diese Version gibt es noch keinen öffentlichen Changelog-Eintrag.</div>
+                            <div className="whats-new-empty">There is no public changelog entry for this version yet.</div>
                         )}
                         {!loadingEntries && !loadError && entries.length > 0 && (
                             <div className="whats-new-list">
@@ -215,7 +250,7 @@ export default function UpdateCenter() {
                                             <span className="whats-new-entry-version">v{entry.version}</span>
                                         </div>
                                         <h3 className="whats-new-entry-title">{entry.title}</h3>
-                                        <p className="whats-new-entry-description">{entry.description}</p>
+                                        <p className="whats-new-entry-description" dangerouslySetInnerHTML={{ __html: entry.description }} />
                                     </article>
                                 ))}
                             </div>

@@ -69,10 +69,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 </Script>
             </head>
             <body suppressHydrationWarning>
-                <script
+                <Script
                     id="splash-screen-init"
-                    // Paint the splash screen synchronously, before React hydrates, so users never see a flash of the app under it. Also re-shows the splash on tab return and on pagehide (so the OS app-switcher snapshot in PWAs captures the splash, not the live UI).
-                    // Using dangerouslySetInnerHTML here is intentional - we need this script to run before React hydration
+                    strategy="beforeInteractive"
                     dangerouslySetInnerHTML={{
                         __html: `(() => {
                             try {
@@ -149,7 +148,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                             } catch (e) {}
                         })();`,
                     }}
-                    
                 />
                 <AuthProvider>
                     <AppShellProvider>

@@ -26,6 +26,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const {
         settingsOpen, openSettings, closeSettings,
+        updateCenterOpen,
         notesOpen, openNotes, closeNotes,
         workoutOpen, openWorkout, closeWorkout,
         workoutHistoryOpen, openWorkoutHistory, closeWorkoutHistory,
@@ -91,6 +92,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         if (settingsOpen) ids.forEach(removeHeaderBtn);
         else ids.forEach(addHeaderBtn);
     }, [settingsOpen]);
+
+    useEffect(() => {
+        const ids = ['db-openUpdateCenterBtn'];
+        if (updateCenterOpen) ids.forEach(removeHeaderBtn);
+        else ids.forEach(addHeaderBtn);
+    }, [updateCenterOpen]);
 
     const handleExtraAction = useCallback((action: string) => {
         if (action === 'supplements' && !supplementsEnabled) return;
