@@ -77,6 +77,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     const [aiTermsAccepted, setAiTermsAccepted] = useState(false);
     const [aiApiKey, setAiApiKey] = useState('');
     const [apiKeyVisible, setApiKeyVisible] = useState(false);
+    const [weatherEnabled, setWeatherEnabled] = useState(false);
+    const [weatherLat, setWeatherLat] = useState('');
+    const [weatherLon, setWeatherLon] = useState('');
+    const [weatherName, setWeatherName] = useState('');
     const [calGoal, setCalGoal] = useState('2000');
     const [waterGoal, setWaterGoal] = useState('2500');
     const [macroProtein, setMacroProtein] = useState('');
@@ -95,6 +99,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         setAiEnabled(localStorage.getItem('calsync_ai_enabled') === 'true');
         setAiTermsAccepted(localStorage.getItem('calsync_ai_terms_accepted') === 'true');
         setAiApiKey(localStorage.getItem('calsync_ai_api_key') || '');
+        setWeatherEnabled(localStorage.getItem('healthsync_weather_enabled') === 'true');
+        setWeatherLat(localStorage.getItem('healthsync_weather_lat') || '');
+        setWeatherLon(localStorage.getItem('healthsync_weather_lon') || '');
+        setWeatherName(localStorage.getItem('healthsync_weather_name') || '');
         setCalGoal(localStorage.getItem('calsync_goal') || '2000');
         setWaterGoal(localStorage.getItem('dropsync_goal') || '2500');
         setMacroProtein(localStorage.getItem('calsync_goal_protein') || '');
@@ -202,6 +210,22 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         localStorage.setItem('calsync_ai_api_key', aiApiKey);
         showToast('Changes Saved!');
         setTimeout(() => location.reload(), 2222);
+    };
+
+    const handleWeatherToggle = () => {
+        const n = !weatherEnabled;
+        setWeatherEnabled(n);
+        localStorage.setItem('healthsync_weather_enabled', String(n));
+        window.dispatchEvent(new Event('storage'));
+    };
+
+    const handleSaveWeather = () => {
+        localStorage.setItem('healthsync_weather_lat', weatherLat);
+        localStorage.setItem('healthsync_weather_lon', weatherLon);
+        localStorage.setItem('healthsync_weather_name', weatherName);
+        localStorage.setItem('healthsync_weather_enabled', String(weatherEnabled));
+        window.dispatchEvent(new Event('storage'));
+        showToast('Weather settings saved');
     };
 
     const exportAllData = () => {
@@ -446,6 +470,67 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                 )}
                             </div>
                         </div>
+
+                        <div className="settings-section">
+                            <div className="settings-section-title">
+                                <i className="fa-solid fa-cloud-sun"></i>
+                                Weather Widget
+                            </div>
+                            <div className="settings-section-body">
+                                <div className="settings-toggle-row">
+                                    <div className="settings-toggle-label">
+                                        <span>Show weather on dashboard</span>
+                                        <span className="settings-toggle-sub">Enable the small weather widget next to activity status</span>
+                                    </div>
+                                    <button className="app-toggle-switch" id="weatherEnabledToggle" aria-pressed={String(weatherEnabled) as 'true'|'false'} onClick={handleWeatherToggle} />
+                                </div>
+                                <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+                                    <label className="form-row">
+                                        <span className="form-label">Latitude</span>
+                                        <input className="form-input" value={weatherLat} onChange={e => setWeatherLat(e.currentTarget.value)} placeholder="e.g. 40.7128" />
+                                    </label>
+                                    <label className="form-row">
+                                        <span className="form-label">Longitude</span>
+                                        <input className="form-input" value={weatherLon} onChange={e => setWeatherLon(e.currentTarget.value)} placeholder="e.g. -74.0060" />
+                                    </label>
+                                    <label className="form-row">
+                                        <span className="form-label">Location name</span>
+                                        <input className="form-input" value={weatherName} onChange={e => setWeatherName(e.currentTarget.value)} placeholder="Optional display name" />
+                                    </label>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <button
+                                            className="option-btn"
+                                            style={{ flex: 1, borderRadius: 'var(--radius-sm)', padding: '10px 12px' }}
+                                            onClick={async () => {
+                                                if (!navigator.geolocation) {
+                                                    showToast('Geolocation not supported');
+                                                    return;
+                                                }
+                                                try {
+                                                    const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+                                                        navigator.geolocation.getCurrentPosition(resolve, reject)
+                                                    );
+                                                    const lat = pos.coords.latitude;
+                                                    const lon = pos.coords.longitude;
+                                                    setWeatherLat(String(lat));
+                                                    setWeatherLon(String(lon));
+                                                    const name = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+                                                    setWeatherName(name);
+                                                    showToast('Location filled — press Save to persist');
+                                                } catch (err) {
+                                                    console.warn('Use Location (settings) failed', err);
+                                                    showToast('Unable to get location');
+                                                }
+                                            }}
+                                        >
+                                            <i className="fa-solid fa-location-crosshairs" style={{ marginRight: 8 }} /> Use Location
+                                        </button>
+                                        <button className="option-btn" style={{ flex: 1, borderRadius: 'var(--radius-sm)', padding: '10px 12px' }} onClick={handleSaveWeather}><i className="fa-solid fa-floppy-disk" /> Save</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="settings-section">
                             <div className="settings-section-title">
                             <i className="fa-solid fa-flag-checkered"></i>

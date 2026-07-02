@@ -13,6 +13,7 @@ import WorkoutHistoryModal from './settings/WorkoutHistoryModal';
 import SupplementsModal from './settings/SupplementsModal';
 import BarcodeScanModal from './calsync/BarcodeScanModal';
 import ExtraScanner from './calsync/ExtraScanner';
+import UpdateCenter from './update/UpdateCenter';
 import { removeHeaderBtn, addHeaderBtn } from '../_lib/headerBtns';
 import { consumePendingTour, startTourWhenReady } from '../_lib/tour';
 
@@ -25,6 +26,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const {
         settingsOpen, openSettings, closeSettings,
+        updateCenterOpen,
         notesOpen, openNotes, closeNotes,
         workoutOpen, openWorkout, closeWorkout,
         workoutHistoryOpen, openWorkoutHistory, closeWorkoutHistory,
@@ -90,6 +92,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         if (settingsOpen) ids.forEach(removeHeaderBtn);
         else ids.forEach(addHeaderBtn);
     }, [settingsOpen]);
+
+    useEffect(() => {
+        const ids = ['db-openUpdateCenterBtn'];
+        if (updateCenterOpen) ids.forEach(removeHeaderBtn);
+        else ids.forEach(addHeaderBtn);
+    }, [updateCenterOpen]);
 
     const handleExtraAction = useCallback((action: string) => {
         if (action === 'supplements' && !supplementsEnabled) return;
@@ -185,6 +193,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="views">
                 {children}
             </div>
+
+            <UpdateCenter />
 
             <SettingsModal
                 isOpen={settingsOpen}

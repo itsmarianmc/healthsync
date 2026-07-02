@@ -7,20 +7,23 @@ import WeekChart from './WeekChart';
 import RecentList from './RecentList';
 import NextWidget from './NextWidget';
 import AiTips from './AiTips';
+import WeatherWidget from './WeatherWidget';
 import HeaderTitle from '../shared/HeaderTitle';
+import ActivityStatus from './ActivityStatus';
 
 interface DashboardProps {
     nfl?: boolean;
     onOpenCalSync: () => void;
     onOpenDropSync: () => void;
     onOpenSettings: () => void;
+    onOpenUpdateCenter: () => void;
 }
 
 function formatDateLabel(date: Date): string {
     return date.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-export default function Dashboard({ nfl, onOpenCalSync, onOpenDropSync, onOpenSettings }: DashboardProps) {
+export default function Dashboard({ nfl, onOpenCalSync, onOpenDropSync, onOpenSettings, onOpenUpdateCenter }: DashboardProps) {
     const data = useDashboardData();
     const today = new Date().toDateString();
     const dateLabel = formatDateLabel(new Date());
@@ -31,12 +34,11 @@ export default function Dashboard({ nfl, onOpenCalSync, onOpenDropSync, onOpenSe
         </svg>
     );
 
-    let statusText = 'Ready when you are.';
-    if (data.entryCount > 0) {
-        if (data.score >= 90) statusText = 'A strong day is coming together.';
-        else if (data.waterPercent < data.calPercent) statusText = 'Food is moving. Hydration can catch up.';
-        else statusText = 'Balanced progress across your day.';
-    }
+    const updateIcon = (
+        <svg viewBox="0 -960 960 960" fill="currentColor">
+            <path d="M440-82q-76-8-141.5-41.5t-114-87Q136-264 108-333T80-480q0-91 36.5-168T216-780h-96v-80h240v240h-80v-109q-55 44-87.5 108.5T160-480q0 123 80.5 212.5T440-163v81Zm-17-214L254-466l56-56 113 113 227-227 56 57-283 283Zm177 196v-240h80v109q55-45 87.5-109T800-480q0-123-80.5-212.5T520-797v-81q152 15 256 128t104 270q0 91-36.5 168T744-180h96v80H600Z"/>
+        </svg>
+    );
 
     return (
         <div id="dashboard-view" className={`app-view active${nfl ? ' nfl' : ''}`}>
@@ -44,8 +46,11 @@ export default function Dashboard({ nfl, onOpenCalSync, onOpenDropSync, onOpenSe
                 <div className="header-title-row">
                     <HeaderTitle />
                     <div className="button-box">
+                        <button className="update-button" id="db-openUpdateCenterBtn" data-order="2" title="What's New" onClick={onOpenUpdateCenter}>
+                            {updateIcon}
+                        </button>
                         <button className="settings-button" id="db-openSettingsBtn" data-order="3" title="Settings" onClick={onOpenSettings}>
-                        {settingsIcon}
+                            {settingsIcon}
                         </button>
                     </div>
                 </div>
@@ -54,6 +59,10 @@ export default function Dashboard({ nfl, onOpenCalSync, onOpenDropSync, onOpenSe
                 </div>
             </div>
             <div className="dashboard-shell">
+                <div className="dashboard-top-row">
+                    <ActivityStatus />
+                    <WeatherWidget />
+                </div>
                 <AiTips score={data.score} />
                 <div className="dashboard-actions">
                     <button id="quickAddCal" className="dashboard-action-btn" onClick={onOpenCalSync}>
@@ -83,6 +92,7 @@ export default function Dashboard({ nfl, onOpenCalSync, onOpenDropSync, onOpenSe
                 />
 
                 <WeekChart weekData={data.weekData} />
+
                 <div className="dashboard-mini-grid">
                     <div className="dashboard-mini-card">
                         <div className="dashboard-mini-icon"><i className="fa-solid fa-list-check" /></div>

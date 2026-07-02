@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useAuth } from '../../_context/AuthContext';
+
 
 interface PullToRefreshProps {
     onRefresh?: () => Promise<void>;
@@ -11,6 +13,7 @@ const MAX_HEIGHT = 80;
 const RESISTANCE = 0.5;
 
 export default function PullToRefresh({ onRefresh }: PullToRefreshProps) {
+    const { showToast } = useAuth();
     const [height, setHeight] = useState(0);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -78,6 +81,7 @@ export default function PullToRefresh({ onRefresh }: PullToRefreshProps) {
                     window.dispatchEvent(new Event('storage'));
                     await new Promise((r) => setTimeout(r, 250));
                 }
+                showToast('Refreshed', 2000, null, 'toast-success');
             } finally {
                 setRefreshing(false);
                 setHeight(0);

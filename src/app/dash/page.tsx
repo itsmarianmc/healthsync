@@ -7,7 +7,7 @@ import { useAppShell } from '@/app/_context/AppShellContext';
 import { visitedRoutes } from '@/app/_lib/visitedRoutes';
 
 function DashboardPageContent() {
-    const { openSettings } = useAppShell();
+    const { openSettings, openUpdateCenter } = useAppShell();
     const searchParams = useSearchParams();
     const router = useRouter();
     const nfl = useRef(visitedRoutes.has('dashboard'));
@@ -28,6 +28,7 @@ function DashboardPageContent() {
         <Dashboard
             nfl={nfl.current}
             onOpenSettings={openSettings}
+            onOpenUpdateCenter={openUpdateCenter}
             onOpenCalSync={() => router.push('/food?openModal=true')}
             onOpenDropSync={() => router.push('/drinks?openModal=true')}
         />

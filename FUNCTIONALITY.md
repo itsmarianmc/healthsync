@@ -20,7 +20,7 @@ Das Projekt entstand als eigenständige Weiterentwicklung aus zwei separaten Pro
 
 | Bereich | Technologie |
 |---|---|
-| Framework | Next.js 15 (App Router) |
+| Framework | Next.js 16 (App Router, Turbopack) |
 | Sprache | TypeScript (strict) |
 | Styling | Vanilla CSS (eigene CSS-Variablen, kein Tailwind für App-Styles) |
 | Backend / Auth | Supabase (PostgreSQL, Row Level Security, MFA/TOTP) |
@@ -87,11 +87,12 @@ healthsync/
 │       └── _components/
 │           ├── shared/         ← Toast, Tooltip, SplashScreen
 │           ├── navigation/     ← BottomNav
-│           ├── dashboard/      ← Dashboard + alle Unter-Komponenten
+│           ├── dashboard/      ← Dashboard + alle Unter-Komponenten inkl. WeatherWidget und ActivityStatus
 │           ├── calsync/        ← CalSync + Modal + FoodList + BarcodeScanner
 │           ├── dropsync/       ← DropSync + Modal + DrinkPicker + GlassInput + History
 │           ├── settings/       ← SettingsModal + Goals + Account + Workout
-│           └── onboarding/     ← Onboarding Slides + TooltipTour
+│           ├── onboarding/     ← Onboarding Slides + TooltipTour
+│           └── update/         ← Update Center für In-App-Updates und Changelog
 ```
 
 ---
@@ -119,6 +120,10 @@ Die Startseite der App. Zeigt eine tagesaktuelle Gesamtübersicht.
 - **NextWidget** - Regelbasierter Tipp-Widget. Zeigt je nach Tagesstand eine Empfehlung: Hydration fokussieren wenn Wasser < 55%, Protein nachbessern wenn Protein < 55%, Kalorien wenn < 65%, oder "Goals complete" wenn beides ≥ 100%.
 
 - **AiTips** - Widget mit `id="AiBox"`, `id="aiTipTitle"`, `id="aiTipText"`. Wird nur angezeigt wenn `calsync_ai_enabled === 'true'`. Sonst Skeleton-Loader. Aktualisiert sich alle 5 Minuten (`REFRESH_INTERVAL`) oder wenn sich Stats-Hash ändert (`totalCal|totalWater|totalProtein|entryCount|calGoal|waterGoal|proteinGoal`). Hört auf `viewChanged`-Event: startet bei Dashboard, stoppt bei anderem Tab. Hört auf `requestAITipUpdate` Custom Event. Nachrichten sind vollständig regelbasiert (kein API-Call) mit zeitabhängigen Varianten (Morgen/Mittag/Abend/Nacht). `window.refreshAITip` für externen Refresh.
+
+- **WeatherWidget** - Wetter-Widget das aktuelle Wetter für den Standort des Benutzers anzeigt. Nutzt die Open-Meteo API über einen Proxy-Endpoint. Shows temperature, weather conditions, and location. Can be enabled/disabled in Settings and uses cached location data.
+
+- **ActivityStatus** - Aktivitätsstatus-Widget das aktuellen Trainingszustand des Benutzers anzeigt (aktiv, krank, verletzt, oder pause). Ermöglicht es Benutzern, ihren aktuellen Zustand zu setzen und eine Dauer festzulegen (bis geändert, bis morgen, 7 Tage, 14 Tage, oder benutzerdefiniertes Datum). Der Status wird im Dashboard angezeigt und kann in den Einstellungen verwaltet werden.
 
 **Datenquelle:** Ausschließlich localStorage. Kein Supabase-Aufruf im Dashboard. Reaktiviert sich bei `storage`-Events, `focus`-Events, `viewChanged`-Events und alle 30 Sekunden via `setInterval`.
 
@@ -254,6 +259,11 @@ Nach Abschluss optional: **Tooltip-Tour** (8 Steps). Jeder Step zeigt einen Tool
 ## Notes-Modal
 
 Erreichbar über Button `openNotes` in der App. Öffnet als Bottom-Sheet über dem Settings-Modal (Settings bekommt dabei die Klasse `.small`). Gleiches Drag-Sheet-System wie Settings und DropSync. `notes.js` ist kein IIFE - Variablen sind global, kein `DOMContentLoaded` Guard. Beim Schließen wird `.small` nach 100ms von Settings entfernt.
+
+---
+## Update Center
+
+Zeigt verfügbare App-Updates und changelog-Einträge an. Benutzer werden über neue Versionen informiert und können diese direkt in der App installieren. Nutzt die Supabase-Changelog-Datenbank um Versionshinweise und neue Features anzuzeigen. Enthält eine "Was ist neu?"-Modal die aktualisierte Versionsinformationen und Änderungen anzeigt.
 
 ---
 

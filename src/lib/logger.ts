@@ -4,7 +4,6 @@ export const logger = {
       console.error(message, error);
     } else {
       console.error(message);
-      // In production, consider sending to external logging service
     }
   },
   warn: (message: string) => {

@@ -5,14 +5,38 @@ import { useRef, useCallback } from 'react';
 interface DraggableSheetConfig {
   onClose: () => void;
   getExpandedHeight?: () => number;
+  transitionDurationMs?: number;
+  transitionEasing?: string;
+  closeTransitionDurationMs?: number;
+  closeTransitionEasing?: string;
 }
 
 type SheetState = 'closed' | 'open' | 'expanded';
 const SHEET_TOP_MARGIN = 24;
 const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
+const CLOSE_EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 const FLING_CLOSE_VEL = 1500;
+let bodyLockCount = 0;
+
+function lockBodyScroll() {
+  if (bodyLockCount === 0) document.body.classList.add('modal-open');
+  bodyLockCount += 1;
+}
+
+function unlockBodyScroll() {
+  bodyLockCount = Math.max(0, bodyLockCount - 1);
+  if (bodyLockCount === 0) document.body.classList.remove('modal-open');
+}
 
 export function useDraggableSheet(config: DraggableSheetConfig) {
+  const {
+    onClose,
+    getExpandedHeight,
+    transitionDurationMs,
+    transitionEasing,
+    closeTransitionDurationMs,
+    closeTransitionEasing,
+  } = config;
   const modalRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<SheetState>('closed');
@@ -26,15 +50,19 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
   const isClosingRef = useRef(false);
   const isOpeningRef = useRef(false);
 
-  const expandedHeight = () =>
-    config.getExpandedHeight?.() ?? window.innerHeight - SHEET_TOP_MARGIN;
+  const expandedHeight = useCallback(
+    () => getExpandedHeight?.() ?? window.innerHeight - SHEET_TOP_MARGIN,
+    [getExpandedHeight],
+  );
 
   const setTransition = useCallback((props: string[]) => {
     if (!modalRef.current) return;
+    const duration = transitionDurationMs ?? 420;
+    const easing = transitionEasing ?? EASE;
     modalRef.current.style.transition = props
-      .map((p) => `${p} 0.42s ${EASE}`)
+      .map((p) => `${p} ${duration}ms ${easing}`)
       .join(', ');
-  }, []);
+  }, [transitionDurationMs, transitionEasing]);
 
   const snapToOpen = useCallback(() => {
     stateRef.current = 'open';
@@ -50,7 +78,7 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
     setTransition(['height', 'transform']);
     modalRef.current.style.height = expandedHeight() + 'px';
     modalRef.current.style.transform = 'translateY(0)';
-  }, [setTransition]);
+  }, [expandedHeight, setTransition]);
 
   const close = useCallback(() => {
     if (!modalRef.current || isClosingRef.current) return;
@@ -62,9 +90,9 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         if (!modalRef.current) return;
-        modalRef.current.style.transition = `transform 0.36s cubic-bezier(0.4, 0, 0.2, 1)`;
+        modalRef.current.style.transition = `transform ${closeTransitionDurationMs ?? 360}ms ${closeTransitionEasing ?? CLOSE_EASE}`;
         modalRef.current.style.transform = 'translateY(110%)';
-        document.body.classList.remove('modal-open');
+        unlockBodyScroll();
       }),
     );
     if (overlayRef.current) overlayRef.current.classList.remove('visible');
@@ -75,9 +103,9 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
         naturalHeightRef.current = 0;
       }
       isClosingRef.current = false;
-      config.onClose();
+      onClose();
     }, 400);
-  }, [config]);
+  }, [closeTransitionDurationMs, closeTransitionEasing, onClose]);
 
   const onHandlePointerDown = useCallback((e: React.PointerEvent) => {
     if (!modalRef.current) return;
@@ -115,7 +143,7 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
         modalRef.current.style.transform = 'translateY(0)';
       }
     }
-  }, []);
+  }, [expandedHeight]);
 
   const onHandlePointerUp = useCallback(() => {
     if (!isDraggingRef.current) return;
@@ -154,7 +182,7 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
     modalRef.current.style.height = 'auto';
     modalRef.current.style.transform = 'translateY(100%)';
     if (overlayRef.current) overlayRef.current.classList.add('visible');
-    document.body.classList.add('modal-open');
+    lockBodyScroll();
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         if (!modalRef.current) return;
@@ -181,11 +209,17 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
         isOpeningRef.current = false;
       }),
     );
-  }, [setTransition]);
+  }, [expandedHeight, setTransition]);
 
   return {
     modalRef,
     overlayRef,
+    setModalRef: (node: HTMLDivElement | null) => {
+      modalRef.current = node;
+    },
+    setOverlayRef: (node: HTMLDivElement | null) => {
+      overlayRef.current = node;
+    },
     open,
     close,
     snapToExpanded,
