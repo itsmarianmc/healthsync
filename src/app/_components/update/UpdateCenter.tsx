@@ -106,8 +106,6 @@ export default function UpdateCenter() {
     }, []);
 
     useEffect(() => {
-        if (!user?.id) return;
-
         let cancelled = false;
 
         const loadChangelog = async () => {
@@ -116,7 +114,7 @@ export default function UpdateCenter() {
 
             try {
                 const [profileSeenVersion, allEntries] = await Promise.all([
-                    fetchLastSeenChangelogVersion(user.id),
+                    user?.id ? fetchLastSeenChangelogVersion(user.id) : Promise.resolve(null),
                     fetchChangelogEntries(),
                 ]);
 
@@ -146,7 +144,9 @@ export default function UpdateCenter() {
                 } else {
                     profileSeenVersionRef.current = APP_VERSION;
                     writeLocalLastSeen(APP_VERSION);
-                    void storeLastSeenChangelogVersion(user.id, APP_VERSION);
+                    if (user?.id) {
+                        void storeLastSeenChangelogVersion(user.id, APP_VERSION);
+                    }
                 }
             } catch (error) {
                 if (!cancelled) {

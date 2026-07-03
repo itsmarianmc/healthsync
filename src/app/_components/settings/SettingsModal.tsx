@@ -6,6 +6,7 @@ import { pushSettings } from '../../_lib/sync';
 import { supabase } from '../../_lib/supabase';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { calcSupplements, persistSupplementGoals } from '../../_lib/supplements';
+import { reverseGeocodeLocation } from '../../_lib/location';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -514,7 +515,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                                     const lon = pos.coords.longitude;
                                                     setWeatherLat(String(lat));
                                                     setWeatherLon(String(lon));
-                                                    const name = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+                                                    const name = await reverseGeocodeLocation(lat, lon);
                                                     setWeatherName(name);
                                                     showToast('Location filled — press Save to persist');
                                                 } catch (err) {

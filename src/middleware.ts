@@ -22,7 +22,7 @@ export function middleware(request: NextRequest) {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set(
     'Permissions-Policy',
-    'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=()'
+    'geolocation=(self), microphone=(self), camera=(self), payment=(self), usb=(self), magnetometer=(self), gyroscope=(self)'
   );
 
   return response;

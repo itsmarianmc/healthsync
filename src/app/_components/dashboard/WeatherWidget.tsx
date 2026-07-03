@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { version } from '../../../../package.json';
+import { reverseGeocodeLocation } from '../../_lib/location';
 
 const WEATHER_CODE_TO_ICON: Record<number, string> = {
   0: 'fa-sun',
@@ -103,24 +105,45 @@ export default function WeatherWidget() {
     };
   }, []);
 
-  const getUserLocation = () => {
-    return new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
+  const getUserLocation = async () => {
+    try {
       if (!navigator.geolocation) {
-        reject(new Error('Geolocation not supported'));
-        return;
+        throw new Error('Geolocation not supported');
       }
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-        },
-        (error) => {
-          reject(error);
-        }
-      );
-    });
+
+      const position = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            resolve({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            });
+          },
+          (error) => {
+            reject(error);
+          }
+        );
+      });
+
+      return position;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleUseLocation = async () => {
+    try {
+      const position = await getUserLocation();
+
+      const locationName = await reverseGeocodeLocation(position.latitude, position.longitude);
+      setWeatherLocation(locationName);
+      setStoredValue(WEATHER_STORAGE_KEYS.locationName, locationName);
+      setWeatherLat(position.latitude);
+      setWeatherLon(position.longitude);
+    } catch (err) {
+      console.error('Error getting location:', err);
+      setError('Failed to get your location');
+    }
   };
 
   useEffect(() => {
@@ -133,11 +156,20 @@ export default function WeatherWidget() {
 
     if (!weatherLocation) {
       getUserLocation()
-        .then(({ latitude, longitude }) => {
+        .then(async ({ latitude, longitude }) => {
           setWeatherLat(latitude);
           setWeatherLon(longitude);
+
+          const locationName = await reverseGeocodeLocation(latitude, longitude);
+          setWeatherLocation(locationName);
+          setStoredValue(WEATHER_STORAGE_KEYS.locationName, locationName);
           setStoredValue(WEATHER_STORAGE_KEYS.latitude, latitude.toString());
           setStoredValue(WEATHER_STORAGE_KEYS.longitude, longitude.toString());
+          console.info('Reverse geocoded user location', {
+            latitude,
+            longitude,
+            locationName,
+          });
         })
         .catch((err) => {
           console.warn('Unable to get user location:', err);
@@ -208,9 +240,7 @@ export default function WeatherWidget() {
             <div className="skeleton-info" >
               <div className="skeleton-line brand"></div>
             </div>
-            <div className="skeleton-info">
-              <div className="skeleton-line"></div>
-            </div>
+            <div className="weather-location">Loading...</div>
           </div>
         </div>
       </div>

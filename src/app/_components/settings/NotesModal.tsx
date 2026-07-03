@@ -352,6 +352,19 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                             <p>Use is at your own risk. No liability is accepted for damage to health that may arise from errors in the calculation.</p>
                         </div>
                     </div>
+                    <div className="license-section">
+                        <div className="license-section-title">
+                            <i className="fas fa-file-contract"></i>
+                            About Location Data and Reverse Geocoding
+                        </div>
+                        <div className="license-section-body">
+                            <p>The location data used in this application is obtained through reverse geocoding services, which convert geographic coordinates (latitude and longitude) into human-readable addresses. The accuracy of the location information may vary based on the quality of the underlying data sources and the algorithms used for geocoding.</p>
+                            <p>While efforts are made to provide accurate and up-to-date location information, users should be aware that discrepancies may occur due to changes in geographic features, administrative boundaries, or other factors. Users are encouraged to verify critical location information through additional sources when necessary.</p>
+                            <p>By using this application, you acknowledge that the developers are not responsible for any inaccuracies or issues arising from the use of location data and reverse geocoding services.</p>
+                            <br />
+                            <p>Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

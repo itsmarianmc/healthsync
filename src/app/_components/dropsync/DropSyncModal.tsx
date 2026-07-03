@@ -73,8 +73,9 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
         modalRef.current.style.height = curH + 'px';
         requestAnimationFrame(() => requestAnimationFrame(() => {
             if (!modalRef.current) return;
-            modalRef.current.style.transition = `transform 0.36s cubic-bezier(0.4, 0, 0.2, 1)`;
+            modalRef.current.style.transition = `transform 0.36s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease`;
             modalRef.current.style.transform = 'translateY(110%)';
+            modalRef.current.style.opacity = '0';
             document.body.classList.remove('modal-open');
         }));
         if (overlayRef.current) overlayRef.current.classList.remove('visible');
@@ -108,6 +109,7 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
         setNoTransition();
         modalRef.current.style.height = 'auto';
         modalRef.current.style.transform = 'translateY(100%)';
+        modalRef.current.style.opacity = '0';
         if (overlayRef.current) overlayRef.current.classList.add('visible');
         document.body.classList.add('modal-open');
         requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -127,12 +129,14 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
             requestAnimationFrame(() => {
                 if (!modalRef.current) return;
                 if (preferExpanded) {
-                    setTransition(['height', 'transform']);
+                    setTransition(['height', 'transform', 'opacity']);
+                    modalRef.current.style.opacity = '1';
                     modalRef.current.style.transform = 'translateY(0)';
                     modalRef.current.style.height = expandedHeight() + 'px';
                     setModalState('expanded');
                 } else {
-                    setTransition(['transform']);
+                    setTransition(['transform', 'opacity']);
+                    modalRef.current.style.opacity = '1';
                     modalRef.current.style.transform = 'translateY(0)';
                 }
             });

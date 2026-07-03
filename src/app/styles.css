@@ -1008,10 +1008,6 @@ a:link:hover {
 }
 
 @media (min-width: 720px) {
-	.activity-status-modal {
-		width: min(420px, calc(100% - 24px));
-	}
-
 	.extra-modal {
 		border-radius: 16px;
 		margin-bottom: 28px;
@@ -1021,7 +1017,6 @@ a:link:hover {
 
 .activity-status-modal {
 	max-width: 420px;
-	width: calc(100% - 24px);
 }
 
 .extra-modal .modal-handle-zone {
@@ -1063,14 +1058,18 @@ a:link:hover {
 	justify-content: space-between;
 	padding: 8px 16px;
 }
-
 .modal-header {
-	align-items: center;
-	display: flex;
-	flex-shrink: 0;
-	height: 40px;
-	padding: 6px 24px 0;
-	position: relative;
+    flex-shrink: 0;
+    align-items: center;
+    height: 40px;
+    padding: 6px 24px 0;
+    display: flex;
+    position: absolute;
+    width: 100%;
+    top: 30px;
+	background: linear-gradient(0deg, rgba(28, 28, 30, 0) 0%, rgba(28, 28, 30, 0.67) 22%, rgba(28, 28, 30, 1) 100%);
+	z-index: 1;
+    margin-top: -1px;
 }
 
 .modal-btn {
@@ -1467,6 +1466,8 @@ input::-webkit-inner-spin-button {
 	flex-direction: row;
 	gap: 0.75rem;
 	min-width: 111px;
+	max-width: calc(40% - (10px / 2));
+	width: 100%;
 }
 
 .weather-widget {
@@ -1492,9 +1493,10 @@ input::-webkit-inner-spin-button {
 }
 
 .weather-widget-info {
-	display: flex;
-	flex-direction: column;
-	width: 100%;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0; /* WICHTIG: Erlaubt dem Container, kleiner als sein Inhalt zu werden */
 }
 
 .weather-temperature {
@@ -1502,8 +1504,12 @@ input::-webkit-inner-spin-button {
 }
 
 .weather-location {
-	color: var(--text2);
-	font-size: 12px;
+    color: var(--text2);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* max-width: 100%; ist hier nicht mehr zwingend nötig, schadet aber nicht */
 }
 
 #AiBox.ai .dashboard-hero {
@@ -2026,6 +2032,7 @@ input::-webkit-inner-spin-button {
 	overflow-y: unset;
 	position: relative;
 	transition: all 0.3s var(--ease);
+	padding-top: 55px !important;
 }
 
 .whats-new-content {
@@ -2986,7 +2993,7 @@ input::-webkit-inner-spin-button {
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
-	padding: 16px 24px 0;
+	padding: 0px 24px 0;
 }
 
 .bottom-sheet.camera-sheet {
@@ -5071,7 +5078,7 @@ input::-webkit-inner-spin-button {
 	display: grid;
 	gap: 10px;
 	grid-template-columns: repeat(3, 1fr);
-	padding: 16px 24px 0;
+	padding: 0px 24px 0;
 }
 
 .drink-option {
