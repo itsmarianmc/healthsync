@@ -158,7 +158,7 @@ async function analyzeWithPillama(
     No markdown, no backticks, no explanations. Valid JSON only.`;
 
     try {
-        const res = await fetch('https://api.itsmarian.dev/api/proxy?type=pillama', {
+        const res = await fetch('https://api.itsmarian.dev/api/proxy?type=ollama', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -219,7 +219,7 @@ async function analyzeWithGemini(
         parts = [
         { text: `Analyze this food image. Estimate the portion size and provide nutritional information for that specific portion.
 
-            Return ONLY a raw JSON object. No markdown, no code blocks, no explanations, no additional text — just the JSON object itself.
+            Return ONLY a raw JSON object. No markdown, no code blocks, no explanations, no additional text - just the JSON object itself.
             
             The JSON object must contain exactly these fields:
             - "name": the exact name of the food item (string)
@@ -1093,7 +1093,7 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
                                         <div className="amount-section" id="amount-section">
                                             <div className="amount-label">Amount / Serving</div>
                                             <div className="amount-input-row">
-                                            <input type="number" id="amountInput" className="amount-big-input" value={amount} min={1} max={9999} inputMode="decimal"
+                                            <input type="number" id="amountInput" className="amount-big-input" value={amount} min={0} max={9999} inputMode="decimal"
                                                 onChange={e => setAmount(parseFloat(e.target.value) || 100)} />
                                             <div className="amount-unit-toggle">
                                                 {(['g','ml','pcs'] as const).map(u => (

@@ -362,7 +362,17 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                             <p>While efforts are made to provide accurate and up-to-date location information, users should be aware that discrepancies may occur due to changes in geographic features, administrative boundaries, or other factors. Users are encouraged to verify critical location information through additional sources when necessary.</p>
                             <p>By using this application, you acknowledge that the developers are not responsible for any inaccuracies or issues arising from the use of location data and reverse geocoding services.</p>
                             <br />
-                            <p>Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright</p>
+                            <p>Data © OpenStreetMap contributors, ODbL 1.0. <a href="http://osm.org/copyright" target="_blank" rel="noopener noreferrer">http://osm.org/copyright</a></p>
+                        </div>
+                    </div>
+                    <div className="license-section">
+                        <div className="license-section-title">
+                            <i className="fas fa-file-contract"></i>
+                            About Exercises and Workouts
+                        </div>
+                        <div className="license-section-body">
+                            <p>The instructional content and step-by-step guides for the supported exercises were sourced from the comprehensive <a href="https://github.com/hasaneyldrm/exercises-dataset" target="_blank" rel="noopener noreferrer">Exercises Dataset on GitHub</a>.</p>
+                            <p>All accompanying media assets, including images and videos, were custom-created specifically for this project and are currently not available for public distribution or external use.</p> 
                         </div>
                     </div>
                 </div>

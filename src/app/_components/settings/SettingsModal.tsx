@@ -517,7 +517,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                                     setWeatherLon(String(lon));
                                                     const name = await reverseGeocodeLocation(lat, lon);
                                                     setWeatherName(name);
-                                                    showToast('Location filled — press Save to persist');
+                                                    showToast('Location filled - press Save to persist');
                                                 } catch (err) {
                                                     console.warn('Use Location (settings) failed', err);
                                                     showToast('Unable to get location');

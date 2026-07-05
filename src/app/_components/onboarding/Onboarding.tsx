@@ -140,14 +140,14 @@ export default function Onboarding({ onDone }: OnboardingProps) {
                             {s.legal && (
                                 <div className="onboarding-legal-list">
                                     <div className="onboarding-legal-links">
-                                        <a href="https://itsmarian.dev/legal/terms" className="onboarding-legal-link" target="_blank" rel="noopener">
+                                        <a href="https://healthsync.itsmarian.dev/legal/terms" className="onboarding-legal-link" target="_blank" rel="noopener">
                                         <i className="fa-solid fa-scale-balanced"></i>
                                         <span>Terms of Service</span>
                                         <svg height="14" viewBox="0 -960 960 960" width="14" fill="currentColor">
                                             <path d="M321-80 250-151l329-329-329-329 71-71 400 400L321-80Z"></path>
                                         </svg>
                                         </a>
-                                        <a href="https://itsmarian.dev/legal/privacy" className="onboarding-legal-link" target="_blank" rel="noopener">
+                                        <a href="https://healthsync.itsmarian.dev/legal/privacy" className="onboarding-legal-link" target="_blank" rel="noopener">
                                         <i className="fa-solid fa-shield-halved"></i>
                                         <span>Privacy Policy</span>
                                         <svg height="14" viewBox="0 -960 960 960" width="14" fill="currentColor">
@@ -161,7 +161,7 @@ export default function Onboarding({ onDone }: OnboardingProps) {
                                         <p>Individual hydration and calorie needs can vary significantly based on multiple factors including but not limited to: body weight, height, physical activity level, age, gender, climate conditions, medical conditions, medications, and overall health status. Environmental factors such as temperature, humidity, and altitude may also affect daily fluid requirements as well as daily calorie needs.</p>
                                         <p>The provided values represent statistical averages and may need adjustment based on your specific circumstances. For personalized hydration and nutrition recommendations, especially if you have underlying health conditions or specific dietary requirements, please consult with a qualified healthcare provider or registered dietitian.</p>
                                         <p>Use is at your own risk. No liability is accepted for damage to health that may arise from errors in the calculation.</p>
-                                        <p>HealthSync stores your hydration data locally on your device. If you choose to create an account, this data may optionally be stored in a secure cloud database provided by Supabase. HealthSync does not sell, share, or otherwise monetize your personal data under any circumstances. You may permanently delete all of your data at any time via the Settings menu. Authentication is implemented using email and password credentials; only your user ID and email address are retained for the purpose of account identification. For more information, please refer to our <a href="https://itsmarian.dev/legal/privacy" target="_blank"><strong>Privacy Policy</strong></a>.</p>
+                                        <p>HealthSync stores your hydration data locally on your device. If you choose to create an account, this data may optionally be stored in a secure cloud database provided by Supabase. HealthSync does not sell, share, or otherwise monetize your personal data under any circumstances. You may permanently delete all of your data at any time via the Settings menu. Authentication is implemented using email and password credentials; only your user ID and email address are retained for the purpose of account identification. For more information, please refer to our <a href="https://healthsync.itsmarian.dev/legal/privacy" target="_blank"><strong>Privacy Policy</strong></a>.</p>
                                     </div>
                                     <div className="ai-meal-scanning">
                                         <h3>About AI and Meal Scanning</h3>

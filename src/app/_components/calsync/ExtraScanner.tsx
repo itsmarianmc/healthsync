@@ -299,13 +299,13 @@ export default function ExtraScanner({ isOpen, onClose }: { isOpen: boolean; onC
                                             <input
                                                 id="amountInput"
                                                 className="amount-big-input"
-                                                min={1} max={9999}
+                                                min={0} max={9999}
                                                 inputMode="decimal"
                                                 type="number"
                                                 value={renderAmount}
                                                 onChange={e => {
                                                     const next = Number(e.target.value);
-                                                    setAmount(Number.isNaN(next) ? 1 : Math.max(1, Math.min(9999, next)));
+                                                    setAmount(Number.isNaN(next) ? 0 : Math.max(0, Math.min(9999, next)));
                                                 }}
                                             />
                                             <div className="amount-unit-toggle">
