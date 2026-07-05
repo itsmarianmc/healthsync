@@ -5,7 +5,6 @@ import ScoreRing from './ScoreRing';
 
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 
-// ----- Activity Status helpers (copied from ActivityStatus.tsx) -----
 type ActivityStatus = 'active' | 'sick' | 'injured' | 'on_a_break';
 type StatusDuration = 'until_changed' | 'until_tomorrow' | '7_days' | '14_days' | 'custom';
 
@@ -97,7 +96,6 @@ function loadActivityStatus(): ActivityStatusState {
         return DEFAULT_STATE;
     }
 }
-// ---------------------------------------------------------------
 
 function isAIEnabled() {
     return typeof localStorage !== 'undefined' && localStorage.getItem('calsync_ai_enabled') === 'true';
@@ -214,7 +212,6 @@ function pickMessage(
     const anySupp = hasCreatine || hasMagnesium;
     const allSuppDone = (!hasCreatine || creatineTaken) && (!hasMagnesium || magnesiumTaken);
 
-    // Base messages for different statuses
     if (status === 'sick') {
         if (entryCount === 0) {
             return {
@@ -291,7 +288,6 @@ function pickMessage(
         };
     }
 
-    // --- Active status (the original logic) ---
     if (entryCount === 0) {
         if (hour < 10)
             return {
@@ -468,7 +464,6 @@ export default function AiTips({ score }: AiTipsProps) {
             return;
         }
 
-        // Read current status
         const state = loadActivityStatus();
         const effective = getEffectiveStatus(state);
         setStatus(effective);
@@ -489,7 +484,6 @@ export default function AiTips({ score }: AiTipsProps) {
         refresh();
         intervalRef.current = setInterval(refresh, REFRESH_INTERVAL);
         window.addEventListener('storage', refresh);
-        // Also refresh every minute for status changes at midnight
         const minuteInterval = setInterval(refresh, 60000);
         const handler = () => refresh();
         window.addEventListener('requestAITipUpdate', handler);

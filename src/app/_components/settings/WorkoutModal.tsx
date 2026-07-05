@@ -140,7 +140,6 @@ function normalizeAssetPath(path: unknown): string {
 }
 
 async function loadExercisesCache(): Promise<ExerciseCacheItem[]> {
-    // Wenn bereits geladen, returnen (optional: force reload möglich)
     if (exercisesCache) return exercisesCache;
     try {
         const res = await fetch('/exercises.json');
@@ -148,7 +147,6 @@ async function loadExercisesCache(): Promise<ExerciseCacheItem[]> {
         const data = await res.json();
         const flat: ExerciseCacheItem[] = [];
 
-        // Fall 1: Array-Format (falls später mal verwendet)
         if (Array.isArray(data)) {
             for (const item of data) {
                 const record = item as Record<string, unknown>;
@@ -169,7 +167,6 @@ async function loadExercisesCache(): Promise<ExerciseCacheItem[]> {
                 flat.push({ id, name, image, gif, category, muscle_group, secondary_muscles, instructions, instruction_steps });
             }
         } else {
-            // Fall 2: Objekt mit Muskelgruppen (deine aktuelle Struktur)
             for (const [muscleGroup, items] of Object.entries(data as Record<string, unknown[]>)) {
                 for (const item of items) {
                     for (const [name, details] of Object.entries(item as Record<string, { 
@@ -1102,7 +1099,6 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
 
     const startSession = async (routine: Routine) => {
         sheet.close();
-        // Cache immer frisch laden (falls er noch nicht existiert oder neu geladen werden soll)
         const cache = await loadExercisesCache();
         const exCache: Record<string, ExerciseCacheItem> = {};
         cache.forEach(ex => { exCache[ex.name] = ex; });
