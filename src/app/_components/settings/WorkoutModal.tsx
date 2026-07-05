@@ -501,7 +501,6 @@ function CreateModal({ editRoutine, onSave, onClose }: {
             instructions: item.instructions,
             instruction_steps: item.instruction_steps,
         }]);
-        setSearchQuery('');
     };
 
     const handleSave = () => {
@@ -806,6 +805,10 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
         if (!confirm('Discard workout? Progress will be lost.')) return;
         if (overlayRef.current) overlayRef.current.classList.remove('visible');
         document.body.classList.remove('modal-open');
+        if (modalRef.current) {
+          modalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4,0,0.2,1)';
+          modalRef.current.style.transform = 'translateY(110%)';
+        }
         setTimeout(onClose, 400);
     };
 
