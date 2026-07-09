@@ -1075,6 +1075,10 @@ a:link:hover {
 	z-index: 89;
 }
 
+.modal-btn .close-btn {
+	background: var(--surface2);
+}
+
 .back-btn {
 	align-items: center;
 	align-self: flex-start;
