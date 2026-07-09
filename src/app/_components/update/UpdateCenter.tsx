@@ -297,13 +297,6 @@ export default function UpdateCenter() {
                     </div>
                     <div className="modal-header">
                         <div className="modal-btn">
-                            {updateAvailable && (
-                                <button className="close-btn" type="button" onClick={applyUpdate} aria-label="Update now" style={{ color: '#30D158' }} title="Update available">
-                                    <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
-                                        <path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm-40-280v-160h80v160h-80Zm0-240v-80h80v80h-80Z" />
-                                    </svg>
-                                </button>
-                            )}
                             <button className="close-btn" id="backBtn" type="button" onClick={closeUpdateCenter} aria-label="Close update center">
                                 <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="#e3e3e3">
                                     <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
