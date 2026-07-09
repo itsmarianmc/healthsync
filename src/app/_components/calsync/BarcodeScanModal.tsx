@@ -18,6 +18,8 @@ export default function BarcodeScanModal({ isOpen, onClose, onScanned }: Barcode
     const activeRef = useRef(false);
     const cameraIndexRef = useRef(0);
     const deviceIdRef = useRef<string | undefined>(undefined);
+    const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+    const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(undefined);
 
     const stopCamera = () => {
         activeRef.current = false;
@@ -30,6 +32,16 @@ export default function BarcodeScanModal({ isOpen, onClose, onScanned }: Barcode
             streamRef.current = null;
         }
         if (videoRef.current) videoRef.current.srcObject = null;
+    };
+
+    const refreshCameraList = async () => {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const cams = devices.filter(d => d.kind === 'videoinput');
+            setCameras(cams);
+        } catch {
+            console.warn('Could not enumerate devices. Camera labels may be unavailable until permission is granted.');
+        }
     };
 
     const startCamera = async (deviceId?: string) => {
@@ -51,10 +63,14 @@ export default function BarcodeScanModal({ isOpen, onClose, onScanned }: Barcode
             if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
             streamRef.current = stream;
+            const activeDeviceId = stream.getVideoTracks()[0]?.getSettings().deviceId ?? deviceId;
+            deviceIdRef.current = activeDeviceId;
+            setSelectedDeviceId(activeDeviceId);
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
                 await videoRef.current.play();
             }
+            refreshCameraList();
             const reader = new ZXing.BrowserMultiFormatReader();
             readerRef.current = reader;
             activeRef.current = true;
@@ -87,6 +103,12 @@ export default function BarcodeScanModal({ isOpen, onClose, onScanned }: Barcode
         } else {
             setStatus('Only one camera available.');
         }
+    };
+
+    const selectCamera = (deviceId: string) => {
+        if (deviceId === selectedDeviceId) return;
+        stopCamera();
+        setTimeout(() => startCamera(deviceId), 100);
     };
 
     useEffect(() => {
@@ -142,6 +164,28 @@ export default function BarcodeScanModal({ isOpen, onClose, onScanned }: Barcode
                     </div>
                 </div>
                 <div id="cameraStatus" className="search-status" style={{ marginTop: 12 }}>{status}</div>
+                    {cameras.length > 1 && (
+                        <select
+                            id="cameraSelect"
+                            value={selectedDeviceId ?? ''}
+                            onChange={e => selectCamera(e.target.value)}
+                            style={{
+                                width: '100%',
+                                marginTop: 12,
+                                padding: '10px 12px',
+                                borderRadius: 'var(--radius-sm)',
+                                background: 'var(--surface3)',
+                                color: 'inherit',
+                                border: '1px solid var(--border, transparent)',
+                            }}
+                        >
+                            {cameras.map((cam, i) => (
+                                <option key={cam.deviceId} value={cam.deviceId}>
+                                    {cam.label || `Camera ${i + 1}`}
+                                </option>
+                            ))}
+                        </select>
+                    )}
                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                         <button
                             id="restartCameraBtn"
@@ -151,14 +195,16 @@ export default function BarcodeScanModal({ isOpen, onClose, onScanned }: Barcode
                             >
                             Restart Camera
                         </button>
-                        <button
-                            id="switchCameraBtn"
-                            className="option-btn"
-                            style={{ flex: 1 }}
-                            onClick={switchCamera}
-                            >
-                            Switch Camera
-                        </button>
+                        {cameras.length <= 1 && (
+                            <button
+                                id="switchCameraBtn"
+                                className="option-btn"
+                                style={{ flex: 1 }}
+                                onClick={switchCamera}
+                                >
+                                Switch Camera
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

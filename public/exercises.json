@@ -2,9 +2,7 @@
 	"Abdominals": [
 		{
 			"Ab Scissors": {
-				"secondary_muscles": [
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Ab_Scissors.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Ab_Scissors.mp4",
 				"instructions": "Lie flat on your back with your legs extended and hands under your glutes for support. Lift both legs a few inches off the floor and cross them over each other in a scissor-like motion, alternating which leg is on top. Keep your lower back pressed into the floor throughout the movement.",
@@ -38,9 +36,7 @@
 		},
 		{
 			"Bicycle Crunch": {
-				"secondary_muscles": [
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Bicycle_Crunch.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Bicycle_Crunch.mp4",
 				"instructions": "Lie on your back with your hands behind your head and knees bent. Bring one knee toward your chest while rotating your torso to touch the opposite elbow to that knee, then switch sides in a pedaling motion, keeping your core engaged throughout.",
@@ -55,9 +51,7 @@
 		},
 		{
 			"Bicycle Crunch Raised Legs": {
-				"secondary_muscles": [
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Bicycle_Crunch_Raised_Legs.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Bicycle_Crunch_Raised_Legs.mp4",
 				"instructions": "Lie on your back with both legs raised toward the ceiling and hands behind your head. Perform the bicycle crunch motion by rotating your torso and bringing each elbow toward the opposite knee while keeping the non-working leg extended upward, increasing the challenge on the lower abs.",
@@ -73,7 +67,7 @@
 		{
 			"Cable Core Palloff Press": {
 				"secondary_muscles": [
-					"Shoulders"
+					"Obliques"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Cable_Core_Palloff_Press.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Cable_Core_Palloff_Press.mp4",
@@ -89,9 +83,7 @@
 		},
 		{
 			"Cable Crunch": {
-				"secondary_muscles": [
-					"Shoulders"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Cable_Crunch.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Cable_Crunch.mp4",
 				"instructions": "Kneel below a high cable pulley holding a rope attachment beside your head. Flex your spine and crunch your torso down toward your thighs, contracting your abs, then slowly return to the upright starting position.",
@@ -107,7 +99,7 @@
 		{
 			"Cable Twist (Down to up)": {
 				"secondary_muscles": [
-					"Shoulders"
+					"Obliques"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Cable_Twist_(Down_to_up).jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Cable_Twist_(Down_to_up).mp4",
@@ -124,7 +116,7 @@
 		{
 			"Cable Twist (Up to down)": {
 				"secondary_muscles": [
-					"Shoulders"
+					"Obliques"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Cable_Twist_(Up_to_down).jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Cable_Twist_(Up_to_down).mp4",
@@ -140,9 +132,7 @@
 		},
 		{
 			"Crunch": {
-				"secondary_muscles": [
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Crunch.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Crunch.mp4",
 				"instructions": "Lie on your back with your knees bent and feet flat on the floor. Place your hands lightly behind your head or crossed over your chest, then curl your shoulders and upper back off the floor by contracting your abs, before lowering back down with control.",
@@ -157,9 +147,7 @@
 		},
 		{
 			"Crunch (Machine)": {
-				"secondary_muscles": [
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Crunch_(Machine).jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Crunch_(Machine).mp4",
 				"instructions": "Sit in the crunch machine with your feet secured and hands gripping the handles or pads. Flex your torso forward against the resistance, contracting your abs, then return slowly to the starting position.",
@@ -174,9 +162,7 @@
 		},
 		{
 			"Crunch (Weighted)": {
-				"secondary_muscles": [
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Crunch_(Weighted).jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Crunch_(Weighted).mp4",
 				"instructions": "Lie on your back with knees bent and hold a weight plate or dumbbell against your chest. Curl your shoulders off the floor by contracting your abs, then lower back down with control.",
@@ -193,7 +179,7 @@
 			"Dead Bug": {
 				"secondary_muscles": [
 					"Glutes",
-					"Shoulders"
+					"Hip Flexors"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Dead_Bug.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Dead_Bug.mp4",
@@ -211,9 +197,7 @@
 		},
 		{
 			"Decline Crunch": {
-				"secondary_muscles": [
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Decline_Crunch.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Decline_Crunch.mp4",
 				"instructions": "Lie on a decline bench with your feet secured and your knees bent at a 90-degree angle. Place your hands behind your head or across your chest. Engage your abs and lift your upper body towards your knees, curling your torso. Pause for a moment at the top, then slowly lower your upper body back down to the starting position. Repeat for the desired number of repetitions.",
@@ -228,9 +212,7 @@
 		},
 		{
 			"Decline Crunch (Weighted)": {
-				"secondary_muscles": [
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Decline_Crunch_(Weighted).jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Decline_Crunch_(Weighted).mp4",
 				"instructions": "Secure your feet on a decline bench and hold a weight plate against your chest. Curl your torso up toward your knees by contracting your abs, then lower back down with control.",
@@ -265,7 +247,7 @@
 		{
 			"Dragonfly": {
 				"secondary_muscles": [
-					"Lats",
+					"Triceps",
 					"Shoulders"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Dragonfly.jpg",
@@ -282,9 +264,7 @@
 		},
 		{
 			"Elbow to Knee": {
-				"secondary_muscles": [
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Elbow_to_Knee.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Elbow_to_Knee.mp4",
 				"instructions": "Stand or lie down and bring your elbow toward the opposite raised knee, rotating your torso to engage your obliques, then return and repeat on the other side in a controlled, rhythmic motion.",
@@ -299,9 +279,7 @@
 		},
 		{
 			"Flutter Kicks": {
-				"secondary_muscles": [
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Flutter_Kicks.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Flutter_Kicks.mp4",
 				"instructions": "Lie flat on your back with your legs extended and your hands by your sides. Engage your core and lift your legs off the ground about 6 inches. Keeping your legs straight, alternate lifting one leg slightly higher than the other. Continue this fluttering motion for the desired number of repetitions.",
@@ -332,10 +310,7 @@
 		},
 		{
 			"Hanging Leg Raise": {
-				"secondary_muscles": [
-					"Forearms",
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Hanging_Leg_Raise.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Hanging_Leg_Raise.mp4",
 				"instructions": "Hang from a pull-up bar with your arms fully extended and your palms facing away from you. Engage your core and lift your legs up in front of you, keeping them straight. Continue lifting until your legs are parallel to the ground or as high as you can comfortably go. Pause for a moment at the top, then slowly lower your legs back down to the starting position. Repeat for the desired number of repetitions.",
@@ -369,7 +344,8 @@
 		{
 			"Hollow Rock": {
 				"secondary_muscles": [
-					"Shoulders"
+					"Shoulders",
+					"Triceps"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Hollow_Rock.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Hollow_Rock.mp4",
@@ -386,7 +362,8 @@
 		{
 			"Jack Knife (Suspension)": {
 				"secondary_muscles": [
-					"Shoulders"
+					"Shoulders",
+					"Triceps"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Jack_Knife_(Suspension).jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Jack_Knife_(Suspension).mp4",
@@ -402,9 +379,7 @@
 		},
 		{
 			"Jackknife Sit Up": {
-				"secondary_muscles": [
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Jackknife_Sit_Up.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Jackknife_Sit_Up.mp4",
 				"instructions": "Lie flat on your back with your arms extended overhead and legs straight. Simultaneously lift your torso and legs, reaching your hands toward your toes to form a V-shape, then lower back down with control.",
@@ -437,9 +412,8 @@
 		{
 			"L-Sit Hold": {
 				"secondary_muscles": [
-					"Triceps",
 					"Shoulders",
-					"Quadriceps"
+					"Triceps"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/L-Sit_Hold.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/L-Sit_Hold.mp4",
@@ -456,6 +430,7 @@
 		{
 			"Landmine 180": {
 				"secondary_muscles": [
+					"Obliques",
 					"Shoulders"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Landmine_180.jpg",
@@ -506,10 +481,7 @@
 		},
 		{
 			"Lying Leg Raise": {
-				"secondary_muscles": [
-					"Hip Flexors",
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Lying_Leg_Raise.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Lying_Leg_Raise.mp4",
 				"instructions": "Lie flat on your back with your legs extended and hands under your glutes for support. Keeping your legs straight, raise them toward the ceiling by contracting your lower abs, then lower them back down without letting your feet touch the floor.",
@@ -543,8 +515,7 @@
 			"Plank": {
 				"secondary_muscles": [
 					"Shoulders",
-					"Glutes",
-					"Lower Back"
+					"Triceps"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Plank.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Plank.mp4",
@@ -579,8 +550,8 @@
 			"Reverse Plank": {
 				"secondary_muscles": [
 					"Glutes",
-					"Lower Back",
-					"Shoulders"
+					"Hamstrings",
+					"Lower Back"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Reverse_Plank.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Reverse_Plank.mp4",
@@ -615,7 +586,7 @@
 		{
 			"Russian Twist (Weighted)": {
 				"secondary_muscles": [
-					"Shoulders"
+					"Obliques"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Russian_Twist_(Weighted).jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Russian_Twist_(Weighted).mp4",
@@ -667,8 +638,8 @@
 		{
 			"Side Plank": {
 				"secondary_muscles": [
-					"Shoulders",
-					"Glutes"
+					"Obliques",
+					"Shoulders"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Side_Plank.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Side_Plank.mp4",
@@ -720,10 +691,7 @@
 		},
 		{
 			"Spiderman": {
-				"secondary_muscles": [
-					"Shoulders",
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Spiderman.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Spiderman.mp4",
 				"instructions": "Start in a high plank position with hands under your shoulders. Bring one knee up toward the same-side elbow, tapping the floor with your foot if possible, then return and repeat on the other side while keeping your hips low and core braced.",
@@ -790,9 +758,7 @@
 		},
 		{
 			"V Up": {
-				"secondary_muscles": [
-					"Quadriceps"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/V_Up.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/V_Up.mp4",
 				"instructions": "Lie flat on your back with your arms extended overhead and legs straight. Simultaneously lift your torso and legs, reaching your hands toward your toes to form a V-shape, then lower back down together with control.",
@@ -3073,9 +3039,7 @@
 			"Clean Pull": {
 				"secondary_muscles": [
 					"Traps",
-					"Hamstrings",
-					"Glutes",
-					"Quadriceps"
+					"Biceps"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Clean_Pull.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Clean_Pull.mp4",
@@ -3092,10 +3056,7 @@
 		{
 			"Deadlift High Pull": {
 				"secondary_muscles": [
-					"Traps",
-					"Hamstrings",
-					"Glutes",
-					"Shoulders"
+					"Traps"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Deadlift_High_Pull.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Deadlift_High_Pull.mp4",
@@ -3361,8 +3322,7 @@
 		{
 			"Kettlebell High Pull": {
 				"secondary_muscles": [
-					"Traps",
-					"Shoulders"
+					"Traps"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Kettlebell_High_Pull.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Kettlebell_High_Pull.mp4",
@@ -3792,8 +3752,8 @@
 		{
 			"Cable Pull Through": {
 				"secondary_muscles": [
-					"Hamstrings",
-					"Lower Back"
+					"Glutes",
+					"Hamstrings"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Cable_Pull_Through.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Cable_Pull_Through.mp4",
@@ -4628,8 +4588,7 @@
 		{
 			"Lat Pulldown (Machine)": {
 				"secondary_muscles": [
-					"Biceps",
-					"Upper Back"
+					"Biceps"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Lat_Pulldown_(Machine).jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Lat_Pulldown_(Machine).mp4",
@@ -4759,8 +4718,7 @@
 		{
 			"Pullover (Dumbbell)": {
 				"secondary_muscles": [
-					"Chest",
-					"Triceps"
+					"Chest"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Pullover_(Dumbbell).jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Pullover_(Dumbbell).mp4",
@@ -4777,8 +4735,7 @@
 		{
 			"Pullover (Machine)": {
 				"secondary_muscles": [
-					"Chest",
-					"Triceps"
+					"Chest"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Pullover_(Machine).jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Pullover_(Machine).mp4",
@@ -4831,10 +4788,7 @@
 		},
 		{
 			"Rope Straight Arm Pulldown": {
-				"secondary_muscles": [
-					"Triceps",
-					"Abdominals"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Rope_Straight_Arm_Pulldown.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Rope_Straight_Arm_Pulldown.mp4",
 				"instructions": "Stand facing a high cable pulley holding a rope attachment with straight arms. Pull the rope downward in an arc toward your thighs, keeping your arms straight, then return slowly to the starting position.",
@@ -4885,10 +4839,7 @@
 		},
 		{
 			"Straight Arm Lat Pulldown (Cable)": {
-				"secondary_muscles": [
-					"Triceps",
-					"Shoulders"
-				],
+				"secondary_muscles": [],
 				"img": "https://static.itsmarian.dev/media/exercises/Straight_Arm_Lat_Pulldown_(Cable).jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Straight_Arm_Lat_Pulldown_(Cable).mp4",
 				"instructions": "Stand facing a high cable pulley holding a straight bar with straight arms. Pull the bar downward in an arc toward your thighs, keeping your arms straight, then return slowly to the starting position.",
@@ -6076,8 +6027,7 @@
 		{
 			"Band Pullaparts": {
 				"secondary_muscles": [
-					"Upper Back",
-					"Traps"
+					"Rear Delts"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Band_Pullaparts.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Band_Pullaparts.mp4",
@@ -6130,8 +6080,7 @@
 		{
 			"Face Pull": {
 				"secondary_muscles": [
-					"Upper Back",
-					"Traps"
+					"Rear Delts"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Face_Pull.jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Face_Pull.mp4",
@@ -6916,7 +6865,7 @@
 		{
 			"Bench Press - Close Grip (Barbell)": {
 				"secondary_muscles": [
-					"Chest",
+					"Triceps",
 					"Shoulders"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Bench_Press_-_Close_Grip_(Barbell).jpg",
@@ -7371,9 +7320,7 @@
 		{
 			"Bent Over Row (Barbell)": {
 				"secondary_muscles": [
-					"Lats",
-					"Biceps",
-					"Lower Back"
+					"Biceps"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Bent_Over_Row_(Barbell).jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Bent_Over_Row_(Barbell).mp4",
@@ -7390,9 +7337,7 @@
 		{
 			"Bent Over Row (Dumbbell)": {
 				"secondary_muscles": [
-					"Lats",
-					"Biceps",
-					"Lower Back"
+					"Biceps"
 				],
 				"img": "https://static.itsmarian.dev/media/exercises/Bent_Over_Row_(Dumbbell).jpg",
 				"gif": "https://static.itsmarian.dev/media/exercises/Bent_Over_Row_(Dumbbell).mp4",
