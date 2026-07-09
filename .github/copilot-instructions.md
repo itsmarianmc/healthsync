@@ -15,14 +15,14 @@ This document summarizes the latest, authoritative best practices for building, 
 
 - **Use the `app/` directory** (App Router) for all new projects. Prefer it over the legacy `pages/` directory.
 - **Top-level folders:**
-  - `app/` — Routing, layouts, pages, and route handlers
-  - `public/` — Static assets (images, fonts, etc.)
-  - `lib/` — Shared utilities, API clients, and logic
-  - `components/` — Reusable UI components
-  - `contexts/` — React context providers
-  - `styles/` — Global and modular stylesheets
-  - `hooks/` — Custom React hooks
-  - `types/` — TypeScript type definitions
+  - `app/` - Routing, layouts, pages, and route handlers
+  - `public/` - Static assets (images, fonts, etc.)
+  - `lib/` - Shared utilities, API clients, and logic
+  - `components/` - Reusable UI components
+  - `contexts/` - React context providers
+  - `styles/` - Global and modular stylesheets
+  - `hooks/` - Custom React hooks
+  - `types/` - TypeScript type definitions
 - **Colocation:** Place files (components, styles, tests) near where they are used, but avoid deeply nested structures.
 - **Route Groups:** Use parentheses (e.g., `(admin)`) to group routes without affecting the URL path.
 - **Private Folders:** Prefix with `_` (e.g., `_internal`) to opt out of routing and signal implementation details.

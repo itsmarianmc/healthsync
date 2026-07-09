@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { useAuth } from '../../_context/AuthContext';
+import { useCookieConsent } from '../../_lib/useCookieConsent';
 import { pushSettings } from '../../_lib/sync';
 import { calcSupplements, SUPPLEMENT_KEYS } from '../../_lib/supplements';
 
@@ -36,6 +37,7 @@ function buildWeek(): { date: Date; iso: string; isToday: boolean; isFuture: boo
 }
 
 function readTaken(): TakenMap {
+    if (typeof window === 'undefined') return {};
     try {
         const raw = localStorage.getItem(SUPPLEMENT_KEYS.taken);
         return raw ? JSON.parse(raw) : {};
@@ -76,6 +78,7 @@ interface SupplementsModalProps {
 export default function SupplementsModal({ isOpen, onClose }: SupplementsModalProps) {
     const sheet = useDraggableSheet({ onClose });
     const { user } = useAuth();
+    const { canUsePreferences } = useCookieConsent();
     const week = useMemo(buildWeek, [isOpen]);
     const [selected, setSelected] = useState<string>(() => isoDate(new Date()));
     const [taken, setTaken] = useState<TakenMap>({});
@@ -88,6 +91,11 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
             return;
         }
 
+        if (!canUsePreferences) {
+            sheet.close();
+            return;
+        }
+
         setSelected(isoDate(new Date()));
         setTaken(readTaken());
         setTrackingEnabled(readTracking());
@@ -95,10 +103,10 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
 
         sheet.open();
         setTimeout(() => sheet.snapToExpanded(), 80);
-    }, [isOpen]);
+    }, [isOpen, canUsePreferences]);
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen || !canUsePreferences) return;
         const onStorage = () => {
             setTaken(readTaken());
             setTrackingEnabled(readTracking());
@@ -106,18 +114,19 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
         };
         window.addEventListener('storage', onStorage);
         return () => window.removeEventListener('storage', onStorage);
-    }, [isOpen]);
+    }, [isOpen, canUsePreferences]);
 
     const persist = useCallback((next: TakenMap) => {
+        if (!canUsePreferences) return;
         localStorage.setItem(SUPPLEMENT_KEYS.taken, JSON.stringify(next));
         window.dispatchEvent(new Event('storage'));
         if (user) {
             pushSettings(user.id, { supplements_taken: next }).catch(() => {});
         }
-    }, [user]);
+    }, [user, canUsePreferences]);
 
     const toggle = useCallback((suppId: string) => {
-        if (!trackingEnabled) return;
+        if (!trackingEnabled || !canUsePreferences) return;
         const day = week.find(d => d.iso === selected);
         if (!day || day.isFuture) return;
         const dayMap = { ...(taken[selected] || {}) };
@@ -125,7 +134,7 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
         const next = { ...taken, [selected]: dayMap };
         setTaken(next);
         persist(next);
-    }, [selected, week, persist, trackingEnabled, taken]);
+    }, [selected, week, persist, trackingEnabled, canUsePreferences, taken]);
 
     const selectedDay = week.find(d => d.iso === selected);
     const selectedTaken = taken[selected] || {};
@@ -149,73 +158,83 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
                     <div className="modal-title">Supplements</div>
                 </div>
                 <div className="modal-body" id="supplementsModalBody" style={{ overflowY: 'auto' }}>
-                    <div className="supp-date-label">{headerLabel}</div>
-
-                    <div className="supp-week-strip">
-                        {week.map(d => {
-                            const dayTaken = taken[d.iso] || {};
-                            const total = supplements.length;
-                            const done = supplements.reduce((n, s) => n + (dayTaken[s.id] ? 1 : 0), 0);
-                            const allDone = total > 0 && done === total;
-                            const cls = [
-                                'supp-day',
-                                d.iso === selected ? 'selected' : '',
-                                d.isToday ? 'today' : '',
-                                d.isFuture ? 'future' : '',
-                                allDone ? 'all-done' : '',
-                            ].filter(Boolean).join(' ');
-                            return (
-                                <button
-                                    key={d.iso}
-                                    type="button"
-                                    className={cls}
-                                    onClick={() => setSelected(d.iso)}
-                                    aria-pressed={d.iso === selected}
-                                >
-                                    <span className="supp-day-name">{d.date.toLocaleDateString(undefined, { weekday: 'short' })}</span>
-                                    <span className="supp-day-num">{d.date.getDate()}</span>
-                                    <span className="supp-day-progress">{total > 0 ? `${done}/${total}` : '-'}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    {!trackingEnabled && (
-                        <div className="supp-hint">
-                            <i className="fa-solid fa-circle-info" />
-                            <span>Enable <strong>Track Supplements</strong> in Settings to also see goals on the dashboard.</span>
+                    {!canUsePreferences && (
+                        <div className="supp-disabled-notice" style={{ padding: '16px', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                            <i className="fa-solid fa-lock" style={{ color: 'var(--text3)' }} />
+                            <p style={{ margin: 0, color: 'var(--text2)' }}>Supplements tracking requires <strong>&quot;Preferences&quot;</strong> cookie consent.</p>
                         </div>
                     )}
+                    {canUsePreferences && (
+                        <>
+                            <div className="supp-date-label">{headerLabel}</div>
 
-                    <div className="supp-list">
-                        {supplements.map(s => {
-                            const checked = !!selectedTaken[s.id] && trackingEnabled;
-                            const rowDisabled = futureSelected || !trackingEnabled;
-                            return (
-                                <label key={s.id} className={`supp-row${rowDisabled ? ' disabled' : ''}`}>
-                                    <span className="supp-row-icon"><i className={s.icon} /></span>
-                                    <span className="supp-row-text">
-                                        <span className="supp-row-name">{s.label}</span>
-                                        <span className="supp-row-goal">{s.goal}</span>
-                                    </span>
-                                    <input
-                                        type="checkbox"
-                                        className="supp-check"
-                                        checked={checked}
-                                        disabled={rowDisabled}
-                                        onChange={() => toggle(s.id)}
-                                    />
-                                    <span className="supp-check-box" aria-hidden="true">✓</span>
-                                </label>
-                            );
-                        })}
-                    </div>
+                            <div className="supp-week-strip">
+                                {week.map(d => {
+                                    const dayTaken = taken[d.iso] || {};
+                                    const total = supplements.length;
+                                    const done = supplements.reduce((n, s) => n + (dayTaken[s.id] ? 1 : 0), 0);
+                                    const allDone = total > 0 && done === total;
+                                    const cls = [
+                                        'supp-day',
+                                        d.iso === selected ? 'selected' : '',
+                                        d.isToday ? 'today' : '',
+                                        d.isFuture ? 'future' : '',
+                                        allDone ? 'all-done' : '',
+                                    ].filter(Boolean).join(' ');
+                                    return (
+                                        <button
+                                            key={d.iso}
+                                            type="button"
+                                            className={cls}
+                                            onClick={() => setSelected(d.iso)}
+                                            aria-pressed={d.iso === selected}
+                                        >
+                                            <span className="supp-day-name">{d.date.toLocaleDateString(undefined, { weekday: 'short' })}</span>
+                                            <span className="supp-day-num">{d.date.getDate()}</span>
+                                            <span className="supp-day-progress">{total > 0 ? `${done}/${total}` : '-'}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
 
-                    {futureSelected && (
-                        <p className="supp-hint">
-                            <i className="fa-solid fa-clock" />
-                            <span>You can&apos;t mark supplements for a future day.</span>
-                        </p>
+                            {!trackingEnabled && (
+                                <div className="supp-hint">
+                                    <i className="fa-solid fa-circle-info" />
+                                    <span>Enable <strong>Track Supplements</strong> in Settings to also see goals on the dashboard.</span>
+                                </div>
+                            )}
+
+                            <div className="supp-list">
+                                {supplements.map(s => {
+                                    const checked = !!selectedTaken[s.id] && trackingEnabled;
+                                    const rowDisabled = futureSelected || !trackingEnabled;
+                                    return (
+                                        <label key={s.id} className={`supp-row${rowDisabled ? ' disabled' : ''}`}>
+                                            <span className="supp-row-icon"><i className={s.icon} /></span>
+                                            <span className="supp-row-text">
+                                                <span className="supp-row-name">{s.label}</span>
+                                                <span className="supp-row-goal">{s.goal}</span>
+                                            </span>
+                                            <input
+                                                type="checkbox"
+                                                className="supp-check"
+                                                checked={checked}
+                                                disabled={rowDisabled}
+                                                onChange={() => toggle(s.id)}
+                                            />
+                                            <span className="supp-check-box" aria-hidden="true">✓</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+
+                            {futureSelected && (
+                                <p className="supp-hint">
+                                    <i className="fa-solid fa-clock" />
+                                    <span>You can&apos;t mark supplements for a future day.</span>
+                                </p>
+                            )}
+                        </>
                     )}
                 </div>
             </div>

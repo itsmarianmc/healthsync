@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { useAuth } from '../../_context/AuthContext';
+import { useCookieConsent } from '../../_lib/useCookieConsent';
 import { pushWorkoutSessionToCloud } from '../../_lib/sync';
 import { supabase } from '../../_lib/supabase';
 
@@ -122,7 +123,8 @@ function loadRoutinesFromStorage(): Routine[] {
     } catch { return []; }
 }
 
-function saveRoutinesToStorage(routines: Routine[]) {
+function saveRoutinesToStorage(routines: Routine[], canSave: boolean) {
+    if (!canSave) return;
     const payload = { routines, _updated_at: new Date().toISOString() };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }
@@ -161,7 +163,9 @@ async function loadExercisesCache(): Promise<ExerciseCacheItem[]> {
                 const image = normalizeAssetPath(record.image);
                 const gif = normalizeAssetPath(record.gif_url) || null;
                 const muscle_group = typeof record.muscle_group === 'string' ? record.muscle_group : '';
-                const secondary_muscles: string[] = [];
+                const secondary_muscles: string[] = Array.isArray(record.secondary_muscles)
+                    ? record.secondary_muscles.filter((m): m is string => typeof m === 'string')
+                    : [];
                 const instructions = typeof record.instructions === 'string' ? record.instructions : '';
                 const instruction_steps = Array.isArray(record.instruction_steps) ? record.instruction_steps : [];
                 flat.push({ id, name, image, gif, category, muscle_group, secondary_muscles, instructions, instruction_steps });
@@ -173,6 +177,7 @@ async function loadExercisesCache(): Promise<ExerciseCacheItem[]> {
                         img: string; 
                         gif?: string; 
                         id?: string; 
+                        secondary_muscles?: string[];
                         instructions?: string; 
                         instruction_steps?: string[] 
                     }>)) {
@@ -183,7 +188,7 @@ async function loadExercisesCache(): Promise<ExerciseCacheItem[]> {
                             gif: normalizeAssetPath(details.gif) || null,
                             category: muscleGroup,
                             muscle_group: muscleGroup,
-                            secondary_muscles: [],
+                            secondary_muscles: Array.isArray(details.secondary_muscles) ? details.secondary_muscles : [],
                             instructions: details.instructions || '',
                             instruction_steps: details.instruction_steps || [],
                         });
@@ -244,7 +249,16 @@ function GifModal({ url, name, instructions, instructionSteps, onClose }: {
                     onPointerUp={e => { if (!dragging.current) return; dragging.current = false; if (e.clientY - dragY.current > 80) close(); else if (modalRef.current) { modalRef.current.style.transition = 'transform 0.42s cubic-bezier(0.34,1.15,0.64,1)'; modalRef.current.style.transform = 'translateY(0)'; } }}>
                     <div className="modal-handle" />
                 </div>
-                <div className="modal-header"><div className="modal-title">{name}</div></div>
+                <div className="modal-header">
+                    <div className="modal-title">{name}</div>
+                    <div className="modal-btn" onClick={close}>
+                        <button className="back-btn" style= { { opacity: 1} }>
+                            <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
                 <div className="modal-body gif-modal-body">
                     <video src={url} autoPlay muted loop className="gif-modal-video" />
                     
@@ -350,6 +364,7 @@ function SortExercisesModal({ routine, onSave, onClose }: { routine: Routine; on
     const sheet = useDraggableSheet({ onClose });
     const [exercises, setExercises] = useState<RoutineExercise[]>([...routine.exercises]);
     const dragIdx = useRef<number | null>(null);
+    const [dragTarget, setDragTarget] = useState<{ index: number; position: 'top' | 'bottom' } | null>(null);
 
     useEffect(() => { sheet.open(); }, []);
 
@@ -359,29 +374,77 @@ function SortExercisesModal({ routine, onSave, onClose }: { routine: Routine; on
                 <div className="modal-handle-zone" {...sheet.handleProps}><div className="modal-handle" /></div>
                 <div className="modal-header">
                     <div className="modal-title">Sort Exercises</div>
-                    <div className="modal-btn--right">
-                        <button className="back-btn" onClick={sheet.close}>
-                            <i className="fa-regular fa-circle-xmark" />
+                    <div className="modal-btn" onClick={sheet.close}>
+                        <button className="back-btn" style={{ opacity: 1 }}>
+                            <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/>
+                            </svg>
                         </button>
                     </div>
                 </div>
                 <div className="modal-body" style={{ padding: '0 16px 20px' }}>
                     <div className="sort-exercises-list">
                         {exercises.map((ex, idx) => (
-                            <div key={ex.exerciseId} className="sort-exercise-item" draggable
-                                onDragStart={() => { dragIdx.current = idx; }}
-                                onDragOver={e => e.preventDefault()}
+                            <div
+                                key={ex.exerciseId}
+                                style={{ position: 'relative' }}
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const y = e.clientY - rect.top;
+                                    const mid = rect.height / 2;
+                                    const pos = y < mid ? 'top' : 'bottom';
+                                    if (dragIdx.current !== null && dragIdx.current !== idx) {
+                                        setDragTarget({ index: idx, position: pos });
+                                    }
+                                }}
+                                onDragLeave={() => setDragTarget(null)}
                                 onDrop={() => {
-                                if (dragIdx.current === null || dragIdx.current === idx) return;
-                                const next = [...exercises];
-                                const [moved] = next.splice(dragIdx.current, 1);
-                                next.splice(idx, 0, moved);
-                                setExercises(next);
-                                dragIdx.current = null;
-                                }}>
-                                <i className="fa-solid fa-grip-vertical drag-handle" />
-                                <img src={ex.image} className="sort-exercise-img" onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40'; }} alt={ex.name} />
-                                <span className="sort-exercise-name">{ex.name}</span>
+                                    if (dragIdx.current === null || dragIdx.current === idx) return;
+                                    const next = [...exercises];
+                                    const [moved] = next.splice(dragIdx.current, 1);
+                                    next.splice(idx, 0, moved);
+                                    setExercises(next);
+                                    dragIdx.current = null;
+                                    setDragTarget(null);
+                                }}
+                            >
+                                {dragTarget && dragTarget.index === idx && dragTarget.position === 'top' && dragIdx.current !== null && dragIdx.current !== idx && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: -5,
+                                        left: 0,
+                                        right: 0,
+                                        height: 2,
+                                        background: 'var(--accent)',
+                                        zIndex: 10,
+                                        borderRadius: 2,
+                                    }} />
+                                )}
+
+                                <div
+                                    className="sort-exercise-item"
+                                    draggable
+                                    onDragStart={() => { dragIdx.current = idx; }}
+                                    onDragEnd={() => { setDragTarget(null); }}
+                                >
+                                    <i className="fa-solid fa-grip-vertical drag-handle" />
+                                    <img src={ex.image} className="sort-exercise-img" onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40'; }} alt={ex.name} />
+                                    <span className="sort-exercise-name">{ex.name}</span>
+                                </div>
+
+                                {dragTarget && dragTarget.index === idx && dragTarget.position === 'bottom' && dragIdx.current !== null && dragIdx.current !== idx && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        bottom: -2,
+                                        left: 0,
+                                        right: 0,
+                                        height: 2,
+                                        background: 'var(--accent)',
+                                        zIndex: 10,
+                                        borderRadius: 2,
+                                    }} />
+                                )}
                             </div>
                         ))}
                     </div>
@@ -413,20 +476,35 @@ function ExerciseCard({ ex, idx, onChange, onRemove, onShowGif }: {
         <div className="exercise-card" data-ex-idx={idx}>
             <div className="exercise-card-header" style={ex.gif ? { cursor: 'pointer' } : {}}
                 onClick={() => ex.gif && onShowGif(ex.gif, ex.name, ex.instructions, ex.instruction_steps)}>
-                <span>
-                    <img src={ex.image} style={{ width: 24, height: 24, borderRadius: 6, verticalAlign: 'middle', marginRight: 8 }}
-                        onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/24'; }} alt={ex.name} />
-                    {nameDisplay}
-                </span>
+                <img className="exercise-card-img" src={ex.image} loading="lazy"
+                    onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40'; }} alt={ex.name} />
+                <div className="exercise-card-info">
+                    <div className="exercise-card-name">{nameDisplay}</div>
+                    {(ex.muscle_group || (ex.secondary_muscles && ex.secondary_muscles.length > 0)) && (
+                        <div style={{ display: 'flex', gap: 4 }}>
+                            {ex.muscle_group && (
+                                <div className="exercise-result-muscles primary">
+                                    <div className="exercise-result-muscle">
+                                        {ex.muscle_group}
+                                    </div>
+                                </div>
+                            )}
+                            {ex.secondary_muscles && ex.secondary_muscles.length > 0 && (
+                                <div className="exercise-result-muscles secondary">
+                                    {ex.secondary_muscles.map(muscle => (
+                                        <div className="exercise-result-muscle" key={muscle}>
+                                            {muscle}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
                 <button className="remove-exercise-btn" onClick={e => { e.stopPropagation(); onRemove(idx); }}>
                     <i className="fa-regular fa-trash-can" />
                 </button>
             </div>
-            {ex.muscle_group && (
-                <div style={{ marginTop: 8, color: '#4ade80', fontSize: 14 }}>
-                    {ex.muscle_group}
-                </div>
-            )}
             <div className="sets-table">
                 <div className="sets-header"><div>Set</div><div>kg</div><div>reps</div><div /></div>
                 <div className="sets-list">
@@ -459,8 +537,106 @@ function CreateModal({ editRoutine, onSave, onClose }: {
     const [exercises, setExercises] = useState<RoutineExercise[]>(
         editRoutine ? editRoutine.exercises.map(ex => ({ ...ex, sets: ex.sets.map(s => ({ ...s })) })) : []
     );
+    const [gifModal, setGifModal] = useState<{ url: string; name: string; instructions?: string; instructionSteps?: string[] } | null>(null);
+    const [showAddExercises, setShowAddExercises] = useState(false);
+
+    useEffect(() => {
+        sheet.open();
+        const t = setTimeout(() => sheet.snapToExpanded(), 80);
+        return () => clearTimeout(t);
+    }, []);
+
+    const addExercises = (items: ExerciseCacheItem[]) => {
+        setExercises(prev => {
+            const existingNames = new Set(prev.map(e => e.name));
+            const additions = items
+                .filter(item => !existingNames.has(item.name))
+                .map(item => ({
+                    exerciseId: item.id || (item.name.replace(/\s/g, '_') + '_' + Date.now()),
+                    name: item.name,
+                    image: item.image,
+                    gif: item.gif,
+                    sets: [{ reps: 8, weight: 0 }],
+                    muscle_group: item.muscle_group,
+                    secondary_muscles: item.secondary_muscles,
+                    instructions: item.instructions,
+                    instruction_steps: item.instruction_steps,
+                }));
+            return [...prev, ...additions];
+        });
+    };
+
+    const handleSave = () => {
+        if (!name.trim()) return;
+        if (!exercises.length) return;
+        onSave({ id: editRoutine?.id, created_at: editRoutine?.created_at, name: name.trim(), exercises });
+    };
+
+    return (
+        <>
+            <div className="app-overlay" ref={sheet.overlayRef} onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); }}>
+                <div className="modal" ref={sheet.modalRef} style={{ transform: 'translateY(100%)' }}>
+                    <div className="modal-handle-zone" {...sheet.handleProps}><div className="modal-handle" /></div>
+                    <div className="modal-header">
+                        <div className="modal-title">{editRoutine ? 'Edit Workout' : 'Create Workout'}</div>
+                        <div className="modal-btn" onClick={sheet.close}>
+                            <button className="back-btn" style= { { opacity: 1} }>
+                                <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                    <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div className="modal-body" id="workoutCreateModalBody" style={{ marginBottom: 20, padding: '0 16px 20px', overflowY: 'auto' }}>
+                        <div className="form-row">
+                            <input type="text" className="form-input" placeholder="New Workout" value={name} onChange={e => setName(e.target.value)} />
+                        </div>
+                        <div className="form-row" style={ { borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
+                            <label className="form-label">Exercises</label>
+                            <div className="add-workout" onClick={() => setShowAddExercises(true)}>
+                                <div className="add-wo-btn"><i className="fas fa-plus" /></div>
+                                <div className="add-wo-text">Add Exercises</div>
+                            </div>
+                            <div className="selected-exercises" id="selectedExercisesListCreate">
+                                {exercises.map((ex, idx) => (
+                                    <ExerciseCard key={ex.exerciseId} ex={ex} idx={idx}
+                                        onChange={(i, updated) => setExercises(prev => prev.map((e, j) => j === i ? updated : e))}
+                                        onRemove={i => setExercises(prev => prev.filter((_, j) => j !== i))}
+                                        onShowGif={(url, name, instructions, instructionSteps) => setGifModal({ url, name, instructions, instructionSteps })}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="modal-footer">
+                        <button className="confirm-btn" id="saveRoutineBtnCreate" onClick={handleSave}>
+                            Save Routine
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {gifModal && <GifModal url={gifModal.url} name={gifModal.name} instructions={gifModal.instructions} instructionSteps={gifModal.instructionSteps} onClose={() => setGifModal(null)} />}
+            {showAddExercises && (
+                <AddExercisesModal
+                    alreadyAdded={exercises.map(e => e.name)}
+                    onAdd={addExercises}
+                    onClose={() => setShowAddExercises(false)}
+                />
+            )}
+        </>
+    );
+}
+
+function AddExercisesModal({ alreadyAdded, onAdd, onClose }: {
+    alreadyAdded: string[];
+    onAdd: (items: ExerciseCacheItem[]) => void;
+    onClose: () => void;
+}) {
+    const sheet = useDraggableSheet({ onClose });
     const [searchQuery, setSearchQuery] = useState('');
+    const [activeCategory, setActiveCategory] = useState('All');
     const [allExercises, setAllExercises] = useState<ExerciseCacheItem[]>([]);
+    const [selected, setSelected] = useState<Set<string>>(new Set());
     const [gifModal, setGifModal] = useState<{ url: string; name: string; instructions?: string; instructionSteps?: string[] } | null>(null);
 
     useEffect(() => {
@@ -477,37 +653,34 @@ function CreateModal({ editRoutine, onSave, onClose }: {
         return () => { cancelled = true; };
     }, []);
 
+    const alreadyAddedSet = new Set(alreadyAdded);
+
+    const categories = ['All', ...Array.from(new Set(allExercises.map(e => e.category))).sort((a, b) => a.localeCompare(b))];
+
     const normalizedQuery = searchQuery.trim().toLowerCase();
-    const matches = (item: ExerciseCacheItem) =>
-        !normalizedQuery
-        || item.name.toLowerCase().includes(normalizedQuery)
-        || item.category.toLowerCase().includes(normalizedQuery);
+    const filtered = allExercises.filter(item => {
+        if (activeCategory !== 'All' && item.category !== activeCategory) return false;
+        if (!normalizedQuery) return true;
+        return item.name.toLowerCase().includes(normalizedQuery) || item.category.toLowerCase().includes(normalizedQuery);
+    });
 
-    const INITIAL_LIMIT = 50;
-    const renderedExercises = normalizedQuery
-        ? allExercises
-        : allExercises.slice(0, INITIAL_LIMIT);
-    const hasMoreHidden = !normalizedQuery && allExercises.length > INITIAL_LIMIT;
-
-    const addExercise = (item: ExerciseCacheItem) => {
-        if (exercises.find(e => e.name === item.name)) return;
-        const id = item.id || (item.name.replace(/\s/g, '_') + '_' + Date.now());
-        setExercises(prev => [...prev, { 
-            exerciseId: id, 
-            name: item.name, 
-            image: item.image, 
-            gif: item.gif, 
-            sets: [{ reps: 8, weight: 0 }],
-            instructions: item.instructions,
-            instruction_steps: item.instruction_steps,
-        }]);
+    const toggleSelect = (item: ExerciseCacheItem) => {
+        if (alreadyAddedSet.has(item.name)) return;
+        setSelected(prev => {
+            const next = new Set(prev);
+            if (next.has(item.name)) next.delete(item.name);
+            else next.add(item.name);
+            return next;
+        });
     };
 
-    const handleSave = () => {
-        if (!name.trim()) return;
-        if (!exercises.length) return;
-        onSave({ id: editRoutine?.id, created_at: editRoutine?.created_at, name: name.trim(), exercises });
+    const handleConfirm = () => {
+        const items = allExercises.filter(item => selected.has(item.name));
+        if (items.length > 0) onAdd(items);
+        sheet.close();
     };
+
+    const selectedCount = selected.size;
 
     return (
         <>
@@ -515,64 +688,74 @@ function CreateModal({ editRoutine, onSave, onClose }: {
                 <div className="modal" ref={sheet.modalRef} style={{ transform: 'translateY(100%)' }}>
                     <div className="modal-handle-zone" {...sheet.handleProps}><div className="modal-handle" /></div>
                     <div className="modal-header">
-                        <div className="modal-title">{editRoutine ? 'Edit Workout' : 'Create Workout'}</div>
+                        <div className="modal-title">Add Exercises</div>
+                        <div className="modal-btn" onClick={sheet.close}>
+                            <button className="back-btn" style= { { opacity: 1} }>
+                                <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                    <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
-                    <div className="modal-body" id="workoutCreateModalBody" style={{ padding: '0 16px 20px', overflowY: 'auto' }}>
+                    <div className="modal-body" style={{ padding: '0 16px 20px', overflowY: 'auto' }}>
                         <div className="form-row">
-                            <input type="text" className="form-input" placeholder="New Workout" value={name} onChange={e => setName(e.target.value)} />
+                            <input type="text" className="form-input" placeholder="Search exercise..."
+                                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
                         </div>
-                        <div className="form-row">
-                            <label className="form-label">Add exercises</label>
-                            <div id="exerciseSearchContainerCreate">
-                                <input type="text" className="form-input" id="exerciseSearchInputCreate" placeholder="Search exercise..."
-                                    value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-                                <div className="exercise-search-results" id="exerciseSearchResultsCreate">
-                                    {renderedExercises.map(item => {
-                                        const visible = matches(item);
-                                        const alreadyAdded = exercises.some(e => e.name === item.name);
-                                        return (
-                                            <div
-                                                key={item.name}
-                                                className={`exercise-result-item${visible ? '' : ' is-hidden'}${alreadyAdded ? ' is-added' : ''}`}
-                                                onClick={() => visible && !alreadyAdded && addExercise(item)}
-                                                aria-hidden={!visible}
-                                            >
-                                                <img className="exercise-result-img" src={item.image} loading="lazy"
-                                                    onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40'; }} alt={item.name} />
-                                                <div className="exercise-result-info">
-                                                    <div className="exercise-result-name">{item.name}</div>
-                                                    {item.muscle_group && (
-                                                        <div className='exercise-result-muscles'>
-                                                            <div className="exercise-result-muscle">
-                                                                {item.muscle_group}
-                                                            </div>
+                        <div className="exercise-category-filters">
+                            {categories.map(cat => (
+                                <button key={cat} type="button"
+                                    className={`exercise-category-chip${activeCategory === cat ? ' active' : ''}`}
+                                    onClick={() => setActiveCategory(cat)}>
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="exercise-search-results">
+                            {filtered.map(item => {
+                                const isAdded = alreadyAddedSet.has(item.name);
+                                const isSelected = selected.has(item.name);
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className={`exercise-result-item${isAdded ? ' is-added' : ''}${isSelected ? ' is-added' : ''}`}
+                                        onClick={() => toggleSelect(item)}
+                                    >
+                                        <img className="exercise-result-img" src={item.image} loading="lazy"
+                                            onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40'; }} alt={item.name} />
+                                        <div className="exercise-result-info">
+                                            <div className="exercise-result-name">{item.name}</div>
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                {item.muscle_group && (
+                                                    <div className='exercise-result-muscles primary'>
+                                                        <div className="exercise-result-muscle">
+                                                            {item.muscle_group}
                                                         </div>
-                                                    )}
-                                                </div>
-                                                <i className={`fa-solid ${alreadyAdded ? 'fa-check' : 'fa-plus'}`} />
+                                                    </div>
+                                                )}
+                                                {item.secondary_muscles && item.secondary_muscles.length > 0 && (
+                                                    <div className='exercise-result-muscles secondary'>
+                                                        {item.secondary_muscles.map(muscle => (
+                                                            <div className="exercise-result-muscle" key={muscle}>
+                                                                {muscle}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
-                                        );
-                                    })}
-                                    {hasMoreHidden && (
-                                        <div className="exercise-result-more">
-                                            <i className="fa-solid fa-magnifying-glass" />
-                                            <span>Search for {allExercises.length - INITIAL_LIMIT} more results</span>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="selected-exercises" id="selectedExercisesListCreate">
-                                {exercises.map((ex, idx) => (
-                                    <ExerciseCard key={ex.exerciseId} ex={ex} idx={idx}
-                                        onChange={(i, updated) => setExercises(prev => prev.map((e, j) => j === i ? updated : e))}
-                                        onRemove={i => setExercises(prev => prev.filter((_, j) => j !== i))}
-                                        onShowGif={(url, name, instructions, instructionSteps) => setGifModal({ url, name, instructions, instructionSteps })}
-                                    />
-                                ))}
-                            </div>
+                                        <i className={`fa-solid ${isAdded ? 'fa-check' : isSelected ? 'fa-circle-check' : 'fa-plus'}`} />
+                                    </div>
+                                );
+                            })}
+                            {filtered.length === 0 && (
+                                <div className="empty-state">No exercises found.</div>
+                            )}
                         </div>
-                        <button className="confirm-btn" id="saveRoutineBtnCreate" style={{ marginTop: 16 }} onClick={handleSave}>
-                            Save Routine
+                    </div>
+                    <div className="modal-footer">
+                        <button className="confirm-btn" disabled={selectedCount === 0} onClick={handleConfirm}>
+                            {selectedCount > 0 ? `Add ${selectedCount} Exercise${selectedCount > 1 ? 's' : ''}` : 'Select exercises above'}
                         </button>
                     </div>
                 </div>
@@ -609,10 +792,8 @@ function ActiveExerciseCard({ ex, exIdx, onChange, onShowGif }: {
                                     {setIdx + 1}
                                     {set.isPR && <span className="set-pr-pill" title="New personal record">PR</span>}
                                 </div>
-                                <input type="number" className="active-set-weight" value={set.weight} placeholder="0" step={2.5} min={0}
-                                disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { weight: parseFloat(e.target.value) || 0 })} />
-                                <input type="number" className="active-set-reps" value={set.reps} placeholder="8" min={1} step={1}
-                                disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { reps: parseInt(e.target.value) || 0 })} />
+                                <input type="number" className="active-set-weight" value={set.weight} placeholder="0" step={2.5} min={0} disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { weight: parseFloat(e.target.value) || 0 })} onFocus={e => e.target.select()} />
+                                <input type="number" className="active-set-reps" value={set.reps} placeholder="8" min={1} step={1} disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { reps: parseInt(e.target.value) || 0 })} onFocus={e => e.target.select()} />
                                 {done
                                 ? <button className="set-check-btn set-check-done" disabled><i className="fa-solid fa-check" /></button>
                                 : active
@@ -730,8 +911,23 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     const prBaselineRef = useRef<Record<string, ExerciseBest>>({});
     const sessionBestsRef = useRef<Record<string, ExerciseBest>>({});
 
-    useEffect(() => { setRestDuration(loadRestDuration()); }, []);
-    useEffect(() => { prBaselineRef.current = loadExerciseBests(); }, []);
+    const { canUsePreferences } = useCookieConsent();
+
+    useEffect(() => {
+        if (canUsePreferences) {
+            setRestDuration(loadRestDuration());
+        } else {
+            setRestDuration(DEFAULT_REST_SECONDS);
+        }
+    }, [canUsePreferences]);
+
+    useEffect(() => {
+        if (canUsePreferences) {
+            prBaselineRef.current = loadExerciseBests();
+        } else {
+            prBaselineRef.current = {};
+        }
+    }, [canUsePreferences]);
 
     useEffect(() => {
         requestAnimationFrame(() => {
@@ -778,7 +974,9 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     const updateRestDuration = (next: number) => {
         const clamped = Math.max(15, Math.min(600, next));
         setRestDuration(clamped);
-        if (typeof window !== 'undefined') window.localStorage.setItem(REST_DURATION_KEY, String(clamped));
+        if (canUsePreferences && typeof window !== 'undefined') {
+            window.localStorage.setItem(REST_DURATION_KEY, String(clamped));
+        }
     };
 
     const minimize = useCallback(() => {
@@ -908,6 +1106,11 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                     </div>
                     <div className="modal-header">
                         <div className="modal-title" id="activeWorkoutTimer">{timerStr}</div>
+                        <div className="modal-btn" onClick={minimize}>
+                            <button className="back-btn" style= { { opacity: 1} }>
+                                <i className="fa-solid fa-chevron-down"></i>
+                            </button>
+                        </div>
                     </div>
                     <div className="modal-body" id="activeWorkoutBody" style={{ padding: '0 16px 16px', overflowY: 'auto' }}>
                         <div ref={contentWrapperRef} style={{ position: 'relative', overflow: 'hidden', width: '100%', height: panelHeight ? `${panelHeight}px` : undefined, transition: 'height 0.28s ease' }}>
@@ -1022,6 +1225,7 @@ interface WorkoutModalProps {
 export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
     const sheet = useDraggableSheet({ onClose });
     const { user, showToast } = useAuth();
+    const { canUsePreferences } = useCookieConsent();
 
     const [routines, setRoutines] = useState<Routine[]>([]);
     const [contextMenu, setContextMenu] = useState<{ rect: DOMRect; id: string } | null>(null);
@@ -1033,11 +1237,17 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
 
     useEffect(() => {
         if (isOpen) {
-            setRoutines(loadRoutinesFromStorage());
+            if (canUsePreferences) {
+                setRoutines(loadRoutinesFromStorage());
+            } else {
+                setRoutines([]);
+            }
             sheet.open();
             setTimeout(() => sheet.snapToExpanded(), 80);
-        } else if (sheet.stateRef.current !== 'closed') sheet.close();
-    }, [isOpen]);
+        } else if (sheet.stateRef.current !== 'closed') {
+            sheet.close();
+        }
+    }, [isOpen, canUsePreferences]);
 
     useLayoutEffect(() => {
         const next = new Map<string, DOMRect>();
@@ -1072,7 +1282,7 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
     }, [routines]);
 
     const save = (list: Routine[]) => {
-        saveRoutinesToStorage(list);
+        saveRoutinesToStorage(list, canUsePreferences);
         setRoutines(list);
         if (user) {
             const payload = { routines: list, _updated_at: new Date().toISOString() };
@@ -1081,6 +1291,10 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
     };
 
     const handleSaveRoutine = (data: Omit<Routine, 'id' | 'created_at'> & { id?: string; created_at?: string }) => {
+        if (!canUsePreferences) {
+            showToast('Workout saving requires cookie consent');
+            return;
+        }
         const list = loadRoutinesFromStorage();
         if (data.id) {
             const idx = list.findIndex(r => r.id === data.id);
@@ -1094,6 +1308,10 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
     };
 
     const deleteRoutine = (id: string) => {
+        if (!canUsePreferences) {
+            showToast('Workout deletion requires cookie consent');
+            return;
+        }
         if (!confirm('Delete routine?')) return;
         const list = loadRoutinesFromStorage().filter(r => r.id !== id);
         save(list);
@@ -1101,6 +1319,10 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
     };
 
     const startSession = async (routine: Routine) => {
+        if (!canUsePreferences) {
+            showToast('Workout tracking requires cookie consent');
+            return;
+        }
         sheet.close();
         const cache = await loadExercisesCache();
         const exCache: Record<string, ExerciseCacheItem> = {};
@@ -1127,6 +1349,10 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
     };
 
     const handleFinish = async (session: WorkoutSession, rating: number) => {
+        if (!canUsePreferences) {
+            showToast('Workout saving requires cookie consent');
+            return;
+        }
         const endTime = Date.now();
         const duration = Math.floor((endTime - session.startTime) / 1000);
         const log = {
@@ -1186,46 +1412,63 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
                     </div>
                     <div className="modal-header">
                         <div className="modal-title" id="workoutModalTitle">My Routines</div>
+                        <div className="modal-btn" onClick={sheet.close}>
+                            <button className="back-btn" style= { { opacity: 1} }>
+                                <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                    <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                     <div className="modal-body" id="workoutModalBody" style={{ padding: '0 16px 20px', overflowY: 'auto' }}>
-                        <div className="add-workout" id="newRoutineBtn" onClick={() => setCreateModal({ edit: null })}>
-                        <div className="add-wo-btn"><i className="fas fa-plus" /></div>
-                        <div className="add-wo-text">Add new workout</div>
-                        </div>
-                        <div id="routineListContainer">
-                            <div id="routineList" className="routine-list">
-                                {routines.length === 0
-                                ? <div className="empty-state">No routines yet. Create one!</div>
-                                : routines.map((r, index) => {
-                                    const { ex, sets } = getCount(r);
-                                    return (
-                                        <div key={r.id} className="routine-item" data-id={r.id} data-index={index}
-                                            ref={el => { if (el) itemRefs.current.set(r.id, el); else itemRefs.current.delete(r.id); }}>
-                                            <div className="routine-main">
-                                            <div className="routine-info">
-                                                <div className="routine-name">{r.name}</div>
-                                                <div className="routine-stats">{ex} exercises, {sets} sets</div>
-                                            </div>
-                                            <div className="routine-actions">
-                                                <button className="routine-play-btn" data-id={r.id} title="Start workout"
-                                                onClick={e => { e.stopPropagation(); startSession(r); }}>
-                                                <i className="fa-solid fa-play" />
-                                                </button>
-                                                <button className="routine-menu-btn" data-id={r.id}
-                                                onClick={e => {
-                                                    e.stopPropagation();
-                                                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                                    setContextMenu(prev => prev?.id === r.id ? null : { rect, id: r.id });
-                                                }}>
-                                                <i className="fa-solid fa-ellipsis-vertical" />
-                                                </button>
-                                            </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                        {!canUsePreferences && (
+                            <div className="supp-disabled-notice" style={{ padding: '16px', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                <i className="fa-solid fa-lock" style={{ color: 'var(--text3)' }} />
+                                <p style={{ margin: 0, color: 'var(--text2)' }}>Workout tracking requires <strong>&quot;Preferences&quot;</strong> cookie consent.</p>
                             </div>
-                        </div>
+                        )}
+                        {canUsePreferences && (
+                            <>
+                                <div className="add-workout" id="newRoutineBtn" onClick={() => setCreateModal({ edit: null })}>
+                                    <div className="add-wo-btn"><i className="fas fa-plus" /></div>
+                                    <div className="add-wo-text">Add new workout</div>
+                                </div>
+                                <div id="routineListContainer">
+                                    <div id="routineList" className="routine-list">
+                                        {routines.length === 0
+                                        ? <div className="empty-state">No routines yet. Create one!</div>
+                                        : routines.map((r, index) => {
+                                            const { ex, sets } = getCount(r);
+                                            return (
+                                                <div key={r.id} className="routine-item" data-id={r.id} data-index={index}
+                                                    ref={el => { if (el) itemRefs.current.set(r.id, el); else itemRefs.current.delete(r.id); }}>
+                                                    <div className="routine-main">
+                                                    <div className="routine-info">
+                                                        <div className="routine-name">{r.name}</div>
+                                                        <div className="routine-stats">{ex} exercises, {sets} sets</div>
+                                                    </div>
+                                                    <div className="routine-actions">
+                                                        <button className="routine-play-btn" data-id={r.id} title="Start workout"
+                                                        onClick={e => { e.stopPropagation(); startSession(r); }}>
+                                                        <i className="fa-solid fa-play" />
+                                                        </button>
+                                                        <button className="routine-menu-btn" data-id={r.id}
+                                                        onClick={e => {
+                                                            e.stopPropagation();
+                                                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                                            setContextMenu(prev => prev?.id === r.id ? null : { rect, id: r.id });
+                                                        }}>
+                                                        <i className="fa-solid fa-ellipsis-vertical" />
+                                                        </button>
+                                                    </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1253,6 +1496,10 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
                 <SortExercisesModal
                 routine={sortModal}
                 onSave={exercises => {
+                    if (!canUsePreferences) {
+                        showToast('Exercise order saving requires cookie consent');
+                        return;
+                    }
                     const list = loadRoutinesFromStorage().map(r => r.id === sortModal.id ? { ...r, exercises } : r);
                     save(list);
                     showToast('Exercise order saved');

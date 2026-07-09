@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../../_context/AuthContext';
+import { useCookieConsent } from '../../_lib/useCookieConsent';
 import { pushSettings } from '../../_lib/sync';
 import { supabase } from '../../_lib/supabase';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
@@ -26,10 +27,12 @@ function downloadFile(filename: string, content: string, type: string) {
     URL.revokeObjectURL(url);
 }
 
-function applyTheme(theme: string) {
+function applyTheme(theme: string, canUsePreferences: boolean) {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('calsync_theme', theme);
-    localStorage.setItem('dropsync_theme', theme);
+    if (canUsePreferences) {
+        localStorage.setItem('calsync_theme', theme);
+        localStorage.setItem('dropsync_theme', theme);
+    }
 }
 
 const THEMES = [
@@ -64,6 +67,9 @@ function runCalc(fields: CalcFields, w: number, h: number, age: number) {
 
 export default function SettingsModal({ isOpen, onClose, onOpenNotes }: SettingsModalProps) {
     const { user, logout, showToast, syncEnabled } = useAuth();
+    const { canUsePreferences, canUseThirdParty } = useCookieConsent();
+    const hasWeatherConsent = canUsePreferences && canUseThirdParty;
+
     const [profile, setProfile] = useState<{ display_name: string | null; avatar_url: string | null } | null>(null);
     const [goalMode, setGoalMode] = useState<'set'|'calc'>('set');
     const [goalModalOpen, setGoalModalOpen] = useState(false);
@@ -91,28 +97,61 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     const [supplementGoals, setSupplementGoals] = useState<{ creatine_g: number; magnesium_mg: number } | null>(null);
 
     useEffect(() => {
+        if (!canUsePreferences) {
+            setTheme('dark');
+            setDeleteWarn(true);
+            setDisplayName(false);
+            setSplashEnabled(false);
+            setModalsExpanded(false);
+            setFirstName('');
+            setTrackSupplements(false);
+            setCalGoal('2000');
+            setWaterGoal('2500');
+            setMacroProtein('');
+            setMacroCarbs('');
+            setMacroFat('');
+            setWeatherEnabled(false);
+            setWeatherLat('');
+            setWeatherLon('');
+            setWeatherName('');
+            return;
+        }
+
         setTheme(localStorage.getItem('calsync_theme') || 'dark');
         setDeleteWarn(localStorage.getItem('dropsync_delete_warning') !== 'false');
         setDisplayName(localStorage.getItem('calsync_display_name') === 'true');
         setSplashEnabled(localStorage.getItem('calsync_splash_enabled') === 'true');
         setModalsExpanded(localStorage.getItem('healthsync_modals_expanded') === 'true');
         setFirstName(localStorage.getItem('calsync_first_name') || '');
-        setAiEnabled(localStorage.getItem('calsync_ai_enabled') === 'true');
-        setAiTermsAccepted(localStorage.getItem('calsync_ai_terms_accepted') === 'true');
-        setAiApiKey(localStorage.getItem('calsync_ai_api_key') || '');
-        setWeatherEnabled(localStorage.getItem('healthsync_weather_enabled') === 'true');
-        setWeatherLat(localStorage.getItem('healthsync_weather_lat') || '');
-        setWeatherLon(localStorage.getItem('healthsync_weather_lon') || '');
-        setWeatherName(localStorage.getItem('healthsync_weather_name') || '');
+        setTrackSupplements(localStorage.getItem('calsync_track_supplements') === 'true');
         setCalGoal(localStorage.getItem('calsync_goal') || '2000');
         setWaterGoal(localStorage.getItem('dropsync_goal') || '2500');
         setMacroProtein(localStorage.getItem('calsync_goal_protein') || '');
         setMacroCarbs(localStorage.getItem('calsync_goal_carbs') || '');
         setMacroFat(localStorage.getItem('calsync_goal_fat') || '');
-        setTrackSupplements(localStorage.getItem('calsync_track_supplements') === 'true');
+        setWeatherEnabled(localStorage.getItem('healthsync_weather_enabled') === 'true');
+        setWeatherLat(localStorage.getItem('healthsync_weather_lat') || '');
+        setWeatherLon(localStorage.getItem('healthsync_weather_lon') || '');
+        setWeatherName(localStorage.getItem('healthsync_weather_name') || '');
+    }, [canUsePreferences]);
+
+    useEffect(() => {
+        if (!canUseThirdParty) {
+            setAiEnabled(false);
+            setAiTermsAccepted(false);
+            setAiApiKey('');
+            return;
+        }
+        setAiEnabled(localStorage.getItem('calsync_ai_enabled') === 'true');
+        setAiTermsAccepted(localStorage.getItem('calsync_ai_terms_accepted') === 'true');
+        setAiApiKey(localStorage.getItem('calsync_ai_api_key') || '');
+    }, [canUseThirdParty]);
+
+    useEffect(() => {
+        if (!canUsePreferences) return;
         const storedW = parseFloat(localStorage.getItem('calsync_user_weight_kg') || '0') || 0;
         setSupplementGoals(calcSupplements(storedW));
-    }, []);
+    }, [canUsePreferences]);
 
     useEffect(() => {
         if (!user) { setProfile(null); return; }
@@ -123,6 +162,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         .single()
         .then(({ data }) => {
             setProfile(data ?? null);
+            if (!canUsePreferences) return;
             const remoteName = (data?.display_name || '').trim();
             if (!remoteName) return;
             const stored = (localStorage.getItem('calsync_first_name') || '').trim();
@@ -131,7 +171,8 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
             setFirstName(remoteName);
             window.dispatchEvent(new Event('storage'));
         });
-    }, [user?.id]);
+    }, [user?.id, canUsePreferences]);
+
     const [calcFields, setCalcFields] = useState<CalcFields>({ gender: 'female', activity: 'sedentary', goalType: 'maintain', hydrationClimate: 'mild' });
     const [calcWeight, setCalcWeight] = useState('');
     const [calcHeight, setCalcHeight] = useState('');
@@ -150,6 +191,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     }, [calcFields, calcWeight, calcHeight, calcAge]);
 
     useEffect(() => {
+        if (!canUsePreferences) return;
         const w = parseFloat(calcWeight);
         if (!w || w <= 0) return;
         const goals = persistSupplementGoals(w);
@@ -161,10 +203,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                 magnesium_goal: goals?.magnesium_mg ?? null,
             }).catch(() => {});
         }
-    }, [calcWeight, user]);
+    }, [calcWeight, user, canUsePreferences]);
 
     const syncSettings = async () => {
-        if (!user) return;
+        if (!user || !canUsePreferences) return;
         await pushSettings(user.id, {
             calorie_goal: parseInt(calGoal),
             protein_goal: parseInt(macroProtein) || 0,
@@ -176,44 +218,76 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
 
     const setAndSaveGoal = (kcal: number) => {
         setCalGoal(String(kcal));
-        localStorage.setItem('calsync_goal', String(kcal));
-        window.dispatchEvent(new Event('storage'));
-        syncSettings();
+        if (canUsePreferences) {
+            localStorage.setItem('calsync_goal', String(kcal));
+            window.dispatchEvent(new Event('storage'));
+            syncSettings();
+        }
     };
     const setAndSaveWater = (ml: number) => {
         setWaterGoal(String(ml));
-        localStorage.setItem('dropsync_goal', String(ml));
-        window.dispatchEvent(new Event('storage'));
+        if (canUsePreferences) {
+            localStorage.setItem('dropsync_goal', String(ml));
+            window.dispatchEvent(new Event('storage'));
+        }
     };
     const saveMacro = (key: string, val: string) => {
-        localStorage.setItem(key, val);
-        window.dispatchEvent(new Event('storage'));
-        syncSettings();
+        if (canUsePreferences) {
+            localStorage.setItem(key, val);
+            window.dispatchEvent(new Event('storage'));
+            syncSettings();
+        }
     };
 
-    const handleTheme = (t: string) => { setTheme(t); applyTheme(t); };
-    const handleDeleteWarn = () => { const n = !deleteWarn; setDeleteWarn(n); localStorage.setItem('dropsync_delete_warning', String(n)); };
-    const handleDisplayName = () => { const n = !displayName; setDisplayName(n); localStorage.setItem('calsync_display_name', String(n)); window.dispatchEvent(new Event('storage')); };
-    const handleSplashEnabled = () => { const n = !splashEnabled; setSplashEnabled(n); localStorage.setItem('calsync_splash_enabled', String(n)); };
-    const handleModalsExpanded = () => { const n = !modalsExpanded; setModalsExpanded(n); localStorage.setItem('healthsync_modals_expanded', String(n)); };
+    const handleTheme = (t: string) => { setTheme(t); applyTheme(t, canUsePreferences); };
+    const handleDeleteWarn = () => { const n = !deleteWarn; setDeleteWarn(n); if (canUsePreferences) { localStorage.setItem('dropsync_delete_warning', String(n)); window.dispatchEvent(new Event('storage')); } };
+    const handleDisplayName = () => { const n = !displayName; setDisplayName(n); if (canUsePreferences) { localStorage.setItem('calsync_display_name', String(n)); window.dispatchEvent(new Event('storage')); } };
+    const handleSplashEnabled = () => { const n = !splashEnabled; setSplashEnabled(n); if (canUsePreferences) { localStorage.setItem('calsync_splash_enabled', String(n)); window.dispatchEvent(new Event('storage')); } };
+    const handleModalsExpanded = () => { const n = !modalsExpanded; setModalsExpanded(n); if (canUsePreferences) { localStorage.setItem('healthsync_modals_expanded', String(n)); window.dispatchEvent(new Event('storage')); } };
     const handleTrackSupplements = () => {
         const n = !trackSupplements;
         setTrackSupplements(n);
-        localStorage.setItem('calsync_track_supplements', String(n));
-        window.dispatchEvent(new Event('storage'));
-        if (user) pushSettings(user.id, { track_supplements: n }).catch(() => {});
+        if (canUsePreferences) {
+            localStorage.setItem('calsync_track_supplements', String(n));
+            window.dispatchEvent(new Event('storage'));
+            if (user) pushSettings(user.id, { track_supplements: n }).catch(() => {});
+        }
     };
-    const handleSetFirstName = () => { localStorage.setItem('calsync_first_name', firstName); window.dispatchEvent(new Event('storage')); showToast('Changes Saved!'); };
-    const handleAiToggle = () => { const n = !aiEnabled; setAiEnabled(n); localStorage.setItem('calsync_ai_enabled', String(n)); };
-    const handleAiAccept = () => { setAiTermsAccepted(true); localStorage.setItem('calsync_ai_terms_accepted', 'true'); showToast('Terms accepted'); };
-    const handleAiDecline = () => { setAiEnabled(false); setAiTermsAccepted(false); localStorage.setItem('calsync_ai_enabled', 'false'); showToast('AI Detection disabled'); };
+    const handleSetFirstName = () => {
+        if (!canUsePreferences) return;
+        localStorage.setItem('calsync_first_name', firstName);
+        window.dispatchEvent(new Event('storage'));
+        showToast('Changes Saved!');
+    };
+    const handleAiToggle = () => {
+        if (!canUseThirdParty) return;
+        const n = !aiEnabled;
+        setAiEnabled(n);
+        localStorage.setItem('calsync_ai_enabled', String(n));
+    };
+    const handleAiAccept = () => {
+        if (!canUseThirdParty) return;
+        setAiTermsAccepted(true);
+        localStorage.setItem('calsync_ai_terms_accepted', 'true');
+        showToast('Terms accepted');
+    };
+    const handleAiDecline = () => {
+        setAiEnabled(false);
+        setAiTermsAccepted(false);
+        if (canUseThirdParty) {
+            localStorage.setItem('calsync_ai_enabled', 'false');
+        }
+        showToast('AI Detection disabled');
+    };
     const handleSaveApiKey = () => {
+        if (!canUseThirdParty) return;
         localStorage.setItem('calsync_ai_api_key', aiApiKey);
         showToast('Changes Saved!');
         setTimeout(() => location.reload(), 2222);
     };
 
     const handleWeatherToggle = () => {
+        if (!hasWeatherConsent) return;
         const n = !weatherEnabled;
         setWeatherEnabled(n);
         localStorage.setItem('healthsync_weather_enabled', String(n));
@@ -221,6 +295,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     };
 
     const handleSaveWeather = () => {
+        if (!hasWeatherConsent) return;
         localStorage.setItem('healthsync_weather_lat', weatherLat);
         localStorage.setItem('healthsync_weather_lon', weatherLon);
         localStorage.setItem('healthsync_weather_name', weatherName);
@@ -377,318 +452,375 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                     <div className="modal-title">Settings</div>
                 </div>
                 <div className="modal-body" id="settingsModalBody" style={{ overflowY: 'auto' }}>
-                    <div className="modal-step active" id="settingsStep">
-                        <div className="settings-section">
-                            <div className="settings-section-title"><i className="fas fa-cloud" />Cloud Sync</div>
-                            {!user ? (
-                                <button id="accountLoginBtn" className="settings-btn mgmnt-btn" onClick={() => { sheet.close(); window.location.href = '/login'; }}>
-                                <i className="fas fa-user" /> Login/Register
-                                </button>
-                            ) : (
-                                <div id="loggedInSettings">
-                                    <div id="authUserInfo" className="auth-user-info">
-                                        <div className="auth-user-container">
-                                            {(() => {
-                                                const avatarUrl = profile?.avatar_url || (user.user_metadata?.avatar_url as string | undefined);
-                                                const displayedName = profile?.display_name || firstName || user.user_metadata?.full_name || user.email || '';
-                                                return avatarUrl ? (
-                                                <div className="auth-avatar" aria-label={displayedName}>
-                                                    <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).classList.add('auth-avatar--initial'); (e.currentTarget.parentElement as HTMLElement).textContent = String(displayedName || '?').charAt(0).toUpperCase(); }} />
-                                                </div>
-                                                ) : (
-                                                <div className="auth-avatar auth-avatar--initial" aria-label={displayedName}>
-                                                    {String(displayedName || '?').charAt(0).toUpperCase()}
-                                                </div>
-                                                );
-                                            })()}
-                                            <span>{profile?.display_name || firstName || user.user_metadata?.full_name || user.email}</span>
-                                        </div>
-                                        <span className="sync-badge active">Synced</span>
-                                    </div>
-                                    <button id="accountLogoutBtn" className="settings-btn mgmnt-btn" style={{ margin: '8px 0 0', width: '100%' }} onClick={async () => { await logout(); showToast('Logged out'); sheet.close(); }}>Logout</button>
-                                    <div className="divider">or</div>
-                                    <button id="manageAccount" className="option-btn active" style={{ width: '100%', borderRadius: 'var(--radius-sm)', padding: '13px 16px' }}
-                                        onClick={() => { sheet.close(); window.location.href = '/login'; }}>
-                                        <i className="fas fa-user" /> Manage Account
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        <div className="settings-section" id="aiDetection">
-                            <div className="settings-section-title">
-                            <i className="fa-solid fa-wand-magic-sparkles"></i>
-                                AI Detection [BETA]
-                            </div>
-                            <div className="settings-section-body">
-                                <div className="settings-toggle-row">
-                                    <div className="settings-toggle-label">
-                                        <span>Enable AI Detection</span>
-                                        <span className="settings-toggle-sub">Allow HealthSync to use AI for food recognition</span>
-                                    </div>
-                                    <button className="app-toggle-switch" id="aiEnabledToggle" aria-pressed={String(aiEnabled) as 'true'|'false'} onClick={handleAiToggle} />
-                                </div>
-                                <div className="ai-info-box" id="aiInfoBox">
-                                    <i className="fa-solid fa-circle-info" />
-                                    <p>AI Detection uses Google's Gemini API to analyze food images and estimate nutrition values. This feature is experimental and requires your own API key. Important nutrition information should be verified. Results may be inaccurate or inconsistent. Use at your own risk.</p>
-                                </div>
-                                {aiEnabled && (
-                                    <div id="aiSettings">
-                                        {!aiTermsAccepted ? (
-                                            <div className="ai-terms-box" id="aiTermsBox">
-                                                <div className="ai-terms-title"><i className="fa-solid fa-file-contract" />Terms &amp; Conditions</div>
-                                                <div className="ai-terms-content">
-                                                <p><strong>Please read carefully before using AI Nutrition Detection:</strong></p>
-                                                <ul>
-                                                    <li>Nutrition values generated by AI are <strong>automated estimates</strong>. Results may differ significantly from actual values.</li>
-                                                    <li>You are responsible for your own Gemini API key. Never share it publicly.</li>
-                                                    <li>By using this feature, you agree to <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener"><strong>Google&apos;s Gemini API Terms</strong></a>.</li>
-                                                    <li>API usage may generate costs. HealthSync assumes no responsibility for API charges.</li>
-                                                </ul>
-                                                <p className="ai-terms-warning"><i className="fa-solid fa-triangle-exclamation" />By accepting, you use this feature at your own risk.</p>
-                                                </div>
-                                                <div className="ai-terms-actions">
-                                                <button className="ai-terms-btn decline" id="aiTermsDecline" onClick={handleAiDecline}><i className="fa-solid fa-xmark" />Decline</button>
-                                                <button className="ai-terms-btn accept" id="aiTermsAccept" onClick={handleAiAccept}><i className="fa-solid fa-check" />Accept &amp; Continue</button>
-                                                </div>
+                    <div className="settings-section">
+                        <div className="settings-section-title"><i className="fas fa-cloud" />Cloud Sync</div>
+                        {!user ? (
+                            <button id="accountLoginBtn" className="settings-btn mgmnt-btn" onClick={() => { sheet.close(); window.location.href = '/login'; }}>
+                            <i className="fas fa-user" /> Login/Register
+                            </button>
+                        ) : (
+                            <div id="loggedInSettings">
+                                <div id="authUserInfo" className="auth-user-info">
+                                    <div className="auth-user-container">
+                                        {(() => {
+                                            const avatarUrl = profile?.avatar_url || (user.user_metadata?.avatar_url as string | undefined);
+                                            const displayedName = profile?.display_name || firstName || user.user_metadata?.full_name || user.email || '';
+                                            return avatarUrl ? (
+                                            <div className="auth-avatar" aria-label={displayedName}>
+                                                <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.parentElement as HTMLElement).classList.add('auth-avatar--initial'); (e.currentTarget.parentElement as HTMLElement).textContent = String(displayedName || '?').charAt(0).toUpperCase(); }} />
                                             </div>
-                                        ) : (
-                                            <div id="aiApiKeySection">
-                                                <div className="form-row">
-                                                <label className="form-label"><i className="fa-solid fa-key" />Gemini API Key</label>
-                                                <div className="api-key-input-wrapper">
-                                                    <input className="form-input" id="aiApiKeyInput" type={apiKeyVisible ? 'text' : 'password'} placeholder="Enter your Gemini API key" autoComplete="off" value={aiApiKey} onChange={e => setAiApiKey(e.target.value)} />
-                                                    <button className="api-key-toggle" id="apiKeyToggle" type="button" onClick={() => setApiKeyVisible(v => !v)}>
-                                                    <i className={apiKeyVisible ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'} />
-                                                    </button>
-                                                </div>
-                                                <p className="form-helper"><i className="fa-solid fa-lightbulb" />Get your free API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a></p>
-                                                </div>
-                                                <button className="option-btn active" id="saveApiKeyBtn" style={{ width:'100%',borderRadius:'var(--radius-sm)',padding:'13px 16px',marginTop:'8px' }} onClick={handleSaveApiKey}><i className="fa-solid fa-floppy-disk" />Save API Key</button>
-                                                {aiApiKey && <div className="ai-status-box" id="aiStatusBox"><i className="fa-solid fa-circle-check" /><span>AI Detection is active</span></div>}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="settings-section">
-                            <div className="settings-section-title">
-                                <i className="fa-solid fa-cloud-sun"></i>
-                                Weather Widget
-                            </div>
-                            <div className="settings-section-body">
-                                <div className="settings-toggle-row">
-                                    <div className="settings-toggle-label">
-                                        <span>Show weather on dashboard</span>
-                                        <span className="settings-toggle-sub">Enable the small weather widget next to activity status</span>
-                                    </div>
-                                    <button className="app-toggle-switch" id="weatherEnabledToggle" aria-pressed={String(weatherEnabled) as 'true'|'false'} onClick={handleWeatherToggle} />
-                                </div>
-                                <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
-                                    <label className="form-row">
-                                        <span className="form-label">Latitude</span>
-                                        <input className="form-input" value={weatherLat} onChange={e => setWeatherLat(e.currentTarget.value)} placeholder="e.g. 40.7128" />
-                                    </label>
-                                    <label className="form-row">
-                                        <span className="form-label">Longitude</span>
-                                        <input className="form-input" value={weatherLon} onChange={e => setWeatherLon(e.currentTarget.value)} placeholder="e.g. -74.0060" />
-                                    </label>
-                                    <label className="form-row">
-                                        <span className="form-label">Location name</span>
-                                        <input className="form-input" value={weatherName} onChange={e => setWeatherName(e.currentTarget.value)} placeholder="Optional display name" />
-                                    </label>
-                                    <div style={{ display: 'flex', gap: 8 }}>
-                                        <button
-                                            className="option-btn"
-                                            style={{ flex: 1, borderRadius: 'var(--radius-sm)', padding: '10px 12px' }}
-                                            onClick={async () => {
-                                                if (!navigator.geolocation) {
-                                                    showToast('Geolocation not supported');
-                                                    return;
-                                                }
-                                                try {
-                                                    const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-                                                        navigator.geolocation.getCurrentPosition(resolve, reject)
-                                                    );
-                                                    const lat = pos.coords.latitude;
-                                                    const lon = pos.coords.longitude;
-                                                    setWeatherLat(String(lat));
-                                                    setWeatherLon(String(lon));
-                                                    const name = await reverseGeocodeLocation(lat, lon);
-                                                    setWeatherName(name);
-                                                    showToast('Location filled - press Save to persist');
-                                                } catch (err) {
-                                                    console.warn('Use Location (settings) failed', err);
-                                                    showToast('Unable to get location');
-                                                }
-                                            }}
-                                        >
-                                            <i className="fa-solid fa-location-crosshairs" style={{ marginRight: 8 }} /> Use Location
-                                        </button>
-                                        <button className="option-btn" style={{ flex: 1, borderRadius: 'var(--radius-sm)', padding: '10px 12px' }} onClick={handleSaveWeather}><i className="fa-solid fa-floppy-disk" /> Save</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="settings-section">
-                            <div className="settings-section-title">
-                            <i className="fa-solid fa-flag-checkered"></i>
-                                Calorie/Hydration Goal/s
-                            </div>
-                            <div className="settings-section-body">
-                                <div className="goal-display-row" style={{ justifyContent: 'center', marginBottom: 4 }}>
-                                    <span className="goal-display-val" id="currentGoalDisplay">{calGoal} kcal</span>
-                                </div>
-                                <div className="goal-display-row" style={{ justifyContent: 'center', marginBottom: 4 }}>
-                                    <span className="goal-display-val" id="ds-currentGoalDisplay">
-                                        {parseInt(waterGoal) >= 1000 ? (parseInt(waterGoal)/1000).toFixed(1).replace('.',',') + 'L' : waterGoal + ' ml'}
-                                    </span>
-                                </div>
-                                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                                    <button className="option-btn" id="openSetGoalBtn" style={{ flex:1, borderRadius:'var(--radius-sm)', padding:'13px 16px' }} onClick={() => { setGoalMode('set'); setGoalModalOpen(true); }}>
-                                        <i className="fa-solid fa-bullseye" style={{ marginRight:6 }} />Set Goal
-                                    </button>
-                                    <button className="option-btn" id="openCalcGoalBtn" style={{ flex:1, borderRadius:'var(--radius-sm)', padding:'13px 16px' }} onClick={() => { setGoalMode('calc'); setGoalModalOpen(true); }}>
-                                        <i className="fa-solid fa-calculator" style={{ marginRight:6 }} />Calculate Goal
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="settings-section">
-                            <div className="settings-section-title">
-                            <i className="fa-regular fa-sliders"></i>
-                                Personalization
-                            </div>
-                        <div className="settings-section-body">
-                            <div className="settings-toggle-row">
-                                <div className="settings-toggle-label">
-                                    <span>Delete entry warning (HealthSync)</span>
-                                    <span className="settings-toggle-sub">Show a confirmation before deleting entries</span>
-                                </div>
-                                <button className="app-toggle-switch" id="deleteWarningToggle" aria-pressed={String(deleteWarn) as 'true'|'false'} onClick={handleDeleteWarn} />
-                            </div>
-                            <div className="settings-toggle-row">
-                                <div className="settings-toggle-label">
-                                    <span>Show splash screen</span>
-                                    <span className="settings-toggle-sub">Display the splash screen when the app opens, you return to the app, or switch tabs</span>
-                                </div>
-                                <button className="app-toggle-switch" id="splashScreenToggle" aria-pressed={String(splashEnabled) as 'true'|'false'} onClick={handleSplashEnabled} />
-                            </div>
-                            <div className="settings-toggle-row">
-                                <div className="settings-toggle-label">
-                                    <span>Open every menu as expanded</span>
-                                    <span className="settings-toggle-sub">Menus open fullscreen by default. Swipe down to collapse back to the normal view.</span>
-                                </div>
-                                <button className="app-toggle-switch" id="modalsExpandedToggle" aria-pressed={String(modalsExpanded) as 'true'|'false'} onClick={handleModalsExpanded} />
-                            </div>
-                            <div className="settings-toggle-row">
-                                <div className="settings-toggle-label">
-                                    <span>Track Supplements</span>
-                                    <span className="settings-toggle-sub">Show recommended daily creatine &amp; magnesium based on your body weight.</span>
-                                    {trackSupplements && (
-                                        <div className="form-row" style={{ marginTop: 8 }}>
-                                            {supplementGoals ? (
-                                                <ul className="supplement-list">
-                                                    <li><span>Creatine</span><strong>{supplementGoals.creatine_g} g/day</strong></li>
-                                                    <li><span>Magnesium</span><strong>{supplementGoals.magnesium_mg} mg/day</strong></li>
-                                                </ul>
                                             ) : (
-                                                <p className="settings-toggle-sub" style={{ margin: 0 }}>
-                                                    <i className="fa-solid fa-circle-info" style={{ marginRight: 6 }} />
-                                                    Open <em>Calculate Goal</em> and enter your weight to compute supplement targets.
-                                                </p>
-                                            )}
+                                            <div className="auth-avatar auth-avatar--initial" aria-label={displayedName}>
+                                                {String(displayedName || '?').charAt(0).toUpperCase()}
+                                            </div>
+                                            );
+                                        })()}
+                                        <span>{profile?.display_name || firstName || user.user_metadata?.full_name || user.email}</span>
+                                    </div>
+                                    <span className="sync-badge active">Synced</span>
+                                </div>
+                                <button id="accountLogoutBtn" className="settings-btn mgmnt-btn" style={{ margin: '8px 0 0', width: '100%' }} onClick={async () => { await logout(); showToast('Logged out'); sheet.close(); }}>Logout</button>
+                                <div className="divider">or</div>
+                                <button id="manageAccount" className="option-btn active" style={{ width: '100%', borderRadius: 'var(--radius-sm)', padding: '13px 16px' }}
+                                    onClick={() => { sheet.close(); window.location.href = '/login'; }}>
+                                    <i className="fas fa-user" /> Manage Account
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    <div className="settings-section" id="aiDetection">
+                        <div className="settings-section-title">
+                        <i className="fa-solid fa-wand-magic-sparkles"></i>
+                            AI Detection [BETA]
+                        </div>
+                        <div className="settings-section-body" style={{ opacity: canUseThirdParty ? 1 : 0.5, cursor: canUseThirdParty ? '' : 'default', pointerEvents: canUseThirdParty ? 'auto' : 'none' }}>
+                            <div className="settings-toggle-row">
+                                <div className="settings-toggle-label">
+                                    <span>Enable AI Detection</span>
+                                    <span className="settings-toggle-sub">Allow HealthSync to use AI for food recognition</span>
+                                </div>
+                                <button
+                                    className="app-toggle-switch"
+                                    id="aiEnabledToggle"
+                                    aria-pressed={String(aiEnabled) as 'true'|'false'}
+                                    onClick={handleAiToggle}
+                                    disabled={!canUseThirdParty}
+                                />
+                            </div>
+                            <div className="ai-info-box" id="aiInfoBox">
+                                <i className="fa-solid fa-circle-info" />
+                                <p>AI Detection uses Google's Gemini API to analyze food images and estimate nutrition values. This feature is experimental and requires your own API key. Important nutrition information should be verified. Results may be inaccurate or inconsistent. Use at your own risk.</p>
+                            </div>
+                            {aiEnabled && (
+                                <div id="aiSettings">
+                                    {!aiTermsAccepted ? (
+                                        <div className="ai-terms-box" id="aiTermsBox">
+                                            <div className="ai-terms-title"><i className="fa-solid fa-file-contract" />Terms &amp; Conditions</div>
+                                            <div className="ai-terms-content">
+                                            <p><strong>Please read carefully before using AI Nutrition Detection:</strong></p>
+                                            <ul>
+                                                <li>Nutrition values generated by AI are <strong>automated estimates</strong>. Results may differ significantly from actual values.</li>
+                                                <li>You are responsible for your own Gemini API key. Never share it publicly.</li>
+                                                <li>By using this feature, you agree to <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener"><strong>Google&apos;s Gemini API Terms</strong></a>.</li>
+                                                <li>API usage may generate costs. HealthSync assumes no responsibility for API charges.</li>
+                                            </ul>
+                                            <p className="ai-terms-warning"><i className="fa-solid fa-triangle-exclamation" />By accepting, you use this feature at your own risk.</p>
+                                            </div>
+                                            <div className="ai-terms-actions">
+                                            <button className="ai-terms-btn decline" id="aiTermsDecline" onClick={handleAiDecline}><i className="fa-solid fa-xmark" />Decline</button>
+                                            <button className="ai-terms-btn accept" id="aiTermsAccept" onClick={handleAiAccept}><i className="fa-solid fa-check" />Accept &amp; Continue</button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div id="aiApiKeySection">
+                                            <div className="form-row">
+                                            <label className="form-label"><i className="fa-solid fa-key" />Gemini API Key</label>
+                                            <div className="api-key-input-wrapper">
+                                                <input className="form-input" id="aiApiKeyInput" type={apiKeyVisible ? 'text' : 'password'} placeholder="Enter your Gemini API key" autoComplete="off" value={aiApiKey} onChange={e => setAiApiKey(e.target.value)} />
+                                                <button className="api-key-toggle" id="apiKeyToggle" type="button" onClick={() => setApiKeyVisible(v => !v)}>
+                                                <i className={apiKeyVisible ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'} />
+                                                </button>
+                                            </div>
+                                            <p className="form-helper"><i className="fa-solid fa-lightbulb" />Get your free API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a></p>
+                                            </div>
+                                            <button className="option-btn active" id="saveApiKeyBtn" style={{ width:'100%',borderRadius:'var(--radius-sm)',padding:'13px 16px',marginTop:'8px' }} onClick={handleSaveApiKey}><i className="fa-solid fa-floppy-disk" />Save API Key</button>
+                                            {aiApiKey && <div className="ai-status-box" id="aiStatusBox"><i className="fa-solid fa-circle-check" /><span>AI Detection is active</span></div>}
                                         </div>
                                     )}
                                 </div>
-                                <button className="app-toggle-switch" id="trackSupplementsToggle" aria-pressed={String(trackSupplements) as 'true'|'false'} onClick={handleTrackSupplements} />
-                            </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="settings-section">
+                        <div className="settings-section-title">
+                            <i className="fa-solid fa-cloud-sun"></i>
+                            Weather Widget
+                        </div>
+                        <div className="settings-section-body" style={{ opacity: hasWeatherConsent ? 1 : 0.5, cursor: hasWeatherConsent ? '' : 'default', pointerEvents: hasWeatherConsent ? 'auto' : 'none' }}>
                             <div className="settings-toggle-row">
                                 <div className="settings-toggle-label">
-                                    <span>Show name on start</span>
-                                    <span className="settings-toggle-sub">Displays a welcome message containing your name instead of the app name</span>
-                                    <div className="form-row">
-                                        <label className="form-label" htmlFor="firstName">Name:</label>
-                                        <div className="flex-container gap-10px">
-                                            <input className="form-input" name="firstName" id="firstName" type="text" autoComplete="given-name"
-                                            value={firstName} onChange={e => setFirstName(e.target.value)}
-                                            onKeyDown={e => { if (e.key === 'Enter') handleSetFirstName(); }} />
-                                            <button className="option-btn active" id="setFirstNameBtn" style={{ borderRadius:'var(--radius-sm)', padding:'13.5px 16px' }} onClick={handleSetFirstName}>Set</button>
-                                        </div>
-                                    </div>
+                                    <span>Show weather on dashboard</span>
+                                    <span className="settings-toggle-sub">Enable the small weather widget next to activity status</span>
                                 </div>
-                                <button className="app-toggle-switch" id="displayNameOnStart" aria-pressed={String(displayName) as 'true'|'false'} onClick={handleDisplayName} />
+                                <button
+                                    className="app-toggle-switch"
+                                    id="weatherEnabledToggle"
+                                    aria-pressed={String(weatherEnabled) as 'true'|'false'}
+                                    onClick={handleWeatherToggle}
+                                    disabled={!hasWeatherConsent}
+                                />
                             </div>
-                            <div className="settings-toggle-row" style={{ flexDirection:'column', alignItems:'flex-start', gap:12 }}>
-                                <div className="settings-toggle-label">
-                                    <span>App Theme</span>
-                                    <span className="settings-toggle-sub">Choose a color theme for the app</span>
+                            <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+                                <label className="form-row">
+                                    <span className="form-label">Latitude</span>
+                                    <input className="form-input" value={weatherLat} onChange={e => setWeatherLat(e.currentTarget.value)} placeholder="e.g. 40.7128" disabled={!hasWeatherConsent} />
+                                </label>
+                                <label className="form-row">
+                                    <span className="form-label">Longitude</span>
+                                    <input className="form-input" value={weatherLon} onChange={e => setWeatherLon(e.currentTarget.value)} placeholder="e.g. -74.0060" disabled={!hasWeatherConsent} />
+                                </label>
+                                <label className="form-row">
+                                    <span className="form-label">Location name</span>
+                                    <input className="form-input" value={weatherName} onChange={e => setWeatherName(e.currentTarget.value)} placeholder="Optional display name" disabled={!hasWeatherConsent} />
+                                </label>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button
+                                        className="option-btn"
+                                        style={{ flex: 1, borderRadius: 'var(--radius-sm)', padding: '10px 12px' }}
+                                        onClick={async () => {
+                                            if (!hasWeatherConsent) return;
+                                            if (!navigator.geolocation) {
+                                                showToast('Geolocation not supported');
+                                                return;
+                                            }
+                                            try {
+                                                setWeatherName('Loading...');
+                                                const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+                                                    navigator.geolocation.getCurrentPosition(resolve, reject)
+                                                );
+                                                const lat = pos.coords.latitude;
+                                                const lon = pos.coords.longitude;
+                                                setWeatherLat(String(lat));
+                                                setWeatherLon(String(lon));
+                                                const name = await reverseGeocodeLocation(lat, lon);
+                                                setWeatherName(name);
+                                                showToast('Location filled - press Save to persist');
+                                            } catch (err) {
+                                                console.warn('Use Location (settings) failed', err);
+                                                showToast('Unable to get location');
+                                            }
+                                        }}
+                                        disabled={!hasWeatherConsent}
+                                    >
+                                        <i className="fa-solid fa-location-crosshairs" style={{ marginRight: 8 }} /> Use Location
+                                    </button>
+                                    <button className="option-btn" style={{ flex: 1, borderRadius: 'var(--radius-sm)', padding: '10px 12px' }} onClick={handleSaveWeather} disabled={!hasWeatherConsent}> <i className="fa-solid fa-floppy-disk" /> Save</button>
                                 </div>
-                                <div className="theme-picker" id="themePicker">
-                                    {THEMES.map(t => (
-                                        <div key={t.id} className={`theme-option${theme === t.id ? ' active' : ''}`} data-theme={t.id} onClick={() => handleTheme(t.id)}>
-                                            <div className="theme-swatch" style={{ background: t.bg }}>
-                                                <div className="theme-swatch-bg" style={{ background: t.card, borderRadius:4 }} />
-                                                <div className="theme-swatch-s1" style={{ background: t.s1 }} />
-                                                <div className="theme-swatch-s2" style={{ background: t.s2 }} />
-                                                <div className="theme-swatch-accent" style={{ background: t.accent }} />
-                                            </div>
-                                            <span className="theme-option-label">{t.label}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="settings-section">
+                        <div className="settings-section-title">
+                        <i className="fa-solid fa-flag-checkered"></i>
+                            Calorie/Hydration Goal/s
+                        </div>
+                        <div className="settings-section-body">
+                            <div className="goal-display-row" style={{ justifyContent: 'center', marginBottom: 4 }}>
+                                <span className="goal-display-val" id="currentGoalDisplay">{calGoal} kcal</span>
+                            </div>
+                            <div className="goal-display-row" style={{ justifyContent: 'center', marginBottom: 4 }}>
+                                <span className="goal-display-val" id="ds-currentGoalDisplay">
+                                    {parseInt(waterGoal) >= 1000 ? (parseInt(waterGoal)/1000).toFixed(1).replace('.',',') + 'L' : waterGoal + ' ml'}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                                <button className="option-btn" id="openSetGoalBtn" style={{ flex:1, borderRadius:'var(--radius-sm)', padding:'13px 16px' }} onClick={() => { setGoalMode('set'); setGoalModalOpen(true); }} disabled={!canUsePreferences}>
+                                    <i className="fa-solid fa-bullseye" style={{ marginRight:6 }} />Set Goal
+                                </button>
+                                <button className="option-btn" id="openCalcGoalBtn" style={{ flex:1, borderRadius:'var(--radius-sm)', padding:'13px 16px' }} onClick={() => { setGoalMode('calc'); setGoalModalOpen(true); }} disabled={!canUsePreferences}>
+                                    <i className="fa-solid fa-calculator" style={{ marginRight:6 }} />Calculate Goal
+                                </button>
                             </div>
                         </div>
                     </div>
                     <div className="settings-section">
                         <div className="settings-section-title">
-                        <i className="fa-solid fa-database"></i>
-                            Data
+                        <i className="fa-regular fa-sliders"></i>
+                            Personalization
                         </div>
-                        <div className="settings-section-body" style={{ gap:8, display:'flex', flexDirection:'column' }}>
-                            <button className="data-btn" id="exportAllDataBtn" onClick={exportAllData}>
-                                <i className="fas fa-download"></i>
-                                Export All Data As JSON
-                                </button>
-                            <button className="data-btn" id="exportAllDataCSVBtn" onClick={exportAllDataAsCSV}>
-                                <i className="fa-regular fa-table"></i>
-                                Export All Data as CSV
-                            </button>
-                            <button className="data-btn" id="deleteAllDataBtn" onClick={deleteAllData} style={{ color: '#ef4444' }}>
-                                <i className="fa-regular fa-trash-can"></i>
-                                Delete All Data
-                            </button>
+                    <div className="settings-section-body" style={{ opacity: canUsePreferences ? 1 : 0.5, cursor: canUsePreferences ? '' : 'default', pointerEvents: canUsePreferences ? 'auto' : 'none' }}>
+                        <div className="settings-toggle-row">
+                            <div className="settings-toggle-label">
+                                <span>Delete entry warning (HealthSync)</span>
+                                <span className="settings-toggle-sub">Show a confirmation before deleting entries</span>
+                            </div>
+                            <button
+                                className="app-toggle-switch"
+                                id="deleteWarningToggle"
+                                aria-pressed={String(deleteWarn) as 'true'|'false'}
+                                onClick={handleDeleteWarn}
+                                disabled={!canUsePreferences}
+                            />
+                        </div>
+                        <div className="settings-toggle-row">
+                            <div className="settings-toggle-label">
+                                <span>Show splash screen</span>
+                                <span className="settings-toggle-sub">Display the splash screen when the app opens, you return to the app, or switch tabs</span>
+                            </div>
+                            <button
+                                className="app-toggle-switch"
+                                id="splashScreenToggle"
+                                aria-pressed={String(splashEnabled) as 'true'|'false'}
+                                onClick={handleSplashEnabled}
+                                disabled={!canUsePreferences}
+                            />
+                        </div>
+                        <div className="settings-toggle-row">
+                            <div className="settings-toggle-label">
+                                <span>Open every menu as expanded</span>
+                                <span className="settings-toggle-sub">Menus open fullscreen by default. Swipe down to collapse back to the normal view.</span>
+                            </div>
+                            <button
+                                className="app-toggle-switch"
+                                id="modalsExpandedToggle"
+                                aria-pressed={String(modalsExpanded) as 'true'|'false'}
+                                onClick={handleModalsExpanded}
+                                disabled={!canUsePreferences}
+                            />
+                        </div>
+                        <div className="settings-toggle-row">
+                            <div className="settings-toggle-label">
+                                <span>Track Supplements</span>
+                                <span className="settings-toggle-sub">Show recommended daily creatine &amp; magnesium based on your body weight.</span>
+                                {trackSupplements && (
+                                    <div className="form-row" style={{ marginTop: 8 }}>
+                                        {supplementGoals ? (
+                                            <ul className="supplement-list">
+                                                <li><span>Creatine</span><strong>{supplementGoals.creatine_g} g/day</strong></li>
+                                                <li><span>Magnesium</span><strong>{supplementGoals.magnesium_mg} mg/day</strong></li>
+                                            </ul>
+                                        ) : (
+                                            <p className="settings-toggle-sub" style={{ margin: 0 }}>
+                                                <i className="fa-solid fa-circle-info" style={{ marginRight: 6 }} />
+                                                Open <em>Calculate Goal</em> and enter your weight to compute supplement targets.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                className="app-toggle-switch"
+                                id="trackSupplementsToggle"
+                                aria-pressed={String(trackSupplements) as 'true'|'false'}
+                                onClick={handleTrackSupplements}
+                                disabled={!canUsePreferences}
+                            />
+                        </div>
+                        <div className="settings-toggle-row">
+                            <div className="settings-toggle-label">
+                                <span>Show name on start</span>
+                                <span className="settings-toggle-sub">Displays a welcome message containing your name instead of the app name</span>
+                                <div className="form-row">
+                                    <label className="form-label" htmlFor="firstName">Name:</label>
+                                    <div className="flex-container gap-10px">
+                                        <input
+                                            className="form-input"
+                                            name="firstName"
+                                            id="firstName"
+                                            type="text"
+                                            autoComplete="given-name"
+                                            value={firstName}
+                                            onChange={e => setFirstName(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter') handleSetFirstName(); }}
+                                            disabled={!canUsePreferences}
+                                        />
+                                        <button className="option-btn active" id="setFirstNameBtn" style={{ borderRadius:'var(--radius-sm)', padding:'13.5px 16px' }} onClick={handleSetFirstName} disabled={!canUsePreferences}>Set</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                className="app-toggle-switch"
+                                id="displayNameOnStart"
+                                aria-pressed={String(displayName) as 'true'|'false'}
+                                onClick={handleDisplayName}
+                                disabled={!canUsePreferences}
+                            />
+                        </div>
+                        <div className="settings-toggle-row" style={{ flexDirection:'column', alignItems:'flex-start', gap:12 }}>
+                            <div className="settings-toggle-label">
+                                <span>App Theme</span>
+                                <span className="settings-toggle-sub">Choose a color theme for the app</span>
+                            </div>
+                            <div className="theme-picker" id="themePicker">
+                                {THEMES.map(t => (
+                                    <div
+                                        key={t.id}
+                                        className={`theme-option${theme === t.id ? ' active' : ''}`}
+                                        data-theme={t.id}
+                                        onClick={() => handleTheme(t.id)}
+                                        style={{ opacity: canUsePreferences ? 1 : 0.5, cursor: canUsePreferences ? '' : 'default', pointerEvents: canUsePreferences ? 'auto' : 'none' }}
+                                    >
+                                        <div className="theme-swatch" style={{ background: t.bg }}>
+                                            <div className="theme-swatch-bg" style={{ background: t.card, borderRadius:4 }} />
+                                            <div className="theme-swatch-s1" style={{ background: t.s1 }} />
+                                            <div className="theme-swatch-s2" style={{ background: t.s2 }} />
+                                            <div className="theme-swatch-accent" style={{ background: t.accent }} />
+                                        </div>
+                                        <span className="theme-option-label">{t.label}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                    <div className="settings-legal">
-                        <div className="settings-legal-footer">
-                            <table style={{ borderCollapse:'collapse', marginTop:8, tableLayout:'fixed', width:'100%' }}>
-                                <tbody>
-                                    <tr>
-                                        <td style={{ textAlign:'center', verticalAlign:'middle', width:'47.5%' }}>
-                                        <a className="link" href="https://github.com/itsmarianmc/healthsync" target="_blank" rel="noopener">
-                                            <img height="42.5" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/available/github_vector.svg" alt="GitHub" />
-                                        </a>
-                                        </td>
-                                        <td style={{ borderLeft:'1px solid rgba(255,255,255,0.1)', textAlign:'center', verticalAlign:'middle', width:'52.5%' }}>
-                                        <a className="link" href="https://ko-fi.com/itsmarian" target="_blank" rel="noopener">
-                                            <img height="42.5" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/donate/kofi-singular_vector.svg" alt="Ko-fi" />
-                                        </a>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <p style={{ marginTop:8 }}><a id="openNotes" onClick={e => { e.preventDefault(); setTimeout(onOpenNotes, 200); }}>About / Licenses</a></p>
-                            <footer>
-                                <p>
-                                    <a href="https://healthsync.itsmarian.dev/legal/ai-guidelines">AI Guidelines</a> • <a href="https://contact.itsmarian.dev/">Contact</a> • <a href="https://healthsync.itsmarian.dev/legal/cookies">Cookies</a> • <a href="https://healthsync.itsmarian.dev/legal/privacy">Privacy Policy</a> • <a href="https://healthsync.itsmarian.dev/legal/terms">Terms of Use</a>
-                                </p>
-                                <p className="change-settings">Change Cookie Preferences</p>
-                                <p style={{ marginTop: 'calc(1rem - 7.5px)' }}>© 2026 itsmarian | All rights reserved!</p>
-                            </footer>
-                        </div>
+                </div>
+                <div className="settings-section">
+                    <div className="settings-section-title">
+                    <i className="fa-solid fa-database"></i>
+                        Data
+                    </div>
+                    <div className="settings-section-body" style={{ gap:8, display:'flex', flexDirection:'column' }}>
+                        <button className="data-btn" id="exportAllDataBtn" onClick={exportAllData}>
+                            <i className="fas fa-download"></i>
+                            Export All Data As JSON
+                            </button>
+                        <button className="data-btn" id="exportAllDataCSVBtn" onClick={exportAllDataAsCSV}>
+                            <i className="fa-regular fa-table"></i>
+                            Export All Data as CSV
+                        </button>
+                        <button className="data-btn" id="deleteAllDataBtn" onClick={deleteAllData} style={{ color: '#ef4444' }}>
+                            <i className="fa-regular fa-trash-can"></i>
+                            Delete All Data
+                        </button>
+                    </div>
+                </div>
+                <div className="settings-legal">
+                    <div className="settings-legal-footer">
+                        <table style={{ borderCollapse:'collapse', marginTop:8, tableLayout:'fixed', width:'100%' }}>
+                            <tbody>
+                                <tr>
+                                    <td style={{ textAlign:'center', verticalAlign:'middle', width:'47.5%' }}>
+                                    <a className="link" href="https://github.com/itsmarianmc/healthsync" target="_blank" rel="noopener">
+                                        <img height="42.5" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/available/github_vector.svg" alt="GitHub" />
+                                    </a>
+                                    </td>
+                                    <td style={{ borderLeft:'1px solid rgba(255,255,255,0.1)', textAlign:'center', verticalAlign:'middle', width:'52.5%' }}>
+                                    <a className="link" href="https://ko-fi.com/itsmarian" target="_blank" rel="noopener">
+                                        <img height="42.5" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/donate/kofi-singular_vector.svg" alt="Ko-fi" />
+                                    </a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p style={{ marginTop:8 }}><a id="openNotes" onClick={e => { e.preventDefault(); setTimeout(onOpenNotes, 200); }}>About / Licenses</a></p>
+                        <footer>
+                            <p>
+                                <a href="https://healthsync.itsmarian.dev/legal/ai-guidelines">AI Guidelines</a> • <a href="https://contact.itsmarian.dev/">Contact</a> • <a href="https://healthsync.itsmarian.dev/legal/cookies">Cookies</a> • <a href="https://healthsync.itsmarian.dev/legal/privacy">Privacy Policy</a> • <a href="https://healthsync.itsmarian.dev/legal/terms">Terms of Use</a>
+                            </p>
+                            <p className="change-settings" data-open-cookie-settings>Change Cookie Preferences</p>
+                            <p style={{ marginTop: 'calc(1rem - 7.5px)' }}>© 2026 itsmarian | All rights reserved!</p>
+                        </footer>
                     </div>
                 </div>
             </div>
@@ -712,8 +844,8 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                 onCalcWeightChange={setCalcWeight}
                 onCalcHeightChange={setCalcHeight}
                 onCalcAgeChange={setCalcAge}
-                onCalGoalChange={v => { setCalGoal(v); localStorage.setItem('calsync_goal', v); window.dispatchEvent(new Event('storage')); }}
-                onWaterGoalChange={v => { setWaterGoal(v); localStorage.setItem('dropsync_goal', v); window.dispatchEvent(new Event('storage')); }}
+                onCalGoalChange={v => { setCalGoal(v); if (canUsePreferences) { localStorage.setItem('calsync_goal', v); window.dispatchEvent(new Event('storage')); } }}
+                onWaterGoalChange={v => { setWaterGoal(v); if (canUsePreferences) { localStorage.setItem('dropsync_goal', v); window.dispatchEvent(new Event('storage')); } }}
                 onMacroProteinChange={v => { setMacroProtein(v); saveMacro('calsync_goal_protein', v); }}
                 onMacroCarbsChange={v => { setMacroCarbs(v); saveMacro('calsync_goal_carbs', v); }}
                 onMacroFatChange={v => { setMacroFat(v); saveMacro('calsync_goal_fat', v); }}
@@ -871,7 +1003,7 @@ function GoalModal({ mode, onModeChange, calGoal, waterGoal, macroProtein, macro
                             <div className="form-row"><label className="form-label"><i className="fa-solid fa-venus-mars" /> Gender</label><OptionGroup id="calcGender" val={calcFields.gender} opts={[{label:'Female',v:'female'},{label:'Male',v:'male'}]} onChange={v => onCalcFieldChange('gender', v)} /></div>
                             <div className="form-row"><label className="form-label"><i className="fa-solid fa-person-walking" /> Activity Level</label><OptionGroup id="calcActivity" val={calcFields.activity} opts={[{label:'Sedentary',v:'sedentary'},{label:'Light',v:'light'},{label:'Moderate',v:'moderate'},{label:'Active',v:'active'},{label:'Very Active',v:'very_active'}]} onChange={v => onCalcFieldChange('activity', v)} /></div>
                             <div className="form-row"><label className="form-label"><i className="fa-solid fa-chart-line" /> Goal</label><OptionGroup id="calcGoalType" val={calcFields.goalType} opts={[{label:'Maintain',v:'maintain'},{label:'Lose weight',v:'lose'},{label:'Gain weight',v:'gain'}]} onChange={v => onCalcFieldChange('goalType', v)} /></div>
-                            <div className="form-row"><label className="form-label"><i className="fa-solid fa-temperature-low" /> Climate (for hydration)</label><OptionGroup id="hydrationClimate" val={calcFields.hydrationClimate} opts={[{label:'Cool',v:'cool'},{label:'Mild',v:'mild'},{label:'Warm',v:'warm'},{label:'Hot',v:'hot'}]} onChange={v => onCalcFieldChange('hydrationClimate', v)} /></div>
+                            <div className="form-row"><label className="form-label"><i className="fa-solid fa-temperature-low" /> Climate</label><OptionGroup id="hydrationClimate" val={calcFields.hydrationClimate} opts={[{label:'Cool',v:'cool'},{label:'Mild',v:'mild'},{label:'Warm',v:'warm'},{label:'Hot',v:'hot'}]} onChange={v => onCalcFieldChange('hydrationClimate', v)} /></div>
                             {calcResult && (
                                 <>
                                     <div className="result-row" id="calcResultRow">

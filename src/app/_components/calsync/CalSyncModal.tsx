@@ -4,6 +4,7 @@ import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from
 import type { FoodEntry, FoodSearchResult } from '../../_lib/types';
 import ManualEntry from './ManualEntry';
 import BarcodeScanner from './BarcodeScanner';
+import { useCookieConsent } from '../../_lib/useCookieConsent';
 import { logger } from '@/lib/logger';
 
 const RECENT_KEY = 'calsync_recent_searches';
@@ -102,6 +103,16 @@ function mapProduct(product: Record<string, unknown>): FoodSearchResult {
         isPrepared,
         barcode: ((product.code as string) || (product._id as string) || '') || undefined,
     };
+}
+
+interface CalSyncModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onLog: (entry: FoodEntry) => void;
+    onShowToast: (msg: string, dur?: number, undo?: (() => void) | null, cls?: string) => void;
+    openWithAi?: 'describe' | 'import' | 'capture' | null;
+    openWithBarcodeValue?: string | null;
+    onOpenSettings?: () => void;
 }
 
 const CATEGORIES = [
@@ -289,7 +300,17 @@ async function analyzeWithGemini(
     return JSON.parse(match[0]);
 }
 
-export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, openWithAi, openWithBarcodeValue }: CalSyncModalProps) {
+export default function CalSyncModal({ 
+        isOpen, 
+        onClose, 
+        onLog, 
+        onShowToast, 
+        openWithAi, 
+        openWithBarcodeValue,
+        onOpenSettings,
+    }: CalSyncModalProps) {
+    const { canUseThirdParty } = useCookieConsent();
+
     const [step, setStep] = useState(1);
     const [category, setCategory] = useState<typeof CATEGORIES[0] | null>(null);
     const [selFood, setSelFood] = useState<FoodSearchResult | null>(null);
@@ -358,7 +379,7 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
         setTrans(['height', 'transform']);
         if (!modalRef.current || !bodyRef.current) return;
         if (chromeHRef.current > 0 && bodyHRef.current > 0) {
-            naturalH.current = chromeHRef.current + bodyHRef.current;
+            naturalH.current = chromeHRef.current +  bodyHRef.current;
         }
         modalRef.current.style.height = naturalH.current + 'px';
         modalRef.current.style.transform = 'translateY(0)';
@@ -465,6 +486,10 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
     }, [onShowToast, revealModal]);
 
     const handleImageFile = useCallback(async (file: File) => {
+        if (!canUseThirdParty) {
+            onShowToast('AI detection and Database search requires third-party consent.');
+            return;
+        }
         if (!file.type.startsWith('image/')) { onShowToast('Please select an image file'); return; }
         const apiKey = localStorage.getItem('calsync_ai_api_key') || '';
         if (!apiKey) { onShowToast('No API key configured'); return; }
@@ -479,9 +504,13 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
         } catch (e) {
             handleAIError(e as Error);
         }
-    }, [populateAIResult, handleAIError, onShowToast]);
+    }, [canUseThirdParty, populateAIResult, handleAIError, onShowToast]);
 
     const handleCameraFile = useCallback(async (file: File) => {
+        if (!canUseThirdParty) {
+            onShowToast('AI detection requires third-party consent.');
+            return;
+        }
         if (!file.type.startsWith('image/')) { onShowToast('Please select an image file'); return; }
         const apiKey = localStorage.getItem('calsync_ai_api_key') || '';
         if (!apiKey) { onShowToast('No API key configured'); return; }
@@ -496,9 +525,13 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
         } catch (e) {
             handleAIError(e as Error);
         }
-    }, [populateAIResult, handleAIError, onShowToast]);
+    }, [canUseThirdParty, populateAIResult, handleAIError, onShowToast]);
 
     const handleTextSubmit = useCallback(async () => {
+        if (!canUseThirdParty) {
+            onShowToast('AI detection requires third-party consent.');
+            return;
+        }
         const desc = aiTextValue.trim();
         if (!desc) { onShowToast('Please enter a description'); return; }
         if (desc.length > 500) { onShowToast('Description too long (max 500 characters)'); return; }
@@ -514,7 +547,7 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
         } catch (e) {
             handleAIError(e as Error);
         }
-    }, [aiTextValue, populateAIResult, handleAIError, onShowToast]);
+    }, [aiTextValue, canUseThirdParty, populateAIResult, handleAIError, onShowToast]);
 
     useEffect(() => {
         if (isOpen && modalState === 'closed') {
@@ -600,6 +633,11 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
         }
     }, [aiTextOpen, revealModal]);
 
+    useEffect(() => {
+        if (!bodyRef.current) return;
+        bodyRef.current.style.overflowY = step === 4 ? 'auto' : 'hidden';
+    }, [step]);
+
     const handlePointerDown = (e: React.PointerEvent) => {
         dragStartY.current = e.clientY; dragLastY.current = e.clientY; vel.current = 0; dragDY.current = 0;
         lastTime.current = Date.now(); isCapturing.current = true;
@@ -634,6 +672,11 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
     };
 
     const runSearch = async (q: string) => {
+        if (!canUseThirdParty) {
+            setSearchStatus('Third-party consent required.');
+            setSearchLoading(false);
+            return;
+        }
         if (!q.trim()) { setSearchResults([]); setSearchStatus(''); setShowRecent(true); return; }
         setShowRecent(false); setSearchLoading(true); setSearchStatus('');
         try {
@@ -657,6 +700,11 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
     };
 
     const runBarcodeSearch = async (code: string) => {
+        if (!canUseThirdParty) {
+            setSearchStatus('Third-party consent required.');
+            setSearchLoading(false);
+            return;
+        }
         if (!code.trim()) return;
         setShowRecent(false); setSearchLoading(true); setSearchStatus('');
         try {
@@ -821,11 +869,14 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
 
     const [isAiReady, setIsAiReady] = useState(false);
     useEffect(() => {
-        setIsAiReady(
-            localStorage.getItem('calsync_ai_enabled') === 'true' &&
-            !!localStorage.getItem('calsync_ai_api_key')
-        );
-    }, []);
+        if (!canUseThirdParty) {
+            setIsAiReady(false);
+            return;
+        }
+        const aiEnabled = localStorage.getItem('calsync_ai_enabled') === 'true';
+        const apiKey = localStorage.getItem('calsync_ai_api_key') || '';
+        setIsAiReady(aiEnabled && !!apiKey);
+    }, [canUseThirdParty]);
 
     useEffect(() => {
         if (!openWithAi || modalState === 'closed') return;
@@ -907,21 +958,69 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
                                 <div className="search-step-inner">
                                     <div className="method-selection" id="methodSelection" style={{ display: aiProcessing ? 'none' : '' }}>
                                         <div className="method-buttons">
-                                            <button className="method-btn" id="methodDatabase" onClick={() => { setSearchStatus(''); setSearchResults([]); setSelFood(null); setBarcodeMode(true); setBarcodeQuery(''); goToStep(3); }}>
+                                            <button
+                                                className="method-btn"
+                                                id="methodDatabase"
+                                                onClick={() => {
+                                                    if (!canUseThirdParty) {
+                                                        onShowToast('Search requires third-party consent.');
+                                                        return;
+                                                    }
+                                                    setSearchStatus('');
+                                                    setSearchResults([]);
+                                                    setSelFood(null);
+                                                    setBarcodeMode(true);
+                                                    setBarcodeQuery('');
+                                                    goToStep(3);
+                                                }}
+                                                disabled={!canUseThirdParty}
+                                            >
                                                 <i className="fa-solid fa-database" /><span>Search through Database</span>
                                             </button>
                                             <button className="method-btn" id="methodManual" onClick={startManual}>
                                                 <i className="fa-solid fa-pen" /><span>Enter details manual</span>
                                             </button>
-                                            <button className="method-btn" id="methodAI" disabled={!isAiReady} onClick={() => {
-                                                if (isAiReady) setAiMethodOpen(true);
-                                                }}>
+                                            <button
+                                                className="method-btn"
+                                                id="methodAI"
+                                                disabled={!isAiReady || !canUseThirdParty}
+                                                onClick={() => {
+                                                    if (canUseThirdParty && isAiReady) setAiMethodOpen(true);
+                                                }}
+                                            >
                                                 <i className="fa-solid fa-camera" /><span>AI Detection</span>
                                             </button>
-                                            {!isAiReady && (
+                                            {(!isAiReady || !canUseThirdParty) && (
                                                 <div className="ai-disabled-notice">
                                                     <i className="fa-solid fa-circle-info" />
-                                                    <p>AI Detection is not enabled. Please activate it in <a href="#" id="goToAISettings" onClick={e => { e.preventDefault(); snapToClosed(); }}>Settings</a></p>
+                                                    <p>
+                                                        {!canUseThirdParty
+                                                            ? 'AI Detection requires third-party consent.'
+                                                            : (
+                                                                <>
+                                                                    AI Detection is not enabled. Please activate it in{' '}
+                                                                    <button
+                                                                        type="button"
+                                                                        className="ai-settings-link"
+                                                                        onClick={() => {
+                                                                            snapToClosed();
+                                                                            setTimeout(() => onOpenSettings?.(), 300);
+                                                                        }}
+                                                                        style={{
+                                                                            background: 'none',
+                                                                            border: 'none',
+                                                                            color: 'var(--accent)',
+                                                                            textDecoration: 'underline',
+                                                                            cursor: 'pointer',
+                                                                            padding: 0,
+                                                                            font: 'inherit',
+                                                                        }}
+                                                                    >
+                                                                        Settings
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                    </p>
                                                 </div>
                                             )}
                                         </div>
@@ -956,10 +1055,29 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
                                                         <input type="text" id="cs-barcodeManualInput" className="food-search-input"
                                                             placeholder="Enter barcode number..." inputMode="numeric"
                                                             value={barcodeQuery} onChange={e => setBarcodeQuery(e.target.value)}
-                                                            onKeyDown={e => { if (e.key === 'Enter' && barcodeQuery.trim()) runBarcodeSearch(barcodeQuery.trim()); }} />
+                                                            onKeyDown={e => {
+                                                                if (e.key === 'Enter' && barcodeQuery.trim()) {
+                                                                    if (!canUseThirdParty) {
+                                                                        onShowToast('Barcode lookup requires third-party consent.');
+                                                                        return;
+                                                                    }
+                                                                    runBarcodeSearch(barcodeQuery.trim());
+                                                                }
+                                                            }}
+                                                            disabled={!canUseThirdParty} />
                                                     </div>
-                                                    <button className="option-btn active" id="cs-barcodeSearchBtn"
-                                                        onClick={() => { if (barcodeQuery.trim()) runBarcodeSearch(barcodeQuery.trim()); }}>
+                                                    <button
+                                                        className="option-btn active"
+                                                        id="cs-barcodeSearchBtn"
+                                                        onClick={() => {
+                                                            if (!canUseThirdParty) {
+                                                                onShowToast('Barcode lookup requires third-party consent.');
+                                                                return;
+                                                            }
+                                                            if (barcodeQuery.trim()) runBarcodeSearch(barcodeQuery.trim());
+                                                        }}
+                                                        disabled={!canUseThirdParty}
+                                                    >
                                                         Search
                                                     </button>
                                                 </div>
@@ -993,11 +1111,15 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
                                                 </div>
                                                 {recent.map((r, i) => (
                                                     <div key={i} className="recent-item" onClick={() => {
+                                                        if (!canUseThirdParty) {
+                                                            onShowToast('Search requires third-party consent.');
+                                                            return;
+                                                        }
                                                         setShowRecent(false);
                                                         if (r.foods.length === 1) { selectFood(r.foods[0]); return; }
                                                         if (r.type === 'barcode') { setBarcodeMode(true); setBarcodeQuery(r.query); } else setSearchQuery(r.query);
                                                         if (r.foods.length) setSearchResults(r.foods); else if (r.type === 'barcode') runBarcodeSearch(r.query); else runSearch(r.query);
-                                                        }}>
+                                                    }}>
                                                         <div className={`recent-item-icon${r.type === 'barcode' ? ' barcode-icon' : ''}`}><i className={r.type === 'barcode' ? 'fa-solid fa-barcode' : 'fa-solid fa-clock-rotate-left'} /></div>
                                                         <div className="recent-item-info">
                                                             <div className="recent-item-query">{r.query}</div>
@@ -1173,15 +1295,15 @@ export default function CalSyncModal({ isOpen, onClose, onLog, onShowToast, open
                     </div>
                     <div className="modal-body">
                         <div className="ai-method-grid">
-                            <div className="ai-method-card" id="aiMethodSelectImage" onClick={() => { setAiMethodOpen(false); setTimeout(() => aiImageInputRef.current?.click(), 100); }}>
+                            <div className="ai-method-card" id="aiMethodSelectImage" onClick={() => { if (canUseThirdParty) { setAiMethodOpen(false); setTimeout(() => aiImageInputRef.current?.click(), 100); } }}>
                                 <div className="ai-method-icon"><i className="fa-solid fa-image" /></div>
                                 <div className="ai-method-label">Select Image</div>
                             </div>
-                            <div className="ai-method-card" id="aiMethodTakePicture" onClick={() => { setAiMethodOpen(false); setTimeout(() => aiCameraInputRef.current?.click(), 100); }}>
+                            <div className="ai-method-card" id="aiMethodTakePicture" onClick={() => { if (canUseThirdParty) { setAiMethodOpen(false); setTimeout(() => aiCameraInputRef.current?.click(), 100); } }}>
                                 <div className="ai-method-icon"><i className="fa-solid fa-camera" /></div>
                                 <div className="ai-method-label">Take Picture</div>
                             </div>
-                            <div className="ai-method-card" id="aiMethodDescribeText" onClick={() => { setAiMethodOpen(false); setTimeout(() => setAiTextOpen(true), 100); }}>
+                            <div className="ai-method-card" id="aiMethodDescribeText" onClick={() => { if (canUseThirdParty) { setAiMethodOpen(false); setTimeout(() => setAiTextOpen(true), 100); } }}>
                                 <div className="ai-method-icon"><i className="fa-solid fa-pen" /></div>
                                 <div className="ai-method-label">Describe Text</div>
                             </div>

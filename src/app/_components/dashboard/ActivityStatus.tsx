@@ -2,6 +2,7 @@
 
 import { JSX, useEffect, useState } from 'react';
 import { useAuth } from '../../_context/AuthContext';
+import { useCookieConsent } from '../../_lib/useCookieConsent';
 import { pushSettings } from '../../_lib/sync';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
@@ -268,12 +269,13 @@ function RadioMark({ selected }: { selected: boolean }) {
 
 export default function ActivityStatus() {
     const { user } = useAuth();
-    const [initialState] = useState<ActivityStatusState>(() => loadSavedState());
-    const [savedState, setSavedState] = useState<ActivityStatusState>(() => initialState);
-    const [draftStatus, setDraftStatus] = useState<ActivityStatus>(() => initialState.status);
-    const [draftDuration, setDraftDuration] = useState<StatusDuration>(() => initialState.duration);
-    const [draftCustomStartDate, setDraftCustomStartDate] = useState<Date | undefined>(() => initialState.customStartDate);
-    const [draftCustomEndDate, setDraftCustomEndDate] = useState<Date | undefined>(() => initialState.customEndDate);
+    const { canUsePreferences } = useCookieConsent();
+
+    const [savedState, setSavedState] = useState<ActivityStatusState>(DEFAULT_STATE);
+    const [draftStatus, setDraftStatus] = useState<ActivityStatus>(DEFAULT_STATE.status);
+    const [draftDuration, setDraftDuration] = useState<StatusDuration>(DEFAULT_STATE.duration);
+    const [draftCustomStartDate, setDraftCustomStartDate] = useState<Date | undefined>(DEFAULT_STATE.customStartDate);
+    const [draftCustomEndDate, setDraftCustomEndDate] = useState<Date | undefined>(DEFAULT_STATE.customEndDate);
     const [isMainOpen, setIsMainOpen] = useState(false);
     const [isKeepOpen, setIsKeepOpen] = useState(false);
     const [isCustomDateOpen, setIsCustomDateOpen] = useState(false);
@@ -283,6 +285,23 @@ export default function ActivityStatus() {
         const interval = setInterval(() => setNow(new Date()), 60000);
         return () => clearInterval(interval);
     }, []);
+
+    useEffect(() => {
+        if (canUsePreferences) {
+            const loaded = loadSavedState();
+            setSavedState(loaded);
+            setDraftStatus(loaded.status);
+            setDraftDuration(loaded.duration);
+            setDraftCustomStartDate(loaded.customStartDate);
+            setDraftCustomEndDate(loaded.customEndDate);
+        } else {
+            setSavedState(DEFAULT_STATE);
+            setDraftStatus(DEFAULT_STATE.status);
+            setDraftDuration(DEFAULT_STATE.duration);
+            setDraftCustomStartDate(DEFAULT_STATE.customStartDate);
+            setDraftCustomEndDate(DEFAULT_STATE.customEndDate);
+        }
+    }, [canUsePreferences]);
 
     const mainSheet = useDraggableSheet({
         onClose: () => setIsMainOpen(false),
@@ -308,14 +327,21 @@ export default function ActivityStatus() {
 
     useEffect(() => {
         const syncFromStorage = () => {
+            if (!canUsePreferences) return;
             const nextState = loadSavedState();
-            setSavedState(nextState);
+            setSavedState(prev => {
+                if (JSON.stringify(prev) !== JSON.stringify(nextState)) {
+                    return nextState;
+                }
+                return prev;
+            });
         };
         window.addEventListener('storage', syncFromStorage);
         return () => window.removeEventListener('storage', syncFromStorage);
-    }, []);
+    }, [canUsePreferences]);
 
     const openMain = () => {
+        if (!canUsePreferences) return;
         const nextState = loadSavedState();
         setSavedState(nextState);
         setDraftStatus(nextState.status);
@@ -382,6 +408,7 @@ export default function ActivityStatus() {
     };
 
     const handleUpdate = () => {
+        if (!canUsePreferences) return;
         const nextState: ActivityStatusState = {
             status: draftStatus,
             duration: draftDuration,
@@ -424,6 +451,10 @@ export default function ActivityStatus() {
     const effectiveStatus = getEffectiveStatus(savedState);
     const currentStatusMeta = STATUS_META[effectiveStatus];
     const subtitleText = getSubtitle(savedState);
+
+    if (!canUsePreferences) {
+        return null;
+    }
 
     return (
         <section className="activity-status-section">
@@ -469,7 +500,7 @@ export default function ActivityStatus() {
                             Activity Status
                         </div>
                     </div>
-                    <div className="activity-status-modal-body">
+                    <div className="activity-status-modal-body modal-body">
                         <div className="activity-status-option-list">
                             {STATUS_ORDER.map((status) => {
                                 const meta = STATUS_META[status];
@@ -547,7 +578,7 @@ export default function ActivityStatus() {
                             Keep status
                         </div>
                     </div>
-                    <div className="activity-status-modal-body activity-status-modal-body--keep">
+                    <div className="activity-status-modal-body activity-status-modal-body--keep modal-body">
                         <div className="activity-status-duration-list">
                             {DURATION_OPTIONS.map((option) => {
                                 const selected = draftDuration === option.value;
@@ -613,7 +644,7 @@ export default function ActivityStatus() {
                             Custom Date
                         </div>
                     </div>
-                    <div className="activity-status-modal-body activity-status-modal-body--keep activity-status-modal-body--custom">
+                    <div className="activity-status-modal-body activity-status-modal-body--keep activity-status-modal-body--custom modal-body">
                         <div className="activity-status-range-grid">
                             <label className="activity-status-range-field">
                                 <span className="activity-status-range-label">Start date</span>

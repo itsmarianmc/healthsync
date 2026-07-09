@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Serwist } from '@serwist/window';
 import { useAppShell } from '../../_context/AppShellContext';
 import { useAuth } from '../../_context/AuthContext';
@@ -9,6 +10,7 @@ import { compareVersions, fetchChangelogEntries, fetchLastSeenChangelogVersion, 
 import { APP_VERSION } from '../../_lib/release';
 
 const LAST_SEEN_STORAGE_KEY = 'healthsync_last_seen_changelog_version';
+const UPDATE_CENTER_ALLOWED_ROUTES = ['/dash', '/food', '/drinks'];
 
 type SerwistWindow = Window & {
     serwist?: Serwist;
@@ -43,14 +45,22 @@ function sortEntries(entries: ChangelogEntry[]): ChangelogEntry[] {
     });
 }
 
+function isUpdateCenterAllowedRoute(pathname: string | null): boolean {
+    if (!pathname) return false;
+    return UPDATE_CENTER_ALLOWED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+}
+
 export default function UpdateCenter() {
     const { user } = useAuth();
+    const pathname = usePathname();
+    const isAllowedRoute = isUpdateCenterAllowedRoute(pathname);
     const { updateCenterOpen, openUpdateCenter, closeUpdateCenter } = useAppShell();
     const [updateAvailable, setUpdateAvailable] = useState(false);
     const [dismissedBanner, setDismissedBanner] = useState(false);
     const [entries, setEntries] = useState<ChangelogEntry[]>([]);
     const [loadingEntries, setLoadingEntries] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [hasPendingChangelog, setHasPendingChangelog] = useState(false);
     const reloadAfterUpdateRef = useRef(false);
     const bootstrapRef = useRef(false);
     const profileSeenVersionRef = useRef<string | null>(null);
@@ -136,13 +146,13 @@ export default function UpdateCenter() {
                 });
 
                 if (currentEntries.length > 0) {
-                    profileSeenVersionRef.current = APP_VERSION;
+                    profileSeenVersionRef.current = profileSeenVersion;
                     setEntries(currentEntries);
                     if (unseenEntries.length > 0) {
-                        openUpdateCenter();
+                        setHasPendingChangelog(true);
                     }
                 } else {
-                    profileSeenVersionRef.current = APP_VERSION;
+                    profileSeenVersionRef.current = profileSeenVersion;
                     writeLocalLastSeen(APP_VERSION);
                     if (user?.id) {
                         void storeLastSeenChangelogVersion(user.id, APP_VERSION);
@@ -164,6 +174,19 @@ export default function UpdateCenter() {
             cancelled = true;
         };
     }, [user?.id]);
+
+    useEffect(() => {
+        if (hasPendingChangelog && isAllowedRoute && !updateCenterOpen && profileSeenVersionRef.current !== null) {
+            openUpdateCenter();
+            setHasPendingChangelog(false);
+        }
+    }, [hasPendingChangelog, isAllowedRoute, updateCenterOpen, openUpdateCenter]);
+
+    useEffect(() => {
+        if (updateCenterOpen && !isAllowedRoute) {
+            closeUpdateCenter();
+        }
+    }, [isAllowedRoute, updateCenterOpen, closeUpdateCenter]);
 
     useEffect(() => {
         if (expandTimerRef.current) {
@@ -199,7 +222,7 @@ export default function UpdateCenter() {
         globalWindow.serwist?.messageSkipWaiting();
     };
 
-    const visibleBanner = updateAvailable && !dismissedBanner && !updateCenterOpen;
+    const visibleBanner = updateAvailable && !dismissedBanner && !updateCenterOpen && profileSeenVersionRef.current !== null;
 
     return (
         <>

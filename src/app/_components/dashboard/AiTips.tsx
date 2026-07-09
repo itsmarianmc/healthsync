@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import ScoreRing from './ScoreRing';
+import { useCookieConsent } from '../../_lib/useCookieConsent';
 
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 
@@ -450,20 +451,25 @@ interface AiTipsProps {
 }
 
 export default function AiTips({ score }: AiTipsProps) {
+    const { canUsePreferences } = useCookieConsent();
     const [title, setTitle] = useState('');
     const [text, setText] = useState('');
     const [text2, setText2] = useState('');
     const lastHashRef = useRef('');
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const [aiEnabled, setAiEnabled] = useState(() => isAIEnabled());
+    const [aiEnabled, setAiEnabled] = useState(() => isAIEnabled() && canUsePreferences);
     const [status, setStatus] = useState<ActivityStatus>('active');
 
     const refresh = useCallback(() => {
+        if (!canUsePreferences) {
+            setAiEnabled(false);
+            return;
+        }
+        
         if (!isAIEnabled()) {
             setAiEnabled(false);
             return;
         }
-
         const state = loadActivityStatus();
         const effective = getEffectiveStatus(state);
         setStatus(effective);
@@ -478,9 +484,13 @@ export default function AiTips({ score }: AiTipsProps) {
         setTitle(msg.title);
         setText(msg.text);
         setText2(secondary);
-    }, []);
+    }, [canUsePreferences]);
 
     useEffect(() => {
+        if (!canUsePreferences) {
+            setAiEnabled(false);
+            return;
+        }
         refresh();
         intervalRef.current = setInterval(refresh, REFRESH_INTERVAL);
         window.addEventListener('storage', refresh);
@@ -494,7 +504,7 @@ export default function AiTips({ score }: AiTipsProps) {
             window.removeEventListener('storage', refresh);
             window.removeEventListener('requestAITipUpdate', handler);
         };
-    }, [refresh]);
+    }, [refresh, canUsePreferences]);
 
     return (
         <div id="AiBox" className={aiEnabled ? 'ai' : ''}>
@@ -510,7 +520,7 @@ export default function AiTips({ score }: AiTipsProps) {
             </div>
             <div className="dashboard-widget ai-tip-widget">
                 <div className="dashboard-widget-rep">
-                    {aiEnabled ? (
+                    {aiEnabled && canUsePreferences ? (
                         <>
                             <div
                                 className="dashboard-widget-title"
