@@ -48,7 +48,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <link rel="stylesheet" href="https://static.itsmarian.dev/global/colors.css" />
                 <meta name="mobile-web-app-capable" content="yes" />
                 <link rel="icon" href="/favicon.ico" sizes="any" />
-                <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+                <link rel="apple-touch-icon" href="/favicon.png" />
                 <Script
                     src="https://www.googletagmanager.com/gtag/js?id=G-EHN4P1ET7W"
                     strategy="lazyOnload"
