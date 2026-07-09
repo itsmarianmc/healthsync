@@ -8,6 +8,12 @@ import { supabase } from '../../_lib/supabase';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { calcSupplements, persistSupplementGoals } from '../../_lib/supplements';
 import { reverseGeocodeLocation } from '../../_lib/location';
+import { APP_VERSION } from '../../_lib/release';
+import { Serwist } from '@serwist/window';
+
+type SerwistWindow = Window & {
+    serwist?: Serwist;
+};
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -79,6 +85,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     const [displayName, setDisplayName] = useState(false);
     const [splashEnabled, setSplashEnabled] = useState(false);
     const [modalsExpanded, setModalsExpanded] = useState(false);
+    const [updateAvailable, setUpdateAvailable] = useState(false);
     const [firstName, setFirstName] = useState('');
     const [aiEnabled, setAiEnabled] = useState(false);
     const [aiTermsAccepted, setAiTermsAccepted] = useState(false);
@@ -146,6 +153,15 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         setAiTermsAccepted(localStorage.getItem('calsync_ai_terms_accepted') === 'true');
         setAiApiKey(localStorage.getItem('calsync_ai_api_key') || '');
     }, [canUseThirdParty]);
+
+    useEffect(() => {
+        // Load update availability from localStorage
+        try {
+            setUpdateAvailable(localStorage.getItem('healthsync_update_available') === 'true');
+        } catch (error) {
+            console.log('[settings] localStorage read error:', error);
+        }
+    }, []);
 
     useEffect(() => {
         if (!canUsePreferences) return;
@@ -425,6 +441,11 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
             setTimeout(() => downloadFile(f.name, '\uFEFF' + buildCsv(f.headers, f.rows), 'text/csv;charset=utf-8'), i * 200);
         });
         showToast(`Exported ${files.length} CSV file${files.length === 1 ? '' : 's'}`);
+    };
+
+    const applyUpdate = () => {
+        const globalWindow = window as SerwistWindow;
+        globalWindow.serwist?.messageSkipWaiting();
     };
 
     const deleteAllData = () => {
@@ -775,6 +796,27 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                         </div>
                     </div>
                 </div>
+
+                <div className="settings-section">
+                    <div className="settings-section-title">
+                        <i className="fa-solid fa-wrench"></i>
+                        System
+                    </div>
+                    <div className="settings-section-body" style={{ gap: 8, display: 'flex', flexDirection: 'column' }}>
+                        {updateAvailable ? (
+                            <button className="data-btn" id="updateNowBtn" onClick={applyUpdate} style={{ color: '#30D158', fontWeight: 600 }}>
+                                <i className="fa-solid fa-arrow-up-from-bracket"></i>
+                                Update Now
+                            </button>
+                        ) : (
+                            <div style={{ padding: '12px 14px', textAlign: 'center', color: 'var(--text2)', fontSize: 14 }}>
+                                <i className="fa-solid fa-check" style={{ marginRight: 6, color: '#30D158' }} />
+                                App is up to date
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 <div className="settings-section">
                     <div className="settings-section-title">
                     <i className="fa-solid fa-database"></i>
@@ -818,6 +860,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                             <p>
                                 <a href="https://healthsync.itsmarian.dev/legal/ai-guidelines">AI Guidelines</a> • <a href="https://contact.itsmarian.dev/">Contact</a> • <a href="https://healthsync.itsmarian.dev/legal/cookies">Cookies</a> • <a href="https://healthsync.itsmarian.dev/legal/privacy">Privacy Policy</a> • <a href="https://healthsync.itsmarian.dev/legal/terms">Terms of Use</a>
                             </p>
+                            <p>Running HealthSync v{APP_VERSION}</p>
                             <p className="change-settings" data-open-cookie-settings>Change Cookie Preferences</p>
                             <p style={{ marginTop: 'calc(1rem - 7.5px)' }}>© 2026 itsmarian | All rights reserved!</p>
                         </footer>

@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/_context/AuthContext';
 import HeaderTitle from '@/app/_components/shared/HeaderTitle';
+import { APP_VERSION } from '@/app/_lib/release';
 
 type SupportReason =
     | 'bug'
@@ -67,6 +68,7 @@ export default function SupportPage() {
                         email: email.trim() || undefined,
                         userId: user?.id,
                         userEmail: user?.email,
+                        appVersion: APP_VERSION,
                         timestamp: new Date().toISOString(),
                         userAgent: navigator.userAgent,
                     }),

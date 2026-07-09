@@ -10,6 +10,8 @@ import { compareVersions, fetchChangelogEntries, fetchLastSeenChangelogVersion, 
 import { APP_VERSION } from '../../_lib/release';
 
 const LAST_SEEN_STORAGE_KEY = 'healthsync_last_seen_changelog_version';
+const UPDATE_AVAILABLE_STORAGE_KEY = 'healthsync_update_available';
+const DISMISSED_BANNER_STORAGE_KEY = 'healthsync_dismissed_banner';
 const UPDATE_CENTER_ALLOWED_ROUTES = ['/dash', '/food', '/drinks'];
 
 type SerwistWindow = Window & {
@@ -28,6 +30,40 @@ function readLocalLastSeen(): string | null {
 function writeLocalLastSeen(version: string): void {
     try {
         localStorage.setItem(LAST_SEEN_STORAGE_KEY, version);
+    } catch (error) {
+        console.log('[changelog] localStorage write error:', error);
+    }
+}
+
+function readDismissedBanner(): boolean {
+    try {
+        return localStorage.getItem(DISMISSED_BANNER_STORAGE_KEY) === 'true';
+    } catch (error) {
+        console.log('[changelog] localStorage read error:', error);
+        return false;
+    }
+}
+
+function writeDismissedBanner(dismissed: boolean): void {
+    try {
+        localStorage.setItem(DISMISSED_BANNER_STORAGE_KEY, String(dismissed));
+    } catch (error) {
+        console.log('[changelog] localStorage write error:', error);
+    }
+}
+
+function readUpdateAvailable(): boolean {
+    try {
+        return localStorage.getItem(UPDATE_AVAILABLE_STORAGE_KEY) === 'true';
+    } catch (error) {
+        console.log('[changelog] localStorage read error:', error);
+        return false;
+    }
+}
+
+function writeUpdateAvailable(available: boolean): void {
+    try {
+        localStorage.setItem(UPDATE_AVAILABLE_STORAGE_KEY, String(available));
     } catch (error) {
         console.log('[changelog] localStorage write error:', error);
     }
@@ -93,9 +129,20 @@ export default function UpdateCenter() {
         const serwist = new Serwist('/serwist/sw.js', { type: 'module', scope: '/' });
         globalWindow.serwist = serwist;
 
+        const persistedUpdateAvailable = readUpdateAvailable();
+        const persistedDismissedBanner = readDismissedBanner();
+        if (persistedUpdateAvailable) {
+            setUpdateAvailable(true);
+        }
+        if (persistedDismissedBanner) {
+            setDismissedBanner(true);
+        }
+
         const handleWaiting = () => {
             setUpdateAvailable(true);
+            writeUpdateAvailable(true);
             setDismissedBanner(false);
+            writeDismissedBanner(false);
         };
 
         const handleControllerChange = () => {
@@ -236,7 +283,7 @@ export default function UpdateCenter() {
                         <button type="button" className="option-btn update-banner-btn" onClick={applyUpdate}>
                             Update now
                         </button>
-                        <button type="button" className="option-btn update-banner-btn secondary" onClick={() => setDismissedBanner(true)}>
+                        <button type="button" className="option-btn update-banner-btn secondary" onClick={() => { setDismissedBanner(true); writeDismissedBanner(true); }}>
                             Later
                         </button>
                     </div>
@@ -250,6 +297,13 @@ export default function UpdateCenter() {
                     </div>
                     <div className="modal-header">
                         <div className="modal-btn">
+                            {updateAvailable && (
+                                <button className="close-btn" type="button" onClick={applyUpdate} aria-label="Update now" style={{ color: '#30D158' }} title="Update available">
+                                    <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                        <path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm-40-280v-160h80v160h-80Zm0-240v-80h80v80h-80Z" />
+                                    </svg>
+                                </button>
+                            )}
                             <button className="close-btn" id="backBtn" type="button" onClick={closeUpdateCenter} aria-label="Close update center">
                                 <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="#e3e3e3">
                                     <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
