@@ -4,7 +4,7 @@ import LegalList from '@/app/legal/components/LegalList'
 import Linkout from '@/app/legal/components/Linkout'
 
 export const metadata: Metadata = {
-    title: 'Terms of Use — HealthSync',
+    title: 'Terms of Use - HealthSync',
     description:
         'Terms of use for HealthSync, a personal health-tracking app by itsmarian. Read the rules, guidelines and legal agreements for using the app.',
     robots: {
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
         follow: true,
     },
     openGraph: {
-        title: 'Terms of Use — HealthSync',
+        title: 'Terms of Use - HealthSync',
         description:
             'Terms of use for HealthSync, part of itsmarian\'s projects. Read the rules and guidelines for using the app.',
     },
@@ -287,8 +287,8 @@ export default function TermsPage() {
                 </div>
                 <div className="text-section">
                     9.1 Unless otherwise stated, all content included in or made available through
-                    HealthSync — such as the user interface, text, graphics, logos, icons, images and
-                    data compilations — is the property of itsmarian or of third parties who supply or
+                    HealthSync - such as the user interface, text, graphics, logos, icons, images and
+                    data compilations - is the property of itsmarian or of third parties who supply or
                     make such content available, and is protected by German and international copyright
                     and database right laws.
                 </div>

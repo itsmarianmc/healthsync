@@ -13,11 +13,11 @@ export const DEFAULT_TOUR_STEPS: TourStep[] = [
     { elementId: 'bottomNav', message: 'The bottom navigation bar allows you to easily switch between the Dashboard, the Food Section, and the Hydration section.', progress: '1/8', buttonText: 'Next' },
     { elementId: 'extraActionBtn', message: 'The Quick Add button gives you instant access to add a new food or beverage entry from anywhere in the app.', progress: '2/8', buttonText: 'Next' },
     { elementId: 'db-openSettingsBtn', message: 'The Settings menu allows you to manage your data, set goals, and customise the app.', progress: '3/8', buttonText: 'Next' },
-    { elementId: 'quickAddCal', message: 'This button opens the food logging dialogue where you can search, scan barcodes, or enter manually.', progress: '4/8', buttonText: 'Next' },
-    { elementId: 'quickAddWater', message: 'This button launches the DropSync dialogue to quickly log a beverage.', progress: '5/8', buttonText: 'Next' },
-    { elementId: 'dashboardMetricGrid', message: 'Here you see your daily progress for calories and hydration as progress bars.', progress: '6/8', buttonText: 'Next' },
-    { elementId: 'dashboardMacroGrid', message: 'Here your macronutrients - protein, carbs and fat - are displayed clearly.', progress: '7/8', buttonText: 'Next' },
-    { elementId: 'dashboardWeekCard', message: 'This card shows an overview of your last seven days of calorie and water intake.', progress: '8/8', buttonText: 'Next' },
+    { elementId: 'db-openUpdateCenterBtn', message: 'The Update Center allows you to check for updates and view the changelog.', progress: '4/8', buttonText: 'Next' },
+    { elementId: 'quickAddCal', message: 'This button opens the food logging dialogue where you can search, scan barcodes, or enter manually.', progress: '5/8', buttonText: 'Next' },
+    { elementId: 'quickAddWater', message: 'This button launches the DropSync dialogue to quickly log a beverage.', progress: '6/8', buttonText: 'Next' },
+    { elementId: 'dashboardMetricGrid', message: 'Here you see your daily progress for calories and hydration as progress bars.', progress: '7/8', buttonText: 'Next' },
+    { elementId: 'dashboardMacroGrid', message: 'Here your macronutrients - protein, carbs and fat - are displayed clearly.', progress: '8/8', buttonText: 'Next' },
     { elementId: 'ptr-indicator', message: 'Thank you for using HealthSync! If you have any questions, feel free to report them, to help us improve the app.', progress: '', buttonText: 'Got it!' },
 ];
 

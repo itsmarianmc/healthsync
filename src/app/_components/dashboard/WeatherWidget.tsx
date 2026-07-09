@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { version } from '../../../../package.json';
+import { reverseGeocodeLocation } from '../../_lib/location';
+import { useCookieConsent } from '../../_lib/useCookieConsent';
 
 const WEATHER_CODE_TO_ICON: Record<number, string> = {
   0: 'fa-sun',
@@ -67,94 +70,137 @@ function setStoredValue(keys: readonly string[], value: string): void {
 }
 
 export default function WeatherWidget() {
-  const [enabled, setEnabled] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return getStoredValue(WEATHER_STORAGE_KEYS.enabled) === 'true';
-  });
-  const [weatherLat, setWeatherLat] = useState(() => {
-    if (typeof window === 'undefined') return 0;
-    return parseFloat(getStoredValue(WEATHER_STORAGE_KEYS.latitude, '52.5200'));
-  });
-  const [weatherLon, setWeatherLon] = useState(() => {
-    if (typeof window === 'undefined') return 0;
-    return parseFloat(getStoredValue(WEATHER_STORAGE_KEYS.longitude, '13.4050'));
-  });
-  const [weatherLocation, setWeatherLocation] = useState(() => {
-    if (typeof window === 'undefined') return '';
-    return getStoredValue(WEATHER_STORAGE_KEYS.locationName);
-  });
+  const { canUsePreferences, canUseThirdParty } = useCookieConsent();
+  const hasConsent = canUsePreferences && canUseThirdParty;
+
+  const [enabled, setEnabled] = useState(false);
+  const [weatherLat, setWeatherLat] = useState(0);
+  const [weatherLon, setWeatherLon] = useState(0);
+  const [weatherLocation, setWeatherLocation] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [initialized, setInitialized] = useState(false);
+
+  const isInternalUpdate = useRef(false);
+  const isFetchingWeather = useRef(false);
 
   useEffect(() => {
     const handleStorageChange = () => {
-      setEnabled(getStoredValue(WEATHER_STORAGE_KEYS.enabled) === 'true');
-      setWeatherLat(parseFloat(getStoredValue(WEATHER_STORAGE_KEYS.latitude, '52.5200')));
-      setWeatherLon(parseFloat(getStoredValue(WEATHER_STORAGE_KEYS.longitude, '13.4050')));
-      setWeatherLocation(getStoredValue(WEATHER_STORAGE_KEYS.locationName));
+      if (isInternalUpdate.current) return;
+
+      const newEnabled = getStoredValue(WEATHER_STORAGE_KEYS.enabled) === 'true';
+      setEnabled(hasConsent && newEnabled);
+
+      const newLat = parseFloat(getStoredValue(WEATHER_STORAGE_KEYS.latitude, '0'));
+      if (newLat !== weatherLat) setWeatherLat(newLat);
+
+      const newLon = parseFloat(getStoredValue(WEATHER_STORAGE_KEYS.longitude, '0'));
+      if (newLon !== weatherLon) setWeatherLon(newLon);
+
+      const newLoc = getStoredValue(WEATHER_STORAGE_KEYS.locationName);
+      if (newLoc !== weatherLocation) setWeatherLocation(newLoc);
+
+      setInitialized(false);
     };
 
     handleStorageChange();
 
     window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
-
-  const getUserLocation = () => {
-    return new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error('Geolocation not supported'));
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-        },
-        (error) => {
-          reject(error);
-        }
-      );
-    });
-  };
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [hasConsent, weatherLat, weatherLon, weatherLocation]);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !hasConsent) {
       setLoading(false);
       setError(null);
       setWeatherData(null);
+      setInitialized(false);
       return;
     }
 
-    if (!weatherLocation) {
-      getUserLocation()
-        .then(({ latitude, longitude }) => {
-          setWeatherLat(latitude);
-          setWeatherLon(longitude);
-          setStoredValue(WEATHER_STORAGE_KEYS.latitude, latitude.toString());
-          setStoredValue(WEATHER_STORAGE_KEYS.longitude, longitude.toString());
-        })
-        .catch((err) => {
-          console.warn('Unable to get user location:', err);
-        });
-    }
+    if (initialized) return;
 
-    const fetchWeather = async () => {
+    let cancelled = false;
+
+    const loadLocation = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const lat = weatherLat;
-        const lon = weatherLon;
+        const storedLat = parseFloat(getStoredValue(WEATHER_STORAGE_KEYS.latitude, '0'));
+        const storedLon = parseFloat(getStoredValue(WEATHER_STORAGE_KEYS.longitude, '0'));
+        const storedName = getStoredValue(WEATHER_STORAGE_KEYS.locationName);
+
+        if (storedLat && storedLon && storedName) {
+          if (!cancelled) {
+            setWeatherLat(storedLat);
+            setWeatherLon(storedLon);
+            setWeatherLocation(storedName);
+            setInitialized(true);
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (!navigator.geolocation) {
+          throw new Error('Geolocation not supported');
+        }
+
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
+
+        const { latitude, longitude } = position.coords;
+        const locationName = await reverseGeocodeLocation(latitude, longitude);
+
+        if (cancelled) return;
+
+        setWeatherLat(latitude);
+        setWeatherLon(longitude);
+        setWeatherLocation(locationName);
+
+        isInternalUpdate.current = true;
+        setStoredValue(WEATHER_STORAGE_KEYS.latitude, String(latitude));
+        setStoredValue(WEATHER_STORAGE_KEYS.longitude, String(longitude));
+        setStoredValue(WEATHER_STORAGE_KEYS.locationName, locationName);
+        isInternalUpdate.current = false;
+
+        setInitialized(true);
+        setLoading(false);
+      } catch (err) {
+        if (!cancelled) {
+          setError('Failed to get location');
+          setLoading(false);
+        }
+      }
+    };
+
+    loadLocation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, hasConsent, initialized]);
+
+  useEffect(() => {
+    if (!enabled || !hasConsent || !initialized || !weatherLocation) {
+      return;
+    }
+
+    if (isFetchingWeather.current) return;
+
+    let cancelled = false;
+
+    const fetchWeather = async () => {
+      isFetchingWeather.current = true;
+      try {
+        setLoading(true);
+        setError(null);
 
         const params = new URLSearchParams({
-          latitude: lat.toString(),
-          longitude: lon.toString(),
+          latitude: weatherLat.toString(),
+          longitude: weatherLon.toString(),
           current_weather: 'true',
           timezone: 'auto',
         });
@@ -174,26 +220,31 @@ export default function WeatherWidget() {
         }
 
         const data: WeatherData = await response.json();
-        setWeatherData(data);
 
-        if (weatherLocation) {
-          setWeatherLocation(weatherLocation);
-        } else {
-          setWeatherLocation(`${lat.toFixed(2)}, ${lon.toFixed(2)}`);
+        if (!cancelled) {
+          setWeatherData(data);
+          setLoading(false);
         }
       } catch (err) {
-        console.error('Error fetching weather:', err);
-        setError('Failed to load weather data');
-        setWeatherData(null);
+        if (!cancelled) {
+          console.error('Error fetching weather:', err);
+          setError('Failed to load weather data');
+          setWeatherData(null);
+          setLoading(false);
+        }
       } finally {
-        setLoading(false);
+        isFetchingWeather.current = false;
       }
     };
 
     fetchWeather();
-  }, [enabled, weatherLat, weatherLon, weatherLocation]);
 
-  if (!enabled) {
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, hasConsent, initialized, weatherLat, weatherLon, weatherLocation]);
+
+  if (!hasConsent || !enabled) {
     return null;
   }
 
@@ -204,12 +255,12 @@ export default function WeatherWidget() {
           <div className="weather-widget-icon">
             <div className="skeleton-icon"></div>
           </div>
-          <div className="weather-widget-info" style={ { gap: '5px'}}>
-            <div className="skeleton-info" >
+          <div className="weather-widget-info" style={{ gap: '5px' }}>
+            <div className="skeleton-info">
               <div className="skeleton-line brand"></div>
             </div>
-            <div className="skeleton-info">
-              <div className="skeleton-line"></div>
+            <div className="weather-location">
+              <div className="skeleton-line name"></div>
             </div>
           </div>
         </div>

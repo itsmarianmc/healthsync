@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAppShell } from '../_context/AppShellContext';
+import { useCookieConsent } from '../_lib/useCookieConsent';
 import BottomNav from './navigation/BottomNav';
 import Toast from './shared/Toast';
 import PullToRefresh from './shared/PullToRefresh';
@@ -37,6 +38,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         extraBtnRef,
     } = useAppShell();
 
+    const { canUsePreferences } = useCookieConsent();
+
     const [onboardingDone, setOnboardingDone] = useState(true);
     const [supplementsEnabled, setSupplementsEnabled] = useState(false);
 
@@ -46,10 +49,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         const read = () => setSupplementsEnabled(localStorage.getItem('calsync_track_supplements') === 'true');
-        read();
-        window.addEventListener('storage', read);
+        if (canUsePreferences) {
+            read();
+            window.addEventListener('storage', read);
+        }
         return () => window.removeEventListener('storage', read);
-    }, []);
+    }, [canUsePreferences]);
 
     useEffect(() => {
         const handler = () => setOnboardingDone(true);
@@ -71,10 +76,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }, [onboardingDone, pathname]);
 
     useEffect(() => {
+        if (!canUsePreferences) {
+            document.documentElement.removeAttribute('data-theme');
+            return;
+        }
         const theme = localStorage.getItem('calsync_theme');
         if (theme && theme !== 'default') document.documentElement.setAttribute('data-theme', theme);
         else document.documentElement.removeAttribute('data-theme');
-    }, []);
+    }, [canUsePreferences]);
 
     useEffect(() => {
         if (!extraMenuOpen) return;

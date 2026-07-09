@@ -1,24 +1,34 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { useCookieConsent } from '../../_lib/useCookieConsent'
 
 declare global {
     interface Window { gtag: (...args: any[]) => void }
 }
 
 export default function CookieBanner() {
+    const { settings, updateSettings } = useCookieConsent();
+
     const [panelVisible, setPanelVisible] = useState(false)
     const [panelActive, setPanelActive] = useState(false)
 
     const [bannerVisible, setBannerVisible] = useState(false) 
     const [bannerClosing, setBannerClosing] = useState(false)
     
-    const [analytics, setAnalytics] = useState(false)
-    const [preferences, setPreferences] = useState(false)
-    const [thirdparty, setThirdparty] = useState(false)
-    const [marketing, setMarketing] = useState(false)
+    const [analytics, setAnalytics] = useState(settings.analytics)
+    const [preferences, setPreferences] = useState(settings.preferences)
+    const [thirdparty, setThirdparty] = useState(settings.thirdparty)
+    const [marketing, setMarketing] = useState(settings.marketing)
 
     const bannerRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        setAnalytics(settings.analytics)
+        setPreferences(settings.preferences)
+        setThirdparty(settings.thirdparty)
+        setMarketing(settings.marketing)
+    }, [settings])
 
     const defaultConsent = {
         ad_storage: 'denied',
@@ -52,7 +62,6 @@ export default function CookieBanner() {
                 })
             }
         }
-        localStorage.setItem('cookieSettings', JSON.stringify(settings))
     }
 
     const hideBanner = () => {
@@ -70,21 +79,13 @@ export default function CookieBanner() {
     }
 
     const loadCookieSettings = (): boolean => {
-        const saved = localStorage.getItem('cookieSettings')
-        if (!saved) return false
-        const settings = JSON.parse(saved)
-        setAnalytics(settings.analytics)
-        setPreferences(settings.preferences)
-        setThirdparty(settings.thirdparty)
-        setMarketing(settings.marketing)
-        applyConsent(settings)
-        return true
+        return false;
     }
 
     const saveCookieSettings = () => {
-        const settings = { analytics, preferences, thirdparty, marketing }
-        applyConsent(settings)
-        localStorage.setItem('bannerAccepted', 'true')
+        const newSettings = { analytics, preferences, thirdparty, marketing };
+        updateSettings(newSettings);
+        applyConsent(newSettings);
     }
 
     const openSettings = () => {
@@ -104,13 +105,9 @@ export default function CookieBanner() {
     }
 
     const acceptAll = () => {
-        setAnalytics(true)
-        setPreferences(true)
-        setThirdparty(true)
-        setMarketing(true)
-        const settings = { analytics: true, preferences: true, thirdparty: true, marketing: true }
-        applyConsent(settings)
-        localStorage.setItem('bannerAccepted', 'true')
+        const allTrue = { analytics: true, preferences: true, thirdparty: true, marketing: true };
+        updateSettings(allTrue);
+        applyConsent(allTrue);
         hideBanner()
     }
 
@@ -128,7 +125,9 @@ export default function CookieBanner() {
         const bannerAccepted = localStorage.getItem('bannerAccepted') === 'true'
 
         if (bannerAccepted) {
-            loadCookieSettings()
+            if (settings.analytics || settings.preferences || settings.thirdparty || settings.marketing) {
+                applyConsent(settings);
+            }
             return
         }
 
@@ -178,10 +177,10 @@ export default function CookieBanner() {
                                 <a>This website uses cookies and similar technologies to ensure its basic functionality, enhance your user experience, analyze how it is used, gather anonymized statistics on website traffic and usage patterns, remember your preferences such as language or region, and provide enhanced features and to offer embedded content like videos, maps, or social media feeds.</a>
                                 <br />
                                 <a>By clicking "Accept," you agree to the use of all cookies. You can change your settings at any time. By using my services, you agree to the </a>
-                                <a className="linkout nodecoration" href="https://itsmarian.dev/legal/cookies">Cookie Policy</a><a>, the </a>
-                                <a className="linkout nodecoration" href="https://itsmarian.dev/legal/privacy">Privacy Policy</a>
+                                <a className="linkout nodecoration" href="https://healthsync.itsmarian.dev/legal/cookies">Cookie Policy</a><a>, the </a>
+                                <a className="linkout nodecoration" href="https://healthsync.itsmarian.dev/legal/privacy">Privacy Policy</a>
                                 <a> and the </a>
-                                <a className="linkout nodecoration" href="https://itsmarian.dev/legal/terms">Terms of Use</a><a>.</a>
+                                <a className="linkout nodecoration" href="https://healthsync.itsmarian.dev/legal/terms">Terms of Use</a><a>.</a>
                             </p>
                         </div>
                     </div>
@@ -267,6 +266,7 @@ export default function CookieBanner() {
                                     </div>
                                 </div>
                                 <p className="category-description">These cookies enable the website to remember choices you have made (such as your username, language, or region) and provide enhanced, more personal features.</p>
+                                <p className="app-feature-hint">This stores your theme, display name, macro goals, supplement tracking settings, activity status, and other personal preferences.</p>
                             </div>
 
                             <div className="cookie-category">
@@ -287,6 +287,7 @@ export default function CookieBanner() {
                                     </div>
                                 </div>
                                 <p className="category-description">These cookies are set by third-party services that we use to provide additional features, such as embedded videos, maps, or social media content. Third-party providers may also use these cookies to deliver personalized advertising.</p>
+                                <p className="app-feature-hint">This enables weather forecasts, AI food detection, and barcode product lookups.</p>
                             </div>
 
                             <div className="cookie-category cookie-category-bottom">

@@ -185,6 +185,7 @@ export default function CalSync({
                 onShowToast={(msg, dur, undo, cls) => showToast(msg, dur ?? 2000, undo ?? undefined, cls)}
                 openWithAi={openWithAi}
                 openWithBarcodeValue={openWithBarcodeValue}
+                onOpenSettings={onOpenSettings}
             />
         </div>
     );

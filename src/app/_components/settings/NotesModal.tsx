@@ -26,24 +26,54 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                     <div className="modal-title">About &amp; Licenses</div>
                 </div>
                 <div className="modal-body" id="notesModalBody" style={{ paddingBottom: '1em' }}>
-                    <div className="license-section">
-                        <div className="license-section-title">
-                            <i className="fas fa-file-contract"></i> About HealthSync & Data Sources
-                        </div>
-                        <div className="license-section-body">
-                            <p><strong>Data Sourcing & Transparency</strong></p>
-                            <p>HealthSync proudly utilizes the <strong>Open Food Facts API</strong> (openfoodfacts.org) to provide users with a comprehensive database of food products. Open Food Facts is a collaborative, community-driven project; as such, nutritional data is sourced globally and may be subject to variation based on regional labeling laws and community contributions.</p>
-                            <br />
-                            <p><strong>Accuracy & Verification</strong></p>
-                            <p>While we strive to present the most current data available, the nutritional values displayed may not always be accurate, complete, or up-to-date. Factors such as manufacturer reformulations or data entry errors can result in discrepancies. <strong>Always verify critical nutritional information-especially allergen data-against the physical product packaging before consumption.</strong></p>
-                            <br />
-                            <p><strong>Calculations & Methodology</strong></p>
-                            <p>Calorie goals and macronutrient targets within HealthSync are estimations derived from the <strong>Mifflin-St Jeor formula</strong>. This equation calculates your Basal Metabolic Rate (BMR) and Total Daily Energy Expenditure (TDEE) based on user-provided metrics including age, biological sex, weight, height, and activity level. </p>
-                            <br />
-                            <p><strong>Medical Disclaimer</strong></p>
-                            <p>All information provided by this application is for informational and educational purposes only. HealthSync is not a medical device, and its suggestions do not constitute medical advice. Nutritional requirements are highly individual; therefore, you should <strong>consult a healthcare professional or a registered dietitian</strong> for personalized guidance, especially if you have underlying health conditions or specific dietary requirements.</p>
-                        </div>
+                <div className="license-section">
+                    <div className="license-section-title">
+                        <i className="fas fa-file-contract"></i> About HealthSync & Data Sources
                     </div>
+                    <div className="license-section-body">
+                        <p><strong>Data Sourcing & Transparency</strong></p>
+                        <p>HealthSync proudly utilizes the <strong>Open Food Facts API</strong> (openfoodfacts.org) to provide users with a comprehensive database of food products. Open Food Facts is a collaborative, community-driven project; as such, nutritional data is sourced globally and may be subject to variation based on regional labeling laws and community contributions.</p>
+                        <br />
+                        <p><strong>Accuracy & Verification</strong></p>
+                        <p>While we strive to present the most current data available, the nutritional values displayed may not always be accurate, complete, or up-to-date. Factors such as manufacturer reformulations or data entry errors can result in discrepancies. <strong>Always verify critical nutritional information - especially allergen data - against the physical product packaging before consumption.</strong></p>
+                        <br />
+                        <p><strong>Calculations & Methodology</strong></p>
+                        <p>Calorie goals and macronutrient targets within HealthSync are estimations derived from the <strong>Mifflin-St Jeor formula</strong>. This equation calculates your Basal Metabolic Rate (BMR) and Total Daily Energy Expenditure (TDEE) based on user-provided metrics including age, biological sex, weight, height, and activity level. These calculations are approximations and may not reflect your individual metabolic rate accurately.</p>
+                        <br />
+                        <p><strong>Medical Disclaimer</strong></p>
+                        <p>All information provided by this application is for informational and educational purposes only. HealthSync is not a medical device, and its suggestions do not constitute medical advice. Nutritional requirements are highly individual; therefore, you should <strong>consult a healthcare professional or a registered dietitian</strong> for personalized guidance, especially if you have underlying health conditions or specific dietary requirements.</p>
+                        <br />
+                        <p><strong>No Professional Advice</strong></p>
+                        <p>HealthSync does not provide personalized fitness, nutrition, or medical advice. The application is a self-tracking tool designed to help you monitor your health metrics. It is not a substitute for professional medical, nutritional, or fitness guidance from a qualified healthcare provider, certified nutritionist, or personal trainer.</p>
+                        <br />
+                        <p><strong>Third-Party Services</strong></p>
+                        <p>HealthSync relies on external APIs and data sources, including but not limited to Open Food Facts and Supabase. We are not responsible for the availability, accuracy, or content of these third-party services. If these services experience outages or data corruption, HealthSync's functionality may be affected.</p>
+                        <br />
+                        <p><strong>User Responsibility & Assumption of Risk</strong></p>
+                        <p>You use HealthSync entirely at your own risk. You are solely responsible for determining the appropriateness of the information provided for your specific situation. Any decisions you make based on data, recommendations, or calculations provided by HealthSync are made at your own discretion and risk.</p>
+                        <br />
+                        <p><strong>Limitation of Liability</strong></p>
+                        <p>To the fullest extent permitted by law, HealthSync and its developer shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from or related to your use of this application, including but not limited to: data loss, health complications, injuries sustained during workouts, or inaccurate nutritional information. This limitation applies even if we have been advised of the possibility of such damages.</p>
+                        <br />
+                        <p><strong>No Warranty</strong></p>
+                        <p>HealthSync is provided "as is" without any warranties, express or implied. We make no guarantee regarding the accuracy, completeness, reliability, or suitability of the application for any particular purpose. We do not warrant that the application will be error-free, uninterrupted, or free from malicious code.</p>
+                        <br />
+                        <p><strong>Data Privacy & Security</strong></p>
+                        <p>Your health data is sensitive. While we implement reasonable security measures to protect your information, no system is completely secure. By using HealthSync, you acknowledge that you understand the inherent risks of storing personal health information online. For detailed information on how your data is collected, stored, and used, please refer to our Privacy Policy.</p>
+                        <br />
+                        <p><strong>Medical Emergencies</strong></p>
+                        <p>If you experience signs of a medical emergency - chest pain, severe shortness of breath, signs of stroke, severe allergic reaction, or other life-threatening symptoms - do not use HealthSync. Instead, contact emergency services immediately or go to the nearest hospital.</p>
+                        <br />
+                        <p><strong>Changes to the Service</strong></p>
+                        <p>HealthSync may be modified, updated, or discontinued at any time. We reserve the right to change functionality, remove features, or alter data sources without prior notice. Continued use of the application following such changes constitutes your acceptance of those modifications.</p>
+                        <br />
+                        <p><strong>No Professional Endorsement</strong></p>
+                        <p>HealthSync is a personal project developed independently. It is not affiliated with, endorsed by, or developed in partnership with any medical institution, fitness organization, or healthcare provider. Recommendations within the app should not be interpreted as coming from professional medical or fitness organizations.</p>
+                        <br />
+                        <p><strong>Acknowledgment</strong></p>
+                        <p>By using HealthSync, you acknowledge that you have read this disclaimer, understand its contents, and accept all risks associated with using this application. If you do not agree with any part of this disclaimer, please discontinue use of HealthSync immediately.</p>
+                    </div>
+                </div>
                     <div className="license-section">
                         <div className="license-section-title"><i className="fas fa-file-contract"></i> Open Food Facts</div>
                         <div className="license-section-body">
@@ -350,6 +380,29 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                             <p>Individual hydration needs can vary significantly based on multiple factors including but not limited to: body weight, height, physical activity level, age, gender, climate conditions, medical conditions, medications, and overall health status. Environmental factors such as temperature, humidity, and altitude may also affect daily fluid requirements.</p>
                             <p>The provided values represent statistical averages and may need adjustment based on your specific circumstances. For personalized hydration recommendations, especially if you have underlying health conditions or specific dietary requirements, please consult with a qualified healthcare provider or registered dietitian.</p>
                             <p>Use is at your own risk. No liability is accepted for damage to health that may arise from errors in the calculation.</p>
+                        </div>
+                    </div>
+                    <div className="license-section">
+                        <div className="license-section-title">
+                            <i className="fas fa-file-contract"></i>
+                            About Location Data and Reverse Geocoding
+                        </div>
+                        <div className="license-section-body">
+                            <p>The location data used in this application is obtained through reverse geocoding services, which convert geographic coordinates (latitude and longitude) into human-readable addresses. The accuracy of the location information may vary based on the quality of the underlying data sources and the algorithms used for geocoding.</p>
+                            <p>While efforts are made to provide accurate and up-to-date location information, users should be aware that discrepancies may occur due to changes in geographic features, administrative boundaries, or other factors. Users are encouraged to verify critical location information through additional sources when necessary.</p>
+                            <p>By using this application, you acknowledge that the developers are not responsible for any inaccuracies or issues arising from the use of location data and reverse geocoding services.</p>
+                            <br />
+                            <p>Data © OpenStreetMap contributors, ODbL 1.0. <a href="http://osm.org/copyright" target="_blank" rel="noopener noreferrer">http://osm.org/copyright</a></p>
+                        </div>
+                    </div>
+                    <div className="license-section">
+                        <div className="license-section-title">
+                            <i className="fas fa-file-contract"></i>
+                            About Exercises and Workouts
+                        </div>
+                        <div className="license-section-body">
+                            <p>The instructional content and step-by-step guides for the supported exercises were sourced from the comprehensive <a href="https://github.com/hasaneyldrm/exercises-dataset" target="_blank" rel="noopener noreferrer">Exercises Dataset on GitHub</a>.</p>
+                            <p>All accompanying media assets, including images and videos, were custom-created specifically for this project and are currently not available for public distribution or external use.</p> 
                         </div>
                     </div>
                 </div>

@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import BarcodeScanner from './BarcodeScanner';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import type { FoodEntry } from '../../_lib/types';
+import { useCookieConsent } from '../../_lib/useCookieConsent';
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 const INITIAL_H = 429;
@@ -96,6 +97,7 @@ function mapProductToEntry(product: Record<string, any>): FoodEntry {
 }
 
 export default function ExtraScanner({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+    const { canUseThirdParty } = useCookieConsent();
     const sheet = useDraggableSheet({ onClose });
 
     const [cameraActive, setCameraActive] = useState(false);
@@ -160,6 +162,11 @@ export default function ExtraScanner({ isOpen, onClose }: { isOpen: boolean; onC
     }, [isOpen]);
 
     const handleScanned = async (code: string) => {
+        if (!canUseThirdParty) {
+            console.warn('Barcode lookup requires third-party consent.');
+            setCameraActive(false);
+            return;
+        }
         try {
             const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`);
             const data = await res.json();
@@ -299,13 +306,13 @@ export default function ExtraScanner({ isOpen, onClose }: { isOpen: boolean; onC
                                             <input
                                                 id="amountInput"
                                                 className="amount-big-input"
-                                                min={1} max={9999}
+                                                min={0} max={9999}
                                                 inputMode="decimal"
                                                 type="number"
                                                 value={renderAmount}
                                                 onChange={e => {
                                                     const next = Number(e.target.value);
-                                                    setAmount(Number.isNaN(next) ? 1 : Math.max(1, Math.min(9999, next)));
+                                                    setAmount(Number.isNaN(next) ? 0 : Math.max(0, Math.min(9999, next)));
                                                 }}
                                             />
                                             <div className="amount-unit-toggle">

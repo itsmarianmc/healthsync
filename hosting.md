@@ -21,12 +21,12 @@ into a custom backend.
 1. [Prerequisites](#1-prerequisites)
 2. [Clone & install](#2-clone--install)
 3. [Environment variables](#3-environment-variables)
-4. [Option A — Supabase (recommended)](#4-option-a--supabase-recommended)
+4. [Option A - Supabase (recommended)](#4-option-a--supabase-recommended)
    - [Create the project](#41-create-the-project)
    - [SQL schema & RLS policies](#42-sql-schema--rls-policies)
    - [Auth configuration](#43-auth-configuration)
    - [MFA / TOTP](#44-mfa--totp)
-5. [Option B — SQLite (DIY backend)](#5-option-b--sqlite-diy-backend)
+5. [Option B - SQLite (DIY backend)](#5-option-b--sqlite-diy-backend)
 6. [Optional: AI Detection (Google Gemini)](#6-optional-ai-detection-google-gemini)
 7. [Optional: Local AI proxy (`/api/proxy?type=pillama`)](#7-optional-local-ai-proxy)
 8. [Development](#8-development)
@@ -81,12 +81,12 @@ OLLAMA_PROXY_URL=
 ```
 
 Both Supabase values can be found in your Supabase project at
-**Settings → API**. Use the *publishable* (anon) key — the `service_role`
+**Settings → API**. Use the *publishable* (anon) key - the `service_role`
 key must **never** be exposed to the browser.
 
 ---
 
-## 4. Option A — Supabase (recommended)
+## 4. Option A - Supabase (recommended)
 
 ### 4.1. Create the project
 
@@ -102,7 +102,7 @@ each authenticated user can only read or modify their own rows.
 
 ```sql
 -- =========================================================
--- HealthSync — Supabase schema (PostgreSQL)
+-- HealthSync - Supabase schema (PostgreSQL)
 -- Run this once in the SQL editor.
 -- =========================================================
 
@@ -248,7 +248,7 @@ remembers trusted devices locally via `mfa_trusted_emails` in localStorage.
 
 ---
 
-## 5. Option B — SQLite (DIY backend)
+## 5. Option B - SQLite (DIY backend)
 
 HealthSync's client code assumes the Supabase JavaScript SDK. If you want to
 run **without** Supabase you have to provide your own thin backend that mimics
@@ -261,10 +261,10 @@ Express / Fastify / Hono API.
 > SQLite has no built-in row-level security. The equivalent is **always**
 > filtering every query by the authenticated `user_id` in your backend code,
 > and never trusting `user_id` values sent from the client.
-
+Sc
 ```sql
 -- =========================================================
--- HealthSync — SQLite schema (DIY backend)
+-- HealthSync - SQLite schema (DIY backend)
 -- Tested with SQLite 3.38+. Save as schema.sql and run:
 --     sqlite3 healthsync.db < schema.sql
 -- =========================================================
@@ -393,7 +393,7 @@ Maintain the same field names so the rest of the app keeps working.
 
 HealthSync ships an opt-in AI feature inside CalSync that estimates nutrition
 values from a photo / camera capture / text description. There is **nothing**
-to configure on the server side — the request is made **directly from the
+to configure on the server side - the request is made **directly from the
 user's browser** to `generativelanguage.googleapis.com` using **their own**
 Gemini API key.
 
@@ -433,7 +433,7 @@ npm run lint         # ESLint with the Next.js config
 npx playwright test  # E2E tests in e2e/
 ```
 
-The dev server defaults to <http://localhost:3000>. The app is mobile-first —
+The dev server defaults to <http://localhost:3000>. The app is mobile-first -
 use Chrome DevTools' device toolbar for a realistic preview.
 
 ---
@@ -538,7 +538,7 @@ sqlite3 healthsync.db ".backup healthsync-$(date +%F).db"
 
 HealthSync stores user data locally in `localStorage`. Users can clear it
 from **Settings → Cookies / Browser settings → Clear site data**. A full
-export endpoint is not part of the default app — add one in your fork if
+export endpoint is not part of the default app - add one in your fork if
 your jurisdiction requires Art. 20 GDPR (data portability) self-service.
 
 ---
@@ -568,7 +568,7 @@ changing them.
 **"new row violates row-level security policy"**
 A `user_id` mismatch. Make sure you are signed in (`auth.uid()` must be
 non-null) and that the policy in §4.2 was actually applied. Re-run the SQL
-script — it is idempotent.
+script - it is idempotent.
 
 **Login works but data does not sync**
 Open the browser console. `sync.ts` logs every backend error prefixed with

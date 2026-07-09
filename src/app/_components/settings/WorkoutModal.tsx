@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { useAuth } from '../../_context/AuthContext';
+import { useCookieConsent } from '../../_lib/useCookieConsent';
 import { pushWorkoutSessionToCloud } from '../../_lib/sync';
 import { supabase } from '../../_lib/supabase';
 
@@ -17,6 +18,10 @@ interface RoutineExercise {
     image: string;
     gif: string | null;
     sets: ExerciseSet[];
+    muscle_group?: string;
+    secondary_muscles?: string[];
+    instructions?: string;
+    instruction_steps?: string[];
 }
 
 interface Routine {
@@ -82,6 +87,8 @@ interface SessionExercise {
     gif: string | null;
     sets: SessionSet[];
     intensity?: string;
+    instruction_steps?: string[];
+    instructions?: string;
 }
 
 interface WorkoutSession {
@@ -94,10 +101,15 @@ interface WorkoutSession {
 }
 
 interface ExerciseCacheItem {
+    id: string;
     name: string;
     image: string;
     gif: string | null;
     category: string;
+    muscle_group: string;
+    secondary_muscles: string[];
+    instructions: string;
+    instruction_steps: string[];
 }
 
 const STORAGE_KEY = 'healthsync_workouts';
@@ -111,58 +123,122 @@ function loadRoutinesFromStorage(): Routine[] {
     } catch { return []; }
 }
 
-function saveRoutinesToStorage(routines: Routine[]) {
+function saveRoutinesToStorage(routines: Routine[], canSave: boolean) {
+    if (!canSave) return;
     const payload = { routines, _updated_at: new Date().toISOString() };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }
 
 let exercisesCache: ExerciseCacheItem[] | null = null;
 
+function normalizeAssetPath(path: unknown): string {
+    const raw = typeof path === 'string' ? path.trim() : '';
+    if (!raw) return '';
+    if (/^https?:\/\//i.test(raw)) {
+        if (raw.startsWith('http://')) return raw.replace(/^http:\/\//i, 'https://');
+        return raw;
+    }
+    return raw.startsWith('/') ? raw : `/${raw}`;
+}
+
 async function loadExercisesCache(): Promise<ExerciseCacheItem[]> {
     if (exercisesCache) return exercisesCache;
     try {
         const res = await fetch('/exercises.json');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const flat: ExerciseCacheItem[] = [];
-        for (const [cat, items] of Object.entries(data as Record<string, unknown[]>)) {
-            for (const item of items) {
-                for (const [name, details] of Object.entries(item as Record<string, { img: string; gif?: string }>)) {
-                flat.push({ name, image: details.img, gif: details.gif || null, category: cat });
+
+        if (Array.isArray(data)) {
+            for (const item of data) {
+                const record = item as Record<string, unknown>;
+                const name = typeof record.name === 'string' ? record.name : '';
+                if (!name) continue;
+                const id = typeof record.id === 'string' && record.id.trim() ? record.id : name;
+                const category =
+                    (typeof record.category === 'string' && record.category)
+                    || (typeof record.body_part === 'string' && record.body_part)
+                    || (typeof record.target === 'string' && record.target)
+                    || 'other';
+                const image = normalizeAssetPath(record.image);
+                const gif = normalizeAssetPath(record.gif_url) || null;
+                const muscle_group = typeof record.muscle_group === 'string' ? record.muscle_group : '';
+                const secondary_muscles: string[] = Array.isArray(record.secondary_muscles)
+                    ? record.secondary_muscles.filter((m): m is string => typeof m === 'string')
+                    : [];
+                const instructions = typeof record.instructions === 'string' ? record.instructions : '';
+                const instruction_steps = Array.isArray(record.instruction_steps) ? record.instruction_steps : [];
+                flat.push({ id, name, image, gif, category, muscle_group, secondary_muscles, instructions, instruction_steps });
+            }
+        } else {
+            for (const [muscleGroup, items] of Object.entries(data as Record<string, unknown[]>)) {
+                for (const item of items) {
+                    for (const [name, details] of Object.entries(item as Record<string, { 
+                        img: string; 
+                        gif?: string; 
+                        id?: string; 
+                        secondary_muscles?: string[];
+                        instructions?: string; 
+                        instruction_steps?: string[] 
+                    }>)) {
+                        flat.push({
+                            id: details.id || name,
+                            name,
+                            image: normalizeAssetPath(details.img),
+                            gif: normalizeAssetPath(details.gif) || null,
+                            category: muscleGroup,
+                            muscle_group: muscleGroup,
+                            secondary_muscles: Array.isArray(details.secondary_muscles) ? details.secondary_muscles : [],
+                            instructions: details.instructions || '',
+                            instruction_steps: details.instruction_steps || [],
+                        });
+                    }
                 }
             }
         }
+
         exercisesCache = flat;
         return flat;
-    } 
-    catch {
+    } catch (err) {
         return [];
     }
 }
 
-function GifModal({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
+function GifModal({ url, name, instructions, instructionSteps, onClose }: {
+    url: string;
+    name: string;
+    instructions?: string;
+    instructionSteps?: string[];
+    onClose: () => void
+}) {
     const overlayRef = useRef<HTMLDivElement>(null);
     const modalRef = useRef<HTMLDivElement>(null);
     const dragY = useRef(0);
     const dragging = useRef(false);
+    const [activeTab, setActiveTab] = useState<'overview' | 'steps'>('overview');
 
     useEffect(() => {
         requestAnimationFrame(() => {
-        if (overlayRef.current) overlayRef.current.classList.add('visible');
-        if (modalRef.current) {
-            modalRef.current.style.transition = 'transform 0.42s cubic-bezier(0.34,1.15,0.64,1)';
-            modalRef.current.style.transform = 'translateY(0)';
-        }
+            if (overlayRef.current) overlayRef.current.classList.add('visible');
+            if (modalRef.current) {
+                modalRef.current.style.transition = 'transform 0.42s cubic-bezier(0.34,1.15,0.64,1)';
+                modalRef.current.style.transform = 'translateY(0)';
+            }
         });
     }, []);
 
     const close = () => {
         if (overlayRef.current) overlayRef.current.classList.remove('visible');
         if (modalRef.current) {
-        modalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4,0,0.2,1)';
-        modalRef.current.style.transform = 'translateY(110%)';
+            modalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4,0,0.2,1)';
+            modalRef.current.style.transform = 'translateY(110%)';
         }
         setTimeout(onClose, 380);
     };
+
+    const hasOverview = !!instructions;
+    const hasSteps = !!(instructionSteps && instructionSteps.length > 0);
+    const showTabs = hasOverview || hasSteps;
 
     return (
         <div className="app-overlay" ref={overlayRef} style={{ zIndex: 10001 }} onClick={e => { if (e.target === overlayRef.current) close(); }}>
@@ -173,9 +249,53 @@ function GifModal({ url, name, onClose }: { url: string; name: string; onClose: 
                     onPointerUp={e => { if (!dragging.current) return; dragging.current = false; if (e.clientY - dragY.current > 80) close(); else if (modalRef.current) { modalRef.current.style.transition = 'transform 0.42s cubic-bezier(0.34,1.15,0.64,1)'; modalRef.current.style.transform = 'translateY(0)'; } }}>
                     <div className="modal-handle" />
                 </div>
-                <div className="modal-header"><div className="modal-title">{name}</div></div>
-                <div className="modal-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px 24px' }}>
-                    <video src={url} autoPlay loop muted playsInline style={{ width: '100%', borderRadius: 'var(--radius-sm)', display: 'block' }} />
+                <div className="modal-header">
+                    <div className="modal-title">{name}</div>
+                    <div className="modal-btn" onClick={close}>
+                        <button className="back-btn" style= { { opacity: 1} }>
+                            <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div className="modal-body gif-modal-body">
+                    <video src={url} autoPlay muted loop className="gif-modal-video" />
+                    
+                    {showTabs && (
+                        <div className="gif-tabs">
+                            <button 
+                                className={`gif-tab ${activeTab === 'overview' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('overview')}
+                                disabled={!hasOverview}
+                            >
+                                Overview
+                            </button>
+                            <button 
+                                className={`gif-tab ${activeTab === 'steps' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('steps')}
+                                disabled={!hasSteps}
+                            >
+                                Steps
+                            </button>
+                        </div>
+                    )}
+
+                    {activeTab === 'overview' && hasOverview && (
+                        <div className="gif-instructions-section">
+                            <p className="gif-instructions-text">{instructions}</p>
+                        </div>
+                    )}
+
+                    {activeTab === 'steps' && hasSteps && (
+                        <div className="gif-steps-section">
+                            <ol className="gif-steps-list">
+                                {instructionSteps.map((step, idx) => (
+                                    <li key={idx} className="gif-step-item">{step}</li>
+                                ))}
+                            </ol>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -244,6 +364,7 @@ function SortExercisesModal({ routine, onSave, onClose }: { routine: Routine; on
     const sheet = useDraggableSheet({ onClose });
     const [exercises, setExercises] = useState<RoutineExercise[]>([...routine.exercises]);
     const dragIdx = useRef<number | null>(null);
+    const [dragTarget, setDragTarget] = useState<{ index: number; position: 'top' | 'bottom' } | null>(null);
 
     useEffect(() => { sheet.open(); }, []);
 
@@ -253,29 +374,77 @@ function SortExercisesModal({ routine, onSave, onClose }: { routine: Routine; on
                 <div className="modal-handle-zone" {...sheet.handleProps}><div className="modal-handle" /></div>
                 <div className="modal-header">
                     <div className="modal-title">Sort Exercises</div>
-                    <div className="modal-btn--right">
-                        <button className="back-btn" onClick={sheet.close}>
-                            <i className="fa-regular fa-circle-xmark" />
+                    <div className="modal-btn" onClick={sheet.close}>
+                        <button className="back-btn" style={{ opacity: 1 }}>
+                            <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/>
+                            </svg>
                         </button>
                     </div>
                 </div>
                 <div className="modal-body" style={{ padding: '0 16px 20px' }}>
                     <div className="sort-exercises-list">
                         {exercises.map((ex, idx) => (
-                            <div key={ex.exerciseId} className="sort-exercise-item" draggable
-                                onDragStart={() => { dragIdx.current = idx; }}
-                                onDragOver={e => e.preventDefault()}
+                            <div
+                                key={ex.exerciseId}
+                                style={{ position: 'relative' }}
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const y = e.clientY - rect.top;
+                                    const mid = rect.height / 2;
+                                    const pos = y < mid ? 'top' : 'bottom';
+                                    if (dragIdx.current !== null && dragIdx.current !== idx) {
+                                        setDragTarget({ index: idx, position: pos });
+                                    }
+                                }}
+                                onDragLeave={() => setDragTarget(null)}
                                 onDrop={() => {
-                                if (dragIdx.current === null || dragIdx.current === idx) return;
-                                const next = [...exercises];
-                                const [moved] = next.splice(dragIdx.current, 1);
-                                next.splice(idx, 0, moved);
-                                setExercises(next);
-                                dragIdx.current = null;
-                                }}>
-                                <i className="fa-solid fa-grip-vertical drag-handle" />
-                                <img src={ex.image} className="sort-exercise-img" onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40'; }} alt={ex.name} />
-                                <span className="sort-exercise-name">{ex.name}</span>
+                                    if (dragIdx.current === null || dragIdx.current === idx) return;
+                                    const next = [...exercises];
+                                    const [moved] = next.splice(dragIdx.current, 1);
+                                    next.splice(idx, 0, moved);
+                                    setExercises(next);
+                                    dragIdx.current = null;
+                                    setDragTarget(null);
+                                }}
+                            >
+                                {dragTarget && dragTarget.index === idx && dragTarget.position === 'top' && dragIdx.current !== null && dragIdx.current !== idx && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: -5,
+                                        left: 0,
+                                        right: 0,
+                                        height: 2,
+                                        background: 'var(--accent)',
+                                        zIndex: 10,
+                                        borderRadius: 2,
+                                    }} />
+                                )}
+
+                                <div
+                                    className="sort-exercise-item"
+                                    draggable
+                                    onDragStart={() => { dragIdx.current = idx; }}
+                                    onDragEnd={() => { setDragTarget(null); }}
+                                >
+                                    <i className="fa-solid fa-grip-vertical drag-handle" />
+                                    <img src={ex.image} className="sort-exercise-img" onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40'; }} alt={ex.name} />
+                                    <span className="sort-exercise-name">{ex.name}</span>
+                                </div>
+
+                                {dragTarget && dragTarget.index === idx && dragTarget.position === 'bottom' && dragIdx.current !== null && dragIdx.current !== idx && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        bottom: -2,
+                                        left: 0,
+                                        right: 0,
+                                        height: 2,
+                                        background: 'var(--accent)',
+                                        zIndex: 10,
+                                        borderRadius: 2,
+                                    }} />
+                                )}
                             </div>
                         ))}
                     </div>
@@ -292,8 +461,8 @@ function ExerciseCard({ ex, idx, onChange, onRemove, onShowGif }: {
     ex: RoutineExercise; idx: number;
     onChange: (idx: number, ex: RoutineExercise) => void;
     onRemove: (idx: number) => void;
-    onShowGif: (url: string, name: string) => void;
-    }) {
+    onShowGif: (url: string, name: string, instructions?: string, instructionSteps?: string[]) => void;
+}) {
     const updateSet = (setIdx: number, field: 'reps' | 'weight', val: number) => {
         const sets = ex.sets.map((s, i) => i === setIdx ? { ...s, [field]: val } : s);
         onChange(idx, { ...ex, sets });
@@ -301,15 +470,37 @@ function ExerciseCard({ ex, idx, onChange, onRemove, onShowGif }: {
     const addSet = () => onChange(idx, { ...ex, sets: [...ex.sets, { reps: 8, weight: 0 }] });
     const removeSet = (setIdx: number) => onChange(idx, { ...ex, sets: ex.sets.filter((_, i) => i !== setIdx) });
 
+    const nameDisplay = ex.name.charAt(0).toUpperCase() + ex.name.slice(1);
+
     return (
         <div className="exercise-card" data-ex-idx={idx}>
             <div className="exercise-card-header" style={ex.gif ? { cursor: 'pointer' } : {}}
-                onClick={() => ex.gif && onShowGif(ex.gif, ex.name)}>
-                <span>
-                    <img src={ex.image} style={{ width: 24, height: 24, borderRadius: 6, verticalAlign: 'middle', marginRight: 8 }}
-                        onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/24'; }} alt={ex.name} />
-                    {ex.name}
-                </span>
+                onClick={() => ex.gif && onShowGif(ex.gif, ex.name, ex.instructions, ex.instruction_steps)}>
+                <img className="exercise-card-img" src={ex.image} loading="lazy"
+                    onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40'; }} alt={ex.name} />
+                <div className="exercise-card-info">
+                    <div className="exercise-card-name">{nameDisplay}</div>
+                    {(ex.muscle_group || (ex.secondary_muscles && ex.secondary_muscles.length > 0)) && (
+                        <div style={{ display: 'flex', gap: 4 }}>
+                            {ex.muscle_group && (
+                                <div className="exercise-result-muscles primary">
+                                    <div className="exercise-result-muscle">
+                                        {ex.muscle_group}
+                                    </div>
+                                </div>
+                            )}
+                            {ex.secondary_muscles && ex.secondary_muscles.length > 0 && (
+                                <div className="exercise-result-muscles secondary">
+                                    {ex.secondary_muscles.map(muscle => (
+                                        <div className="exercise-result-muscle" key={muscle}>
+                                            {muscle}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
                 <button className="remove-exercise-btn" onClick={e => { e.stopPropagation(); onRemove(idx); }}>
                     <i className="fa-regular fa-trash-can" />
                 </button>
@@ -340,15 +531,14 @@ function CreateModal({ editRoutine, onSave, onClose }: {
     editRoutine: Routine | null;
     onSave: (routine: Omit<Routine, 'id' | 'created_at'> & { id?: string; created_at?: string }) => void;
     onClose: () => void;
-    }) {
+}) {
     const sheet = useDraggableSheet({ onClose });
     const [name, setName] = useState(editRoutine?.name ?? '');
     const [exercises, setExercises] = useState<RoutineExercise[]>(
         editRoutine ? editRoutine.exercises.map(ex => ({ ...ex, sets: ex.sets.map(s => ({ ...s })) })) : []
     );
-    const [searchQuery, setSearchQuery] = useState('');
-    const [allExercises, setAllExercises] = useState<ExerciseCacheItem[]>([]);
-    const [gifModal, setGifModal] = useState<{ url: string; name: string } | null>(null);
+    const [gifModal, setGifModal] = useState<{ url: string; name: string; instructions?: string; instructionSteps?: string[] } | null>(null);
+    const [showAddExercises, setShowAddExercises] = useState(false);
 
     useEffect(() => {
         sheet.open();
@@ -356,31 +546,24 @@ function CreateModal({ editRoutine, onSave, onClose }: {
         return () => clearTimeout(t);
     }, []);
 
-    useEffect(() => {
-        let cancelled = false;
-        loadExercisesCache().then(list => {
-            if (!cancelled) setAllExercises(list);
+    const addExercises = (items: ExerciseCacheItem[]) => {
+        setExercises(prev => {
+            const existingNames = new Set(prev.map(e => e.name));
+            const additions = items
+                .filter(item => !existingNames.has(item.name))
+                .map(item => ({
+                    exerciseId: item.id || (item.name.replace(/\s/g, '_') + '_' + Date.now()),
+                    name: item.name,
+                    image: item.image,
+                    gif: item.gif,
+                    sets: [{ reps: 8, weight: 0 }],
+                    muscle_group: item.muscle_group,
+                    secondary_muscles: item.secondary_muscles,
+                    instructions: item.instructions,
+                    instruction_steps: item.instruction_steps,
+                }));
+            return [...prev, ...additions];
         });
-        return () => { cancelled = true; };
-    }, []);
-
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-    const matches = (item: ExerciseCacheItem) =>
-        !normalizedQuery
-        || item.name.toLowerCase().includes(normalizedQuery)
-        || item.category.toLowerCase().includes(normalizedQuery);
-
-    const INITIAL_LIMIT = 50;
-    const renderedExercises = normalizedQuery
-        ? allExercises
-        : allExercises.slice(0, INITIAL_LIMIT);
-    const hasMoreHidden = !normalizedQuery && allExercises.length > INITIAL_LIMIT;
-
-    const addExercise = (item: ExerciseCacheItem) => {
-        if (exercises.find(e => e.name === item.name)) return;
-        const id = item.name.replace(/\s/g, '_') + '_' + Date.now();
-        setExercises(prev => [...prev, { exerciseId: id, name: item.name, image: item.image, gif: item.gif, sets: [{ reps: 8, weight: 0 }] }]);
-        setSearchQuery('');
     };
 
     const handleSave = () => {
@@ -396,62 +579,188 @@ function CreateModal({ editRoutine, onSave, onClose }: {
                     <div className="modal-handle-zone" {...sheet.handleProps}><div className="modal-handle" /></div>
                     <div className="modal-header">
                         <div className="modal-title">{editRoutine ? 'Edit Workout' : 'Create Workout'}</div>
+                        <div className="modal-btn" onClick={sheet.close}>
+                            <button className="back-btn" style= { { opacity: 1} }>
+                                <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                    <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
-                    <div className="modal-body" id="workoutCreateModalBody" style={{ padding: '0 16px 20px', overflowY: 'auto' }}>
+                    <div className="modal-body" id="workoutCreateModalBody" style={{ marginBottom: 20, padding: '0 16px 20px', overflowY: 'auto' }}>
                         <div className="form-row">
                             <input type="text" className="form-input" placeholder="New Workout" value={name} onChange={e => setName(e.target.value)} />
                         </div>
-                        <div className="form-row">
-                            <label className="form-label">Add exercises</label>
-                            <div id="exerciseSearchContainerCreate">
-                                <input type="text" className="form-input" id="exerciseSearchInputCreate" placeholder="Search exercise..."
-                                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-                                <div className="exercise-search-results" id="exerciseSearchResultsCreate">
-                                    {renderedExercises.map(item => {
-                                        const visible = matches(item);
-                                        const alreadyAdded = exercises.some(e => e.name === item.name);
-                                        return (
-                                            <div
-                                                key={item.name}
-                                                className={`exercise-result-item${visible ? '' : ' is-hidden'}${alreadyAdded ? ' is-added' : ''}`}
-                                                onClick={() => visible && !alreadyAdded && addExercise(item)}
-                                                aria-hidden={!visible}
-                                            >
-                                                <img className="exercise-result-img" src={item.image} loading="lazy"
-                                                onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40'; }} alt={item.name} />
-                                                <div className="exercise-result-info">
-                                                    <div className="exercise-result-name">{item.name}</div>
-                                                    <div className="exercise-result-muscle">{item.category}</div>
-                                                </div>
-                                                <i className={`fa-solid ${alreadyAdded ? 'fa-check' : 'fa-plus'}`} />
-                                            </div>
-                                        );
-                                    })}
-                                    {hasMoreHidden && (
-                                        <div className="exercise-result-more">
-                                            <i className="fa-solid fa-magnifying-glass" />
-                                            <span>Search for more results</span>
-                                        </div>
-                                    )}
-                                </div>
+                        <div className="form-row" style={ { borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
+                            <label className="form-label">Exercises</label>
+                            <div className="add-workout" onClick={() => setShowAddExercises(true)}>
+                                <div className="add-wo-btn"><i className="fas fa-plus" /></div>
+                                <div className="add-wo-text">Add Exercises</div>
                             </div>
                             <div className="selected-exercises" id="selectedExercisesListCreate">
                                 {exercises.map((ex, idx) => (
                                     <ExerciseCard key={ex.exerciseId} ex={ex} idx={idx}
                                         onChange={(i, updated) => setExercises(prev => prev.map((e, j) => j === i ? updated : e))}
                                         onRemove={i => setExercises(prev => prev.filter((_, j) => j !== i))}
-                                        onShowGif={(url, name) => setGifModal({ url, name })}
+                                        onShowGif={(url, name, instructions, instructionSteps) => setGifModal({ url, name, instructions, instructionSteps })}
                                     />
                                 ))}
                             </div>
                         </div>
-                        <button className="confirm-btn" id="saveRoutineBtnCreate" style={{ marginTop: 16 }} onClick={handleSave}>
+                    </div>
+                    <div className="modal-footer">
+                        <button className="confirm-btn" id="saveRoutineBtnCreate" onClick={handleSave}>
                             Save Routine
                         </button>
                     </div>
                 </div>
             </div>
-            {gifModal && <GifModal url={gifModal.url} name={gifModal.name} onClose={() => setGifModal(null)} />}
+            {gifModal && <GifModal url={gifModal.url} name={gifModal.name} instructions={gifModal.instructions} instructionSteps={gifModal.instructionSteps} onClose={() => setGifModal(null)} />}
+            {showAddExercises && (
+                <AddExercisesModal
+                    alreadyAdded={exercises.map(e => e.name)}
+                    onAdd={addExercises}
+                    onClose={() => setShowAddExercises(false)}
+                />
+            )}
+        </>
+    );
+}
+
+function AddExercisesModal({ alreadyAdded, onAdd, onClose }: {
+    alreadyAdded: string[];
+    onAdd: (items: ExerciseCacheItem[]) => void;
+    onClose: () => void;
+}) {
+    const sheet = useDraggableSheet({ onClose });
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeCategory, setActiveCategory] = useState('All');
+    const [allExercises, setAllExercises] = useState<ExerciseCacheItem[]>([]);
+    const [selected, setSelected] = useState<Set<string>>(new Set());
+    const [gifModal, setGifModal] = useState<{ url: string; name: string; instructions?: string; instructionSteps?: string[] } | null>(null);
+
+    useEffect(() => {
+        sheet.open();
+        const t = setTimeout(() => sheet.snapToExpanded(), 80);
+        return () => clearTimeout(t);
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        loadExercisesCache().then(list => {
+            if (!cancelled) setAllExercises(list);
+        });
+        return () => { cancelled = true; };
+    }, []);
+
+    const alreadyAddedSet = new Set(alreadyAdded);
+
+    const categories = ['All', ...Array.from(new Set(allExercises.map(e => e.category))).sort((a, b) => a.localeCompare(b))];
+
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const filtered = allExercises.filter(item => {
+        if (activeCategory !== 'All' && item.category !== activeCategory) return false;
+        if (!normalizedQuery) return true;
+        return item.name.toLowerCase().includes(normalizedQuery) || item.category.toLowerCase().includes(normalizedQuery);
+    });
+
+    const toggleSelect = (item: ExerciseCacheItem) => {
+        if (alreadyAddedSet.has(item.name)) return;
+        setSelected(prev => {
+            const next = new Set(prev);
+            if (next.has(item.name)) next.delete(item.name);
+            else next.add(item.name);
+            return next;
+        });
+    };
+
+    const handleConfirm = () => {
+        const items = allExercises.filter(item => selected.has(item.name));
+        if (items.length > 0) onAdd(items);
+        sheet.close();
+    };
+
+    const selectedCount = selected.size;
+
+    return (
+        <>
+            <div className="app-overlay" ref={sheet.overlayRef} onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); }}>
+                <div className="modal" ref={sheet.modalRef} style={{ transform: 'translateY(100%)' }}>
+                    <div className="modal-handle-zone" {...sheet.handleProps}><div className="modal-handle" /></div>
+                    <div className="modal-header">
+                        <div className="modal-title">Add Exercises</div>
+                        <div className="modal-btn" onClick={sheet.close}>
+                            <button className="back-btn" style= { { opacity: 1} }>
+                                <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                    <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div className="modal-body" style={{ padding: '0 16px 20px', overflowY: 'auto' }}>
+                        <div className="form-row">
+                            <input type="text" className="form-input" placeholder="Search exercise..."
+                                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                        </div>
+                        <div className="exercise-category-filters">
+                            {categories.map(cat => (
+                                <button key={cat} type="button"
+                                    className={`exercise-category-chip${activeCategory === cat ? ' active' : ''}`}
+                                    onClick={() => setActiveCategory(cat)}>
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="exercise-search-results">
+                            {filtered.map(item => {
+                                const isAdded = alreadyAddedSet.has(item.name);
+                                const isSelected = selected.has(item.name);
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className={`exercise-result-item${isAdded ? ' is-added' : ''}${isSelected ? ' is-added' : ''}`}
+                                        onClick={() => toggleSelect(item)}
+                                    >
+                                        <img className="exercise-result-img" src={item.image} loading="lazy"
+                                            onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40'; }} alt={item.name} />
+                                        <div className="exercise-result-info">
+                                            <div className="exercise-result-name">{item.name}</div>
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                {item.muscle_group && (
+                                                    <div className='exercise-result-muscles primary'>
+                                                        <div className="exercise-result-muscle">
+                                                            {item.muscle_group}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {item.secondary_muscles && item.secondary_muscles.length > 0 && (
+                                                    <div className='exercise-result-muscles secondary'>
+                                                        {item.secondary_muscles.map(muscle => (
+                                                            <div className="exercise-result-muscle" key={muscle}>
+                                                                {muscle}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <i className={`fa-solid ${isAdded ? 'fa-check' : isSelected ? 'fa-circle-check' : 'fa-plus'}`} />
+                                    </div>
+                                );
+                            })}
+                            {filtered.length === 0 && (
+                                <div className="empty-state">No exercises found.</div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="modal-footer">
+                        <button className="confirm-btn" disabled={selectedCount === 0} onClick={handleConfirm}>
+                            {selectedCount > 0 ? `Add ${selectedCount} Exercise${selectedCount > 1 ? 's' : ''}` : 'Select exercises above'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {gifModal && <GifModal url={gifModal.url} name={gifModal.name} instructions={gifModal.instructions} instructionSteps={gifModal.instructionSteps} onClose={() => setGifModal(null)} />}
         </>
     );
 }
@@ -459,12 +768,12 @@ function CreateModal({ editRoutine, onSave, onClose }: {
 function ActiveExerciseCard({ ex, exIdx, onChange, onShowGif }: {
     ex: SessionExercise; exIdx: number;
     onChange: (exIdx: number, setIdx: number, updated: Partial<SessionSet>) => void;
-    onShowGif: (url: string, name: string) => void;
-    }) {
+    onShowGif: (url: string, name: string, instructions?: string, instructionSteps?: string[]) => void;
+}) {
     return (
         <div className="exercise-card" style={{ marginTop: 14 }}>
             <div className="exercise-card-header" style={ex.gif ? { cursor: 'pointer' } : {}}
-                onClick={() => ex.gif && onShowGif(ex.gif, ex.name)}>
+                onClick={() => ex.gif && onShowGif(ex.gif, ex.name, ex.instructions, ex.instruction_steps)}>
                 <span>
                 <img src={ex.image} style={{ width: 32, height: 32, borderRadius: 6, verticalAlign: 'middle', marginRight: 8 }}
                     onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/24'; }} alt={ex.name} />
@@ -483,10 +792,8 @@ function ActiveExerciseCard({ ex, exIdx, onChange, onShowGif }: {
                                     {setIdx + 1}
                                     {set.isPR && <span className="set-pr-pill" title="New personal record">PR</span>}
                                 </div>
-                                <input type="number" className="active-set-weight" value={set.weight} placeholder="0" step={2.5} min={0}
-                                disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { weight: parseFloat(e.target.value) || 0 })} />
-                                <input type="number" className="active-set-reps" value={set.reps} placeholder="8" min={1} step={1}
-                                disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { reps: parseInt(e.target.value) || 0 })} />
+                                <input type="number" className="active-set-weight" value={set.weight} placeholder="0" step={2.5} min={0} disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { weight: parseFloat(e.target.value) || 0 })} onFocus={e => e.target.select()} />
+                                <input type="number" className="active-set-reps" value={set.reps} placeholder="8" min={1} step={1} disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { reps: parseInt(e.target.value) || 0 })} onFocus={e => e.target.select()} />
                                 {done
                                 ? <button className="set-check-btn set-check-done" disabled><i className="fa-solid fa-check" /></button>
                                 : active
@@ -583,7 +890,7 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     session: WorkoutSession;
     onClose: () => void;
     onFinish: (session: WorkoutSession, intensity: number) => void;
-    }) {
+}) {
     const overlayRef = useRef<HTMLDivElement>(null);
     const modalRef = useRef<HTMLDivElement>(null);
     const handleZoneRef = useRef<HTMLDivElement>(null);
@@ -591,7 +898,7 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     const [session, setSession] = useState<WorkoutSession>(initSession);
     const [elapsed, setElapsed] = useState(0);
     const [minimized, setMinimized] = useState(false);
-    const [gifModal, setGifModal] = useState<{ url: string; name: string } | null>(null);
+    const [gifModal, setGifModal] = useState<{ url: string; name: string; instructions?: string; instructionSteps?: string[] } | null>(null);
     const [ratingMode, setRatingMode] = useState(false);
     const [rating, setRating] = useState<number | null>(null);
     const [panelHeight, setPanelHeight] = useState<number | undefined>(undefined);
@@ -604,16 +911,31 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     const prBaselineRef = useRef<Record<string, ExerciseBest>>({});
     const sessionBestsRef = useRef<Record<string, ExerciseBest>>({});
 
-    useEffect(() => { setRestDuration(loadRestDuration()); }, []);
-    useEffect(() => { prBaselineRef.current = loadExerciseBests(); }, []);
+    const { canUsePreferences } = useCookieConsent();
+
+    useEffect(() => {
+        if (canUsePreferences) {
+            setRestDuration(loadRestDuration());
+        } else {
+            setRestDuration(DEFAULT_REST_SECONDS);
+        }
+    }, [canUsePreferences]);
+
+    useEffect(() => {
+        if (canUsePreferences) {
+            prBaselineRef.current = loadExerciseBests();
+        } else {
+            prBaselineRef.current = {};
+        }
+    }, [canUsePreferences]);
 
     useEffect(() => {
         requestAnimationFrame(() => {
-        if (overlayRef.current) overlayRef.current.classList.add('visible');
-        if (modalRef.current) {
-            modalRef.current.style.transition = 'transform 0.42s cubic-bezier(0.34,1.15,0.64,1)';
-            modalRef.current.style.transform = 'translateY(0)';
-        }
+            if (overlayRef.current) overlayRef.current.classList.add('visible');
+            if (modalRef.current) {
+                modalRef.current.style.transition = 'transform 0.42s cubic-bezier(0.34,1.15,0.64,1)';
+                modalRef.current.style.transform = 'translateY(0)';
+            }
         });
         document.body.classList.add('modal-open');
         const t = setInterval(() => setElapsed(s => s + 1), 1000);
@@ -652,7 +974,9 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     const updateRestDuration = (next: number) => {
         const clamped = Math.max(15, Math.min(600, next));
         setRestDuration(clamped);
-        if (typeof window !== 'undefined') window.localStorage.setItem(REST_DURATION_KEY, String(clamped));
+        if (canUsePreferences && typeof window !== 'undefined') {
+            window.localStorage.setItem(REST_DURATION_KEY, String(clamped));
+        }
     };
 
     const minimize = useCallback(() => {
@@ -660,8 +984,8 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
         if (overlayRef.current) overlayRef.current.classList.remove('visible');
         document.body.classList.remove('modal-open');
         if (modalRef.current) {
-        modalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4,0,0.2,1)';
-        modalRef.current.style.transform = 'translateY(110%)';
+            modalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4,0,0.2,1)';
+            modalRef.current.style.transform = 'translateY(110%)';
         }
     }, []);
 
@@ -670,8 +994,8 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
         if (overlayRef.current) overlayRef.current.classList.add('visible');
         document.body.classList.add('modal-open');
         if (modalRef.current) {
-        modalRef.current.style.transition = 'transform 0.42s cubic-bezier(0.34,1.15,0.64,1)';
-        modalRef.current.style.transform = 'translateY(0)';
+            modalRef.current.style.transition = 'transform 0.42s cubic-bezier(0.34,1.15,0.64,1)';
+            modalRef.current.style.transform = 'translateY(0)';
         }
     }, []);
 
@@ -679,6 +1003,10 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
         if (!confirm('Discard workout? Progress will be lost.')) return;
         if (overlayRef.current) overlayRef.current.classList.remove('visible');
         document.body.classList.remove('modal-open');
+        if (modalRef.current) {
+          modalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4,0,0.2,1)';
+          modalRef.current.style.transform = 'translateY(110%)';
+        }
         setTimeout(onClose, 400);
     };
 
@@ -746,7 +1074,7 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     }, [ratingMode, session.exercises.length, rating, restEndsAt, restRemaining]);
 
     return (
-        <>
+        <div>
             <div className="app-overlay" id="activeWorkoutOverlay" ref={overlayRef}
                 onClick={e => { if (e.target === overlayRef.current) minimize(); }}>
                 <div className="modal" id="activeWorkoutModal" ref={modalRef} style={{ transform: 'translateY(100%)' }}>
@@ -776,10 +1104,15 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                         }}>
                         <div className="modal-handle" />
                     </div>
-                    <div className="modal-header" style={{ position: 'relative' }}>
+                    <div className="modal-header">
                         <div className="modal-title" id="activeWorkoutTimer">{timerStr}</div>
+                        <div className="modal-btn" onClick={minimize}>
+                            <button className="back-btn" style= { { opacity: 1} }>
+                                <i className="fa-solid fa-chevron-down"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div className="modal-body" id="activeWorkoutBody" style={{ padding: '0 16px 20px', overflowY: 'auto' }}>
+                    <div className="modal-body" id="activeWorkoutBody" style={{ padding: '0 16px 16px', overflowY: 'auto' }}>
                         <div ref={contentWrapperRef} style={{ position: 'relative', overflow: 'hidden', width: '100%', height: panelHeight ? `${panelHeight}px` : undefined, transition: 'height 0.28s ease' }}>
                             <div style={{
                                 width: '200%',
@@ -788,7 +1121,7 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                                 transition: 'transform 0.28s ease',
                                 transform: ratingMode ? 'translateX(-50%)' : 'translateX(0)',
                             }}>
-                                <div className="exercises-panel" style={{ width: '50%', minWidth: 0, paddingRight: 12, height: ratingMode ? 0 : undefined, overflow: ratingMode ? 'hidden' : undefined }}>
+                                <div className="exercises-panel" style={{ width: '50%', minWidth: 0, height: ratingMode ? 0 : undefined, overflow: ratingMode ? 'hidden' : undefined }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                         <span style={{ fontSize: 13, color: 'var(--text2)' }} id="activeWorkoutTitle">{session.routineName}</span>
                                         <span style={{ fontSize: 12, color: 'var(--text3)' }} id="activeWorkoutProgress">{doneSets} / {totalSets} sets done</span>
@@ -803,8 +1136,8 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                                         onDurationChange={updateRestDuration}
                                     />
                                     {session.exercises.map((ex, exIdx) => (
-                                    <ActiveExerciseCard key={ex.exerciseId} ex={ex} exIdx={exIdx}
-                                        onChange={updateSet} onShowGif={(url, name) => setGifModal({ url, name })} />
+                                        <ActiveExerciseCard key={ex.exerciseId} ex={ex} exIdx={exIdx}
+                                            onChange={updateSet} onShowGif={(url, name, instructions, instructionSteps) => setGifModal({ url, name, instructions, instructionSteps })} />
                                     ))}
                                 </div>
                                 <div className="intensity-panel" style={{ width: '50%', minWidth: 0, pointerEvents: ratingMode ? 'auto' : 'none', height: ratingMode ? undefined : 0, overflow: ratingMode ? undefined : 'hidden', opacity: ratingMode ? 1 : 0, visibility: ratingMode ? 'visible' : 'hidden', transition: 'all 0.28s ease' }}>
@@ -812,7 +1145,6 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                                         padding: 16,
                                         borderRadius: 16,
                                         background: 'rgba(255,255,255,0.04)',
-                                        minHeight: 260,
                                         display: 'flex',
                                         flexDirection: 'column',
                                         gap: 14,
@@ -842,7 +1174,7 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                             id="discardWorkoutBtn"
                             onClick={discard}
                             disabled={ratingMode}
-                            style={ratingMode ? { width: 0, padding: 0, minWidth: 0, opacity: 0, pointerEvents: 'none' } : undefined}
+                            style={ratingMode ? { width: 0, padding: 0, minWidth: 0, opacity: 0, pointerEvents: 'none', marginRight: 0, border: 'none' } : undefined}
                         >Discard&nbsp;Workout</button>
                         <button
                             className="confirm-btn"
@@ -880,8 +1212,8 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                 </div>
             </div>
 
-            {gifModal && <GifModal url={gifModal.url} name={gifModal.name} onClose={() => setGifModal(null)} />}
-        </>
+            {gifModal && <GifModal url={gifModal.url} name={gifModal.name} instructions={gifModal.instructions} instructionSteps={gifModal.instructionSteps} onClose={() => setGifModal(null)} />}
+        </div>
     );
 }
 
@@ -893,6 +1225,7 @@ interface WorkoutModalProps {
 export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
     const sheet = useDraggableSheet({ onClose });
     const { user, showToast } = useAuth();
+    const { canUsePreferences } = useCookieConsent();
 
     const [routines, setRoutines] = useState<Routine[]>([]);
     const [contextMenu, setContextMenu] = useState<{ rect: DOMRect; id: string } | null>(null);
@@ -904,11 +1237,17 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
 
     useEffect(() => {
         if (isOpen) {
-            setRoutines(loadRoutinesFromStorage());
+            if (canUsePreferences) {
+                setRoutines(loadRoutinesFromStorage());
+            } else {
+                setRoutines([]);
+            }
             sheet.open();
             setTimeout(() => sheet.snapToExpanded(), 80);
-        } else if (sheet.stateRef.current !== 'closed') sheet.close();
-    }, [isOpen]);
+        } else if (sheet.stateRef.current !== 'closed') {
+            sheet.close();
+        }
+    }, [isOpen, canUsePreferences]);
 
     useLayoutEffect(() => {
         const next = new Map<string, DOMRect>();
@@ -943,7 +1282,7 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
     }, [routines]);
 
     const save = (list: Routine[]) => {
-        saveRoutinesToStorage(list);
+        saveRoutinesToStorage(list, canUsePreferences);
         setRoutines(list);
         if (user) {
             const payload = { routines: list, _updated_at: new Date().toISOString() };
@@ -952,6 +1291,10 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
     };
 
     const handleSaveRoutine = (data: Omit<Routine, 'id' | 'created_at'> & { id?: string; created_at?: string }) => {
+        if (!canUsePreferences) {
+            showToast('Workout saving requires cookie consent');
+            return;
+        }
         const list = loadRoutinesFromStorage();
         if (data.id) {
             const idx = list.findIndex(r => r.id === data.id);
@@ -965,6 +1308,10 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
     };
 
     const deleteRoutine = (id: string) => {
+        if (!canUsePreferences) {
+            showToast('Workout deletion requires cookie consent');
+            return;
+        }
         if (!confirm('Delete routine?')) return;
         const list = loadRoutinesFromStorage().filter(r => r.id !== id);
         save(list);
@@ -972,25 +1319,40 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
     };
 
     const startSession = async (routine: Routine) => {
+        if (!canUsePreferences) {
+            showToast('Workout tracking requires cookie consent');
+            return;
+        }
         sheet.close();
         const cache = await loadExercisesCache();
-        const gifMap: Record<string, string> = {};
-        cache.forEach(ex => { if (ex.gif) gifMap[ex.name] = ex.gif; });
+        const exCache: Record<string, ExerciseCacheItem> = {};
+        cache.forEach(ex => { exCache[ex.name] = ex; });
         const session: WorkoutSession = {
             id: Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8),
             routineId: routine.id,
             routineName: routine.name,
             startTime: Date.now(),
-            exercises: routine.exercises.map(ex => ({
-                ...ex,
-                gif: ex.gif || gifMap[ex.name] || null,
-                sets: ex.sets.map(s => ({ ...s, state: 'pending' as const, activeStartTime: null, completedAt: null })),
-            })),
+            exercises: routine.exercises.map(ex => {
+                const cached = exCache[ex.name];
+                return {
+                    ...ex,
+                    gif: ex.gif || cached?.gif || null,
+                    instructions: ex.instructions || cached?.instructions || undefined,
+                    instruction_steps: (ex.instruction_steps && ex.instruction_steps.length > 0) 
+                        ? ex.instruction_steps 
+                        : (cached?.instruction_steps || []),
+                    sets: ex.sets.map(s => ({ ...s, state: 'pending' as const, activeStartTime: null, completedAt: null })),
+                };
+            }),
         };
         setTimeout(() => setActiveSession(session), 420);
     };
 
     const handleFinish = async (session: WorkoutSession, rating: number) => {
+        if (!canUsePreferences) {
+            showToast('Workout saving requires cookie consent');
+            return;
+        }
         const endTime = Date.now();
         const duration = Math.floor((endTime - session.startTime) / 1000);
         const log = {
@@ -1050,46 +1412,63 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
                     </div>
                     <div className="modal-header">
                         <div className="modal-title" id="workoutModalTitle">My Routines</div>
+                        <div className="modal-btn" onClick={sheet.close}>
+                            <button className="back-btn" style= { { opacity: 1} }>
+                                <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
+                                    <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                     <div className="modal-body" id="workoutModalBody" style={{ padding: '0 16px 20px', overflowY: 'auto' }}>
-                        <div className="add-workout" id="newRoutineBtn" onClick={() => setCreateModal({ edit: null })}>
-                        <div className="add-wo-btn"><i className="fas fa-plus" /></div>
-                        <div className="add-wo-text">Add new workout</div>
-                        </div>
-                        <div id="routineListContainer">
-                            <div id="routineList" className="routine-list">
-                                {routines.length === 0
-                                ? <div className="empty-state">No routines yet. Create one!</div>
-                                : routines.map((r, index) => {
-                                    const { ex, sets } = getCount(r);
-                                    return (
-                                    <div key={r.id} className="routine-item" data-id={r.id} data-index={index}
-                                        ref={el => { if (el) itemRefs.current.set(r.id, el); else itemRefs.current.delete(r.id); }}>
-                                        <div className="routine-main">
-                                        <div className="routine-info">
-                                            <div className="routine-name">{r.name}</div>
-                                            <div className="routine-stats">{ex} exercises, {sets} sets</div>
-                                        </div>
-                                        <div className="routine-actions">
-                                            <button className="routine-play-btn" data-id={r.id} title="Start workout"
-                                            onClick={e => { e.stopPropagation(); startSession(r); }}>
-                                            <i className="fa-solid fa-play" />
-                                            </button>
-                                            <button className="routine-menu-btn" data-id={r.id}
-                                            onClick={e => {
-                                                e.stopPropagation();
-                                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                                setContextMenu(prev => prev?.id === r.id ? null : { rect, id: r.id });
-                                            }}>
-                                            <i className="fa-solid fa-ellipsis-vertical" />
-                                            </button>
-                                        </div>
-                                        </div>
-                                    </div>
-                                    );
-                                })}
+                        {!canUsePreferences && (
+                            <div className="supp-disabled-notice" style={{ padding: '16px', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                <i className="fa-solid fa-lock" style={{ color: 'var(--text3)' }} />
+                                <p style={{ margin: 0, color: 'var(--text2)' }}>Workout tracking requires <strong>&quot;Preferences&quot;</strong> cookie consent.</p>
                             </div>
-                        </div>
+                        )}
+                        {canUsePreferences && (
+                            <>
+                                <div className="add-workout" id="newRoutineBtn" onClick={() => setCreateModal({ edit: null })}>
+                                    <div className="add-wo-btn"><i className="fas fa-plus" /></div>
+                                    <div className="add-wo-text">Add new workout</div>
+                                </div>
+                                <div id="routineListContainer">
+                                    <div id="routineList" className="routine-list">
+                                        {routines.length === 0
+                                        ? <div className="empty-state">No routines yet. Create one!</div>
+                                        : routines.map((r, index) => {
+                                            const { ex, sets } = getCount(r);
+                                            return (
+                                                <div key={r.id} className="routine-item" data-id={r.id} data-index={index}
+                                                    ref={el => { if (el) itemRefs.current.set(r.id, el); else itemRefs.current.delete(r.id); }}>
+                                                    <div className="routine-main">
+                                                    <div className="routine-info">
+                                                        <div className="routine-name">{r.name}</div>
+                                                        <div className="routine-stats">{ex} exercises, {sets} sets</div>
+                                                    </div>
+                                                    <div className="routine-actions">
+                                                        <button className="routine-play-btn" data-id={r.id} title="Start workout"
+                                                        onClick={e => { e.stopPropagation(); startSession(r); }}>
+                                                        <i className="fa-solid fa-play" />
+                                                        </button>
+                                                        <button className="routine-menu-btn" data-id={r.id}
+                                                        onClick={e => {
+                                                            e.stopPropagation();
+                                                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                                            setContextMenu(prev => prev?.id === r.id ? null : { rect, id: r.id });
+                                                        }}>
+                                                        <i className="fa-solid fa-ellipsis-vertical" />
+                                                        </button>
+                                                    </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1117,6 +1496,10 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
                 <SortExercisesModal
                 routine={sortModal}
                 onSave={exercises => {
+                    if (!canUsePreferences) {
+                        showToast('Exercise order saving requires cookie consent');
+                        return;
+                    }
                     const list = loadRoutinesFromStorage().map(r => r.id === sortModal.id ? { ...r, exercises } : r);
                     save(list);
                     showToast('Exercise order saved');

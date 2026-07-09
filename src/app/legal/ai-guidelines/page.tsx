@@ -52,19 +52,19 @@ export default function AiGuidelinesPage() {
                 <div className="text-section">
                     <div className="legal-contents">
                         {[
-                            { id: 'ai-preamble',         label: '#1',  title: 'Preamble' },
-                            { id: 'ai-overview',         label: '#2',  title: 'Overview of AI in HealthSync' },
-                            { id: 'ai-provider',         label: '#3',  title: 'Provider, model and your API key' },
-                            { id: 'ai-permitted',        label: '#4',  title: 'What AI may be used for' },
-                            { id: 'ai-prohibited',       label: '#5',  title: 'What AI must not be used for' },
-                            { id: 'ai-risks',            label: '#6',  title: 'Known risks and limitations' },
-                            { id: 'ai-data',             label: '#7',  title: 'Data sent to the AI provider' },
-                            { id: 'ai-responsibility',   label: '#8',  title: 'Your responsibilities' },
-                            { id: 'ai-control',          label: '#9',  title: 'Your controls and opt-out' },
-                            { id: 'ai-children',         label: '#10', title: 'Children and minors' },
-                            { id: 'ai-quotas',           label: '#11', title: 'Costs, quotas and rate limits' },
-                            { id: 'ai-incident',         label: '#12', title: 'Incidents and abuse reporting' },
-                            { id: 'ai-changes',          label: '#13', title: 'Changes and updates' },
+                            { id: 'ai-preamble', label: '#1', title: 'Preamble' },
+                            { id: 'ai-overview', label: '#2', title: 'Overview of AI in HealthSync' },
+                            { id: 'ai-provider', label: '#3', title: 'Provider, model and your API key' },
+                            { id: 'ai-permitted', label: '#4', title: 'What AI may be used for' },
+                            { id: 'ai-prohibited', label: '#5', title: 'What AI must not be used for' },
+                            { id: 'ai-risks', label: '#6', title: 'Known risks and limitations' },
+                            { id: 'ai-data', label: '#7', title: 'Data sent to the AI provider' },
+                            { id: 'ai-responsibility', label: '#8', title: 'Your responsibilities' },
+                            { id: 'ai-control', label: '#9', title: 'Your controls and opt-out' },
+                            { id: 'ai-children', label: '#10', title: 'Children and minors' },
+                            { id: 'ai-quotas', label: '#11', title: 'Costs, quotas and rate limits' },
+                            { id: 'ai-incident', label: '#12', title: 'Incidents and abuse reporting' },
+                            { id: 'ai-changes', label: '#13', title: 'Changes and updates' },
                         ].map((item, idx) => (
                             <div key={idx} className="legal-content" data-tag-type="scroll-to" data-scroll-to-id={item.id}>
                                 <div className="legal-content-l">

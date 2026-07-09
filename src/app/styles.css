@@ -443,7 +443,6 @@ a:link:hover {
 .modal-step.active {
 	display: block;
 	flex-direction: column;
-	height: 100%;
 }
 
 .modal-step.active.nfl {
@@ -1008,10 +1007,6 @@ a:link:hover {
 }
 
 @media (min-width: 720px) {
-	.activity-status-modal {
-		width: min(420px, calc(100% - 24px));
-	}
-
 	.extra-modal {
 		border-radius: 16px;
 		margin-bottom: 28px;
@@ -1021,7 +1016,6 @@ a:link:hover {
 
 .activity-status-modal {
 	max-width: 420px;
-	width: calc(100% - 24px);
 }
 
 .extra-modal .modal-handle-zone {
@@ -1063,18 +1057,26 @@ a:link:hover {
 	justify-content: space-between;
 	padding: 8px 16px;
 }
-
 .modal-header {
-	align-items: center;
-	display: flex;
-	flex-shrink: 0;
-	height: 40px;
-	padding: 6px 24px 0;
-	position: relative;
+    flex-shrink: 0;
+    align-items: center;
+    height: 40px;
+    padding: 6px 24px 0;
+    display: flex;
+    position: absolute;
+    width: 100%;
+    top: 30px;
+	background: linear-gradient(0deg, rgba(28, 28, 30, 0) 0%, rgba(28, 28, 30, 0.67) 50%, rgba(28, 28, 30, 1) 100%);
+	z-index: 1;
+    margin-top: -1px;
 }
 
 .modal-btn {
 	z-index: 89;
+}
+
+.modal-btn .close-btn {
+	background: var(--surface2);
 }
 
 .back-btn {
@@ -1467,6 +1469,8 @@ input::-webkit-inner-spin-button {
 	flex-direction: row;
 	gap: 0.75rem;
 	min-width: 111px;
+	max-width: calc(40% - (10px / 2));
+	width: 100%;
 }
 
 .weather-widget {
@@ -1492,9 +1496,10 @@ input::-webkit-inner-spin-button {
 }
 
 .weather-widget-info {
-	display: flex;
-	flex-direction: column;
-	width: 100%;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0; /* WICHTIG: Erlaubt dem Container, kleiner als sein Inhalt zu werden */
 }
 
 .weather-temperature {
@@ -1502,8 +1507,12 @@ input::-webkit-inner-spin-button {
 }
 
 .weather-location {
-	color: var(--text2);
-	font-size: 12px;
+    color: var(--text2);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* max-width: 100%; ist hier nicht mehr zwingend nötig, schadet aber nicht */
 }
 
 #AiBox.ai .dashboard-hero {
@@ -2026,6 +2035,12 @@ input::-webkit-inner-spin-button {
 	overflow-y: unset;
 	position: relative;
 	transition: all 0.3s var(--ease);
+	padding-top: 55px !important;
+}
+
+.modal-body::-webkit-scrollbar, .exercise-category-filters::-webkit-scrollbar {
+	width: 0 !important;
+	height: 0 !important;
 }
 
 .whats-new-content {
@@ -2322,8 +2337,13 @@ input::-webkit-inner-spin-button {
 	background: var(--surface2);
 	border: 1px solid var(--border);
 	border-radius: var(--radius);
-	margin: 20px 24px;
+	margin: 24px;
 	overflow: hidden;
+}
+
+.settings-section:first-child,
+.license-section:first-child {
+	margin-top: 0;
 }
 
 .settings-section-title,
@@ -2334,7 +2354,7 @@ input::-webkit-inner-spin-button {
 	display: flex;
 	font-size: 13px;
 	font-weight: 600;
-	gap: 5px;
+	gap: 8px;
 	letter-spacing: 0.04em;
 	padding: 14px 16px 10px;
 	text-transform: uppercase;
@@ -2986,7 +3006,7 @@ input::-webkit-inner-spin-button {
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
-	padding: 16px 24px 0;
+	padding: 0px 24px 0;
 }
 
 .bottom-sheet.camera-sheet {
@@ -3063,6 +3083,10 @@ input::-webkit-inner-spin-button {
 	padding: 16px;
 	transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s var(--ease), opacity 0.2s;
 	width: 100%;
+}
+
+.confirm-btn.active {
+	box-shadow: 0 4px 20px var(--accent-shadow), 0 0 0 4px rgba(255, 255, 255, 0.1);
 }
 
 .confirm-btn:active {
@@ -3146,23 +3170,30 @@ input::-webkit-inner-spin-button {
 	overflow-y: hidden !important;
 }
 
-::-webkit-scrollbar-track {
-	background: transparent;
-	border-bottom-right-radius: 5px;
-	border-top-right-radius: 5px;
+::-webkit-scrollbar {
+    width: 7.5px;
+    -webkit-appearance: none;
+    z-index: 1000000;
 }
 
 ::-webkit-scrollbar-thumb {
-	background: #707070;
+    background-color: transparent;
+    border-radius: 4px;
+    -webkit-box-shadow: 0 0 1px rgba(255,255,255,.5);
+}
+
+::-webkit-scrollbar-track {
+    border-bottom-right-radius: 5px;
+    border-top-right-radius: 5px;
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #707070;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-	background: #a0a0a0;
-}
-
-::-webkit-scrollbar {
-	-webkit-appearance: none;
-	width: 0;
+    background: #a0a0a0;
 }
 
 @keyframes snapFlash {
@@ -3916,13 +3947,22 @@ input::-webkit-inner-spin-button {
 }
 
 .onboarding-login {
-	background: none;
-	border: none;
-	color: var(--text3);
-	cursor: pointer;
-	font-family: "DM Sans", sans-serif;
-	font-size: 14px;
-	padding: 8px;
+	background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    border: none;
+    border-radius: 16px;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    height: 36px;
+    font-family: DM Sans, sans-serif;
+    font-size: 16px;
+	padding: 0 16px;
+    font-weight: 600;
+    transition: transform .12s, opacity .12s;
+    display: flex;
 }
 
 .onboarding-progress {
@@ -4433,6 +4473,10 @@ input::-webkit-inner-spin-button {
 	max-height: 260px;
 	overflow-y: auto;
 	padding-top: 8px;
+}
+
+.search-step-inner .food-confirm-inner {
+	padding: 0 !important;
 }
 
 .food-confirm-inner {
@@ -5071,7 +5115,7 @@ input::-webkit-inner-spin-button {
 	display: grid;
 	gap: 10px;
 	grid-template-columns: repeat(3, 1fr);
-	padding: 16px 24px 0;
+	padding: 0px 24px 0;
 }
 
 .drink-option {
@@ -5183,8 +5227,7 @@ input::-webkit-inner-spin-button {
 	background: var(--surface);
 	border: 1px solid var(--border);
 	border-radius: var(--radius-sm);
-	margin-top: 1rem;
-	max-height: calc(100vh - 352px);
+	max-height: calc(100vh - 330px);
 	overflow-x: hidden;
 	overflow-y: auto;
 }
@@ -5198,6 +5241,28 @@ input::-webkit-inner-spin-button {
 	flex-direction: column;
 	gap: 16px;
 	margin-top: 16px;
+}
+
+.exercise-category-filters {
+	display: flex;
+	gap: 8px;
+	overflow-x: auto;
+	padding: 12px 0;
+}
+
+.exercise-category-chip {
+	flex: 0 0 auto;
+	padding: 6px 12px;
+	border-radius: 999px;
+	border: 1px solid var(--border);
+	background: transparent;
+	color: inherit;
+	font-size: 13px;
+	white-space: nowrap;
+}
+
+.exercise-category-chip.active {
+	background: var(--accent);
 }
 
 .set-play-btn,
@@ -5308,7 +5373,7 @@ input::-webkit-inner-spin-button {
 	background: var(--accent);
 	border-radius: 4px;
 	height: 100%;
-	transition: width 0.25s linear;
+	transition: width 1s linear;
 }
 
 .splash-screen {
@@ -5516,7 +5581,7 @@ input::-webkit-inner-spin-button {
 }
 
 .exercise-result-item.is-added .fa-check {
-	color: var(--accent);
+	color: var(--color-green);
 }
 
 .exercise-result-item:last-child {
@@ -5534,25 +5599,53 @@ input::-webkit-inner-spin-button {
 	text-align: center;
 }
 
-.exercise-result-img {
+.exercise-result-img, .exercise-card-img {
 	background: var(--surface3);
 	border-radius: 8px;
-	height: 40px;
+	height: 45px;
 	object-fit: cover;
-	width: 40px;
+	width: 45px;
 }
 
-.exercise-result-info {
+.exercise-result-info, .exercise-card-info {
+	display: flex;
+	flex-direction: column;
 	flex: 1;
+	gap: 4px;
 }
 
-.exercise-result-name {
+.exercise-result-name, .exercise-card-name {
 	font-weight: 500;
 }
 
+.exercise-result-muscles {
+	display: flex;
+	flex-direction: row;
+	gap: 4px;
+}
+
 .exercise-result-muscle {
+	border-radius: 6px;
 	color: var(--text2);
-	font-size: 11px;
+	display: flex;
+	flex-direction: row;
+	font-size: 9px;
+	gap: 8px;
+	padding: 4px;
+}
+
+.exercise-result-muscle.primary, .exercise-result-muscle.secondary {
+	padding: 2px 0;
+}
+
+.exercise-result-muscles.primary .exercise-result-muscle, .exercise-card-muscle.primary {
+	background: rgba(164, 216, 255, 0.15);
+	color: #A4D8FF;
+}
+
+.exercise-result-muscles.secondary .exercise-result-muscle, .exercise-card-muscle.secondary {
+	background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
 }
 
 .exercise-card {
@@ -5566,8 +5659,20 @@ input::-webkit-inner-spin-button {
 	align-items: center;
 	display: flex;
 	font-weight: 600;
+	gap: 12px;
 	justify-content: space-between;
 	margin-bottom: 10px;
+}
+
+.exercise-card-muscles {
+	display: flex;
+	gap: 4px;
+}
+
+.exercise-card-muscle.primary {
+	margin-top: 8px;
+	color: rgb(74, 222, 128);
+	font-size: 14px;
 }
 
 .remove-exercise-btn {
@@ -6201,6 +6306,83 @@ input::-webkit-inner-spin-button {
 	display: none;
 }
 
+.gif-modal-body {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0 16px 24px;
+}
+
+.gif-tabs {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0 8px 0;
+    border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.1));
+}
+
+.gif-tab {
+    background: none;
+    border: none;
+    padding: 6px 12px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text3, #888);
+    cursor: pointer;
+    transition: color 0.2s, border-bottom 0.2s;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.gif-tab.active {
+    color: var(--text1, #fff);
+    border-bottom-color: var(--accent, #4ade80);
+}
+
+.gif-tab:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.gif-tab:not(:disabled):hover {
+    color: var(--text1, #fff);
+}
+
+.gif-instructions-section,
+.gif-steps-section {
+    margin-top: 12px;
+}
+
+.gif-modal-video {
+    width: 100%;
+    border-radius: var(--radius-sm, 8px);
+    display: block;
+}
+
+.gif-instructions-section {
+    margin: 1rem 0;
+}
+
+.gif-section-title {
+    color: var(--text2);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.gif-instructions-text {
+    color: var(--text2);
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.gif-steps-list {
+    padding-left: 20px;
+    color: var(--text2);
+    line-height: 1.7;
+    margin: 0;
+    font-size: 14px;
+}
+
 .routine-item {
 	background: var(--surface2);
 	border-radius: var(--radius-sm);
@@ -6219,6 +6401,7 @@ input::-webkit-inner-spin-button {
 	display: flex;
 	justify-content: space-between;
 	width: 100%;
+	padding: 0.75rem;
 }
 
 .routine-info {
@@ -6233,7 +6416,6 @@ input::-webkit-inner-spin-button {
 .routine-stats {
 	color: var(--text2);
 	font-size: 12px;
-	margin-top: 4px;
 }
 
 .routine-actions {
@@ -6346,7 +6528,7 @@ input::-webkit-inner-spin-button {
 
 .sets-table {
 	font-size: 14px;
-	margin-top: 8px;
+	margin-top: 1rem;
 	width: 100%;
 }
 
@@ -6430,12 +6612,16 @@ input::-webkit-inner-spin-button {
 
 #activeWorkoutFooter {
 	display: flex;
-	gap: 1rem;
+	gap: 0;
+}
+
+#activeWorkoutFooter .option-btn {
+	margin-right: 1rem;
 }
 
 .mini-workout-bar {
 	backdrop-filter: blur(10px);
-	background: var(--surface);
+	background: #3a3a3c33;
 	border: 1px solid var(--border);
 	border-radius: 60px;
 	bottom: 90px;
@@ -6454,7 +6640,7 @@ input::-webkit-inner-spin-button {
 	cursor: pointer;
 	display: flex;
 	gap: 12px;
-	padding: 10px 16px;
+	padding: 12px 12px;
 }
 
 .mini-workout-icon {

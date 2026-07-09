@@ -163,7 +163,7 @@ test.describe('Onboarding · slide 5 (Additional Notes & legal links)', () => {
     test('Terms of Service link points to itsmarian.dev and opens in a new tab', async ({ page }) => {
         const link = page.locator('.onboarding-legal-link', { hasText: 'Terms of Service' });
         await expect(link).toBeVisible();
-        await expect(link).toHaveAttribute('href', 'https://itsmarian.dev/legal/terms');
+        await expect(link).toHaveAttribute('href', 'https://healthsync.itsmarian.dev/legal/terms');
         await expect(link).toHaveAttribute('target', '_blank');
         await expect(link).toHaveAttribute('rel', /\bnoopener\b/);
     });
@@ -171,14 +171,14 @@ test.describe('Onboarding · slide 5 (Additional Notes & legal links)', () => {
     test('Privacy Policy link points to itsmarian.dev and opens in a new tab', async ({ page }) => {
         const link = page.locator('.onboarding-legal-link', { hasText: 'Privacy Policy' });
         await expect(link).toBeVisible();
-        await expect(link).toHaveAttribute('href', 'https://itsmarian.dev/legal/privacy');
+        await expect(link).toHaveAttribute('href', 'https://healthsync.itsmarian.dev/legal/privacy');
         await expect(link).toHaveAttribute('target', '_blank');
         await expect(link).toHaveAttribute('rel', /\bnoopener\b/);
     });
 
     test('inline Privacy Policy link inside the legal text targets the same URL', async ({ page }) => {
         const inline = page.locator('.onboarding-legal-text a[href*="legal/privacy"]');
-        await expect(inline.first()).toHaveAttribute('href', 'https://itsmarian.dev/legal/privacy');
+        await expect(inline.first()).toHaveAttribute('href', 'https://healthsync.itsmarian.dev/legal/privacy');
         await expect(inline.first()).toHaveAttribute('target', '_blank');
     });
 });
