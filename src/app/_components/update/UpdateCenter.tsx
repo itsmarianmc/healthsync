@@ -61,12 +61,15 @@ function readUpdateAvailable(): boolean {
     }
 }
 
+const UPDATE_AVAILABLE_CHANGED_EVENT = 'healthsync:update-available-changed';
+
 function writeUpdateAvailable(available: boolean): void {
     try {
         localStorage.setItem(UPDATE_AVAILABLE_STORAGE_KEY, String(available));
     } catch (error) {
         console.log('[changelog] localStorage write error:', error);
     }
+    window.dispatchEvent(new CustomEvent(UPDATE_AVAILABLE_CHANGED_EVENT, { detail: available }));
 }
 
 function sortEntries(entries: ChangelogEntry[]): ChangelogEntry[] {
@@ -148,13 +151,25 @@ export default function UpdateCenter() {
         const handleControllerChange = () => {
             if (!reloadAfterUpdateRef.current) return;
             reloadAfterUpdateRef.current = false;
+            setUpdateAvailable(false);
+            writeUpdateAvailable(false);
             window.location.reload();
         };
 
         serwist.addEventListener('waiting', handleWaiting);
         navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
 
-        void serwist.register({ immediate: true });
+        void serwist.register({ immediate: true }).then(async () => {
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                if (!registration?.waiting) {
+                    setUpdateAvailable(false);
+                    writeUpdateAvailable(false);
+                }
+            } catch (error) {
+                console.log('[changelog] registration check error:', error);
+            }
+        });
 
         return () => {
             serwist.removeEventListener('waiting', handleWaiting);
@@ -263,8 +278,22 @@ export default function UpdateCenter() {
         };
     }, [close, open, snapToExpanded, stateRef, updateCenterOpen]);
 
-    const applyUpdate = () => {
+    const applyUpdate = async () => {
         const globalWindow = window as SerwistWindow;
+        let registration: ServiceWorkerRegistration | undefined;
+        try {
+            registration = await navigator.serviceWorker.getRegistration();
+        } catch (error) {
+            console.log('[changelog] registration lookup error:', error);
+        }
+
+        if (!registration?.waiting) {
+            setUpdateAvailable(false);
+            writeUpdateAvailable(false);
+            window.location.reload();
+            return;
+        }
+
         reloadAfterUpdateRef.current = true;
         globalWindow.serwist?.messageSkipWaiting();
     };

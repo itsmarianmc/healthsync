@@ -155,12 +155,26 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     }, [canUseThirdParty]);
 
     useEffect(() => {
-        // Load update availability from localStorage
         try {
             setUpdateAvailable(localStorage.getItem('healthsync_update_available') === 'true');
         } catch (error) {
             console.log('[settings] localStorage read error:', error);
         }
+
+        const handleStorage = (event: StorageEvent) => {
+            if (event.key !== 'healthsync_update_available') return;
+            setUpdateAvailable(event.newValue === 'true');
+        };
+        const handleSameTabChange = (event: Event) => {
+            const detail = (event as CustomEvent<boolean>).detail;
+            setUpdateAvailable(Boolean(detail));
+        };
+        window.addEventListener('storage', handleStorage);
+        window.addEventListener('healthsync:update-available-changed', handleSameTabChange);
+        return () => {
+            window.removeEventListener('storage', handleStorage);
+            window.removeEventListener('healthsync:update-available-changed', handleSameTabChange);
+        };
     }, []);
 
     useEffect(() => {
@@ -443,8 +457,27 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         showToast(`Exported ${files.length} CSV file${files.length === 1 ? '' : 's'}`);
     };
 
-    const applyUpdate = () => {
+    const applyUpdate = async () => {
         const globalWindow = window as SerwistWindow;
+        let registration: ServiceWorkerRegistration | undefined;
+        try {
+            registration = await navigator.serviceWorker.getRegistration();
+        } catch (error) {
+            console.log('[settings] registration lookup error:', error);
+        }
+
+        if (!registration?.waiting) {
+            setUpdateAvailable(false);
+            try {
+                localStorage.setItem('healthsync_update_available', 'false');
+            } catch (error) {
+                console.log('[settings] localStorage write error:', error);
+            }
+            window.dispatchEvent(new CustomEvent('healthsync:update-available-changed', { detail: false }));
+            window.location.reload();
+            return;
+        }
+
         globalWindow.serwist?.messageSkipWaiting();
     };
 
