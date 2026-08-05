@@ -50,9 +50,6 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded }:
         try {
             if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
             let stream = await navigator.mediaDevices.getUserMedia(constraints);
-            // FIX: the browser may hand back the ultrawide back camera (short focal
-            // length, focuses on distant subjects). Prefer the plain "Back Camera" so
-            // close-up barcodes stay sharp and scannable.
             if (!deviceId) {
                 stream = await upgradeToPreferredBackCamera(stream);
             }

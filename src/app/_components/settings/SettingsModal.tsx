@@ -467,7 +467,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
             console.log('[settings] registration lookup error:', error);
         }
 
-        // FIX: "Update" clicked -> save new version in cache (NOT Supabase)
         writeLocalLastSeen(APP_VERSION);
 
         if (!registration?.waiting) {
@@ -483,9 +482,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
             return;
         }
 
-        // Mark that a reload should follow once the new service worker takes over.
-        // UpdateCenter's controllerchange listener reads this flag and reloads the page,
-        // so the reload is triggered reliably even when the update is started from Settings.
         writePendingReloadAfterUpdate(true);
         globalWindow.serwist?.messageSkipWaiting();
     };
