@@ -35,8 +35,6 @@ export const viewport: Viewport = {
     themeColor: '#0F0F10',
     width: 'device-width',
     initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -160,9 +158,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 </AuthProvider>
                 <Tooltip />
                 <CookieBanner />
-                <Script 
-                    src="https://unpkg.com/@zxing/browser@latest" 
-                    strategy="afterInteractive" 
+                <script
+                    src="https://unpkg.com/@zxing/browser@0.2.1"
+                    integrity="sha384-HRtzk9lZgkbSgvUyQrnfC/GxiXZgwaNyD7hC9wcXlsBpDhkS80ISl73juef2FRuf"
+                    crossOrigin="anonymous"
+                    defer
                 />
             </body>
         </html>

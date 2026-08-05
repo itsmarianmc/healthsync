@@ -9,6 +9,7 @@ import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { calcSupplements, persistSupplementGoals } from '../../_lib/supplements';
 import { reverseGeocodeLocation } from '../../_lib/location';
 import { APP_VERSION } from '../../_lib/release';
+import { writeLocalLastSeen, writePendingReloadAfterUpdate } from '../../_lib/changelog';
 import { Serwist } from '@serwist/window';
 
 type SerwistWindow = Window & {
@@ -466,7 +467,11 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
             console.log('[settings] registration lookup error:', error);
         }
 
+        // FIX: "Update" clicked -> save new version in cache (NOT Supabase)
+        writeLocalLastSeen(APP_VERSION);
+
         if (!registration?.waiting) {
+            writePendingReloadAfterUpdate(false);
             setUpdateAvailable(false);
             try {
                 localStorage.setItem('healthsync_update_available', 'false');
@@ -478,6 +483,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
             return;
         }
 
+        // Mark that a reload should follow once the new service worker takes over.
+        // UpdateCenter's controllerchange listener reads this flag and reloads the page,
+        // so the reload is triggered reliably even when the update is started from Settings.
+        writePendingReloadAfterUpdate(true);
         globalWindow.serwist?.messageSkipWaiting();
     };
 

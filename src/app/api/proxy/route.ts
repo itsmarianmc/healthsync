@@ -2,6 +2,16 @@ import type { NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
+  // The local AI proxy is an experimental hook and is disabled by default to
+  // avoid exposing an unauthenticated relay to the local Ollama instance.
+  // Enable it explicitly with ENABLE_OLLAMA_PROXY=true (e.g. for local dev).
+  if (process.env.ENABLE_OLLAMA_PROXY !== 'true') {
+    return new Response(JSON.stringify({ error: 'Not Found' }), {
+      status: 404,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
   const type = req.nextUrl.searchParams.get('type');
   if (type !== 'pillama') {
     return new Response(JSON.stringify({ error: 'Unsupported proxy type' }), {

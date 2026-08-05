@@ -525,8 +525,9 @@ export default function AiTips({ score }: AiTipsProps) {
                             <div
                                 className="dashboard-widget-title"
                                 id="aiTipTitle"
-                                dangerouslySetInnerHTML={{ __html: title }}
-                            />
+                            >
+                                {title}
+                            </div>
                             <div className="dashboard-widget-text" id="aiTipText">
                                 <div>{text}</div>
                                 <div>{text2}</div>

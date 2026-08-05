@@ -72,3 +72,56 @@ export async function storeLastSeenChangelogVersion(userId: string, version: str
         console.error('[changelog] store last seen error:', error.message);
     }
 }
+
+export const LAST_SEEN_STORAGE_KEY = 'healthsync_last_seen_changelog_version';
+export const PENDING_RELOAD_STORAGE_KEY = 'healthsync_pending_reload_after_update';
+
+export function readLocalLastSeen(): string | null {
+    try {
+        return localStorage.getItem(LAST_SEEN_STORAGE_KEY);
+    } catch (error) {
+        console.log('[changelog] localStorage read error:', error);
+        return null;
+    }
+}
+
+export function writeLocalLastSeen(version: string): void {
+    try {
+        localStorage.setItem(LAST_SEEN_STORAGE_KEY, version);
+    } catch (error) {
+        console.log('[changelog] localStorage write error:', error);
+    }
+}
+
+export function readPendingReloadAfterUpdate(): boolean {
+    try {
+        return localStorage.getItem(PENDING_RELOAD_STORAGE_KEY) === 'true';
+    } catch (error) {
+        console.log('[changelog] localStorage read error:', error);
+        return false;
+    }
+}
+
+export function writePendingReloadAfterUpdate(pending: boolean): void {
+    try {
+        localStorage.setItem(PENDING_RELOAD_STORAGE_KEY, String(pending));
+    } catch (error) {
+        console.log('[changelog] localStorage write error:', error);
+    }
+}
+
+export function pickHigherVersion(left: string | null, right: string | null): string | null {
+    if (!left) return right;
+    if (!right) return left;
+    return compareVersions(left, right) >= 0 ? left : right;
+}
+
+export async function syncLastSeenVersion(
+    userId: string,
+    localVersion: string,
+    supabaseVersion: string | null,
+): Promise<void> {
+    if (compareVersions(localVersion, supabaseVersion ?? '0') > 0) {
+        await storeLastSeenChangelogVersion(userId, localVersion);
+    }
+}

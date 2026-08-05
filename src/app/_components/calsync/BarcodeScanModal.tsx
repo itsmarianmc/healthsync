@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
+import { resolveBackCameraConstraints, upgradeToPreferredBackCamera } from '../../_lib/camera';
 
 interface ExtendedMediaTrackCapabilities extends MediaTrackCapabilities {
     focusMode?: string[];
@@ -34,7 +35,6 @@ export default function BarcodeScanModal({ isOpen, onClose, onScanned }: Barcode
     const streamRef = useRef<MediaStream | null>(null);
     const readerRef = useRef<unknown>(null);
     const activeRef = useRef(false);
-    const cameraIndexRef = useRef(0);
     const deviceIdRef = useRef<string | undefined>(undefined);
     const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
     const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(undefined);
@@ -101,12 +101,16 @@ export default function BarcodeScanModal({ isOpen, onClose, onScanned }: Barcode
             };
         };
         if (!ZXing) { setStatus('Barcode library not loaded.'); return; }
-            const constraints: MediaStreamConstraints = {
-            video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'environment' },
-        };
+            const constraints: MediaStreamConstraints = await resolveBackCameraConstraints(deviceId);
         try {
             if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
-            const stream = await getStreamWithRetry(constraints);
+            let stream = await getStreamWithRetry(constraints);
+            // FIX: the browser may hand back the ultrawide back camera (short focal
+            // length, focuses on distant subjects). Prefer the plain "Back Camera" so
+            // close-up barcodes stay sharp and scannable.
+            if (!deviceId) {
+                stream = await upgradeToPreferredBackCamera(stream);
+            }
             streamRef.current = stream;
             const activeDeviceId = stream.getVideoTracks()[0]?.getSettings().deviceId ?? deviceId;
             deviceIdRef.current = activeDeviceId;
@@ -167,18 +171,6 @@ export default function BarcodeScanModal({ isOpen, onClose, onScanned }: Barcode
                 setStatus(`Camera error: ${name || 'unknown'}. Try restarting.`);
             }
             console.warn('Camera start failed:', err);
-        }
-    };
-
-    const switchCamera = async () => {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const cams = devices.filter(d => d.kind === 'videoinput');
-        if (cams.length > 1) {
-            cameraIndexRef.current = (cameraIndexRef.current + 1) % cams.length;
-            deviceIdRef.current = cams[cameraIndexRef.current].deviceId;
-            startCamera(deviceIdRef.current);
-        } else {
-            setStatus('Only one camera available.');
         }
     };
 
@@ -298,16 +290,6 @@ export default function BarcodeScanModal({ isOpen, onClose, onScanned }: Barcode
                             >
                             Restart Camera
                         </button>
-                        {cameras.length <= 1 && (
-                            <button
-                                id="switchCameraBtn"
-                                className="option-btn"
-                                style={{ flex: 1 }}
-                                onClick={switchCamera}
-                                >
-                                Switch Camera
-                            </button>
-                        )}
                     </div>
                 </div>
             </div>

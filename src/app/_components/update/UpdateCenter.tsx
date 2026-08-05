@@ -6,10 +6,21 @@ import { Serwist } from '@serwist/window';
 import { useAppShell } from '../../_context/AppShellContext';
 import { useAuth } from '../../_context/AuthContext';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
-import { compareVersions, fetchChangelogEntries, fetchLastSeenChangelogVersion, storeLastSeenChangelogVersion, type ChangelogEntry } from '../../_lib/changelog';
+import {
+    compareVersions,
+    fetchChangelogEntries,
+    fetchLastSeenChangelogVersion,
+    pickHigherVersion,
+    readLocalLastSeen,
+    readPendingReloadAfterUpdate,
+    storeLastSeenChangelogVersion,
+    syncLastSeenVersion,
+    writeLocalLastSeen,
+    writePendingReloadAfterUpdate,
+    type ChangelogEntry,
+} from '../../_lib/changelog';
 import { APP_VERSION } from '../../_lib/release';
 
-const LAST_SEEN_STORAGE_KEY = 'healthsync_last_seen_changelog_version';
 const UPDATE_AVAILABLE_STORAGE_KEY = 'healthsync_update_available';
 const DISMISSED_BANNER_STORAGE_KEY = 'healthsync_dismissed_banner';
 const UPDATE_CENTER_ALLOWED_ROUTES = ['/dash', '/food', '/drinks'];
@@ -17,23 +28,6 @@ const UPDATE_CENTER_ALLOWED_ROUTES = ['/dash', '/food', '/drinks'];
 type SerwistWindow = Window & {
     serwist?: Serwist;
 };
-
-function readLocalLastSeen(): string | null {
-    try {
-        return localStorage.getItem(LAST_SEEN_STORAGE_KEY);
-    } catch (error) {
-        console.log('[changelog] localStorage read error:', error);
-        return null;
-    }
-}
-
-function writeLocalLastSeen(version: string): void {
-    try {
-        localStorage.setItem(LAST_SEEN_STORAGE_KEY, version);
-    } catch (error) {
-        console.log('[changelog] localStorage write error:', error);
-    }
-}
 
 function readDismissedBanner(): boolean {
     try {
@@ -149,8 +143,9 @@ export default function UpdateCenter() {
         };
 
         const handleControllerChange = () => {
-            if (!reloadAfterUpdateRef.current) return;
+            if (!reloadAfterUpdateRef.current && !readPendingReloadAfterUpdate()) return;
             reloadAfterUpdateRef.current = false;
+            writePendingReloadAfterUpdate(false);
             setUpdateAvailable(false);
             writeUpdateAvailable(false);
             window.location.reload();
@@ -198,7 +193,7 @@ export default function UpdateCenter() {
                 if (cancelled) return;
 
                 const localSeenVersion = readLocalLastSeen();
-                const lastSeenVersion = profileSeenVersion || localSeenVersion;
+                const lastSeenVersion = pickHigherVersion(profileSeenVersion, localSeenVersion);
                 const currentEntries = sortEntries(
                     allEntries.filter((entry) => compareVersions(entry.version, APP_VERSION) <= 0)
                 );
@@ -213,11 +208,15 @@ export default function UpdateCenter() {
                     if (unseenEntries.length > 0) {
                         setHasPendingChangelog(true);
                     }
+                    // FIX: compare local version with Supabase; if local is higher -> update Supabase
+                    if (user?.id && lastSeenVersion) {
+                        void syncLastSeenVersion(user.id, lastSeenVersion, profileSeenVersion);
+                    }
                 } else {
                     profileSeenVersionRef.current = profileSeenVersion;
                     writeLocalLastSeen(APP_VERSION);
                     if (user?.id) {
-                        void storeLastSeenChangelogVersion(user.id, APP_VERSION);
+                        void syncLastSeenVersion(user.id, APP_VERSION, profileSeenVersion);
                     }
                 }
             } catch (error) {
@@ -257,9 +256,6 @@ export default function UpdateCenter() {
         }
 
         if (updateCenterOpen) {
-            if (serverChangelogResponseRef.current) {
-                console.log('[changelog] server response:', serverChangelogResponseRef.current);
-            }
             open();
             expandTimerRef.current = window.setTimeout(() => {
                 if (stateRef.current !== 'closed') {
@@ -287,7 +283,11 @@ export default function UpdateCenter() {
             console.log('[changelog] registration lookup error:', error);
         }
 
+        // FIX: "Update" clicked -> save new version in cache (NOT Supabase)
+        writeLocalLastSeen(APP_VERSION);
+
         if (!registration?.waiting) {
+            writePendingReloadAfterUpdate(false);
             setUpdateAvailable(false);
             writeUpdateAvailable(false);
             window.location.reload();
@@ -295,6 +295,7 @@ export default function UpdateCenter() {
         }
 
         reloadAfterUpdateRef.current = true;
+        writePendingReloadAfterUpdate(true);
         globalWindow.serwist?.messageSkipWaiting();
     };
 
@@ -349,7 +350,7 @@ export default function UpdateCenter() {
                                             <span className="whats-new-entry-version">v{entry.version}</span>
                                         </div>
                                         <h3 className="whats-new-entry-title">{entry.title}</h3>
-                                        <p className="whats-new-entry-description" dangerouslySetInnerHTML={{ __html: entry.description }} />
+                                        <p className="whats-new-entry-description">{entry.description}</p>
                                     </article>
                                 ))}
                             </div>
