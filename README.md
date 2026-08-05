@@ -91,6 +91,7 @@ app/
 ├── api/
 │   └── proxy/route.ts      # Edge-style proxy for the optional local AI endpoint
 ├── _lib/
+│   ├── camera.ts           # Back-camera selection helpers for barcode scanning
 │   ├── supabase.ts         # Supabase browser client
 │   ├── types.ts            # TypeScript interfaces
 │   └── sync.ts             # All Supabase CRUD functions

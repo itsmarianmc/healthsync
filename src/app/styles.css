@@ -3975,7 +3975,7 @@ input::-webkit-inner-spin-button {
 .onboarding-body {
 	flex: 1;
 	margin-top: 8px;
-	overflow: hidden;
+	overflow: hidden !important;
 	position: relative;
 }
 

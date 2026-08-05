@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
+import { resolveBackCameraConstraints, upgradeToPreferredBackCamera } from '../../_lib/camera';
 
 interface BarcodeScannerProps {
     isOpen: boolean;
@@ -45,12 +46,16 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded }:
             };
         };
         if (!ZXing) { setStatus('Barcode library not loaded.'); return; }
-            const constraints: MediaStreamConstraints = {
-            video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'environment' }
-        };
+            const constraints: MediaStreamConstraints = await resolveBackCameraConstraints(deviceId);
         try {
             if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
-            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            let stream = await navigator.mediaDevices.getUserMedia(constraints);
+            // FIX: the browser may hand back the ultrawide back camera (short focal
+            // length, focuses on distant subjects). Prefer the plain "Back Camera" so
+            // close-up barcodes stay sharp and scannable.
+            if (!deviceId) {
+                stream = await upgradeToPreferredBackCamera(stream);
+            }
             streamRef.current = stream;
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;

@@ -420,8 +420,10 @@ The file `src/app/api/proxy/route.ts` exposes a tiny POST endpoint at
 This is an experimental hook and is not required for HealthSync to function.
 
 Set `OLLAMA_PROXY_URL` in your environment to point at a different completion
-endpoint. Leave it unset to use the default. Disable the route entirely by
-removing the file or wrapping it with auth before exposing it publicly.
+endpoint. Leave it unset to use the default. The route is **disabled by
+default** and returns `404` unless you explicitly set `ENABLE_OLLAMA_PROXY=true`
+(e.g. for local development). Do not enable it on a public deployment without
+adding authentication first.
 
 ---
 

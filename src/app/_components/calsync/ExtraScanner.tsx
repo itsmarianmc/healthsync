@@ -49,12 +49,17 @@ function parseServingSize(product: Record<string, unknown>): { value: number; un
     return null;
 }
 
+function toFiniteNumber(value: unknown, fallback = 0): number {
+    const n = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
 function mapProductToEntry(product: Record<string, any>): FoodEntry {
     const n = (product.nutriments || {}) as Record<string, number>;
-    const kcalPer100 = n['energy-kcal_prepared_100g'] || n['energy-kcal_100g'] || n['energy-kcal'] || (n['energy_100g'] ? n['energy_100g'] / 4.184 : 0);
-    const protPer100 = n['proteins_prepared_100g'] || n['proteins_100g'] || n['proteins'] || 0;
-    const carbPer100 = n['carbohydrates_prepared_100g'] || n['carbohydrates_100g'] || n['carbohydrates'] || 0;
-    const fatPer100  = n['fat_prepared_100g'] || n['fat_100g'] || n['fat'] || 0;
+    const kcalPer100 = toFiniteNumber(n['energy-kcal_prepared_100g'] || n['energy-kcal_100g'] || n['energy-kcal'] || (n['energy_100g'] ? n['energy_100g'] / 4.184 : 0));
+    const protPer100 = toFiniteNumber(n['proteins_prepared_100g'] || n['proteins_100g'] || n['proteins'] || 0);
+    const carbPer100 = toFiniteNumber(n['carbohydrates_prepared_100g'] || n['carbohydrates_100g'] || n['carbohydrates'] || 0);
+    const fatPer100  = toFiniteNumber(n['fat_prepared_100g'] || n['fat_100g'] || n['fat'] || 0);
 
     const servingInfo = parseServingSize(product);
     let servingAmount = servingInfo?.value ?? 100;

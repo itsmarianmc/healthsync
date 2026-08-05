@@ -9,6 +9,7 @@ import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { calcSupplements, persistSupplementGoals } from '../../_lib/supplements';
 import { reverseGeocodeLocation } from '../../_lib/location';
 import { APP_VERSION } from '../../_lib/release';
+import { writeLocalLastSeen, writePendingReloadAfterUpdate } from '../../_lib/changelog';
 import { Serwist } from '@serwist/window';
 
 type SerwistWindow = Window & {
@@ -155,12 +156,26 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     }, [canUseThirdParty]);
 
     useEffect(() => {
-        // Load update availability from localStorage
         try {
             setUpdateAvailable(localStorage.getItem('healthsync_update_available') === 'true');
         } catch (error) {
             console.log('[settings] localStorage read error:', error);
         }
+
+        const handleStorage = (event: StorageEvent) => {
+            if (event.key !== 'healthsync_update_available') return;
+            setUpdateAvailable(event.newValue === 'true');
+        };
+        const handleSameTabChange = (event: Event) => {
+            const detail = (event as CustomEvent<boolean>).detail;
+            setUpdateAvailable(Boolean(detail));
+        };
+        window.addEventListener('storage', handleStorage);
+        window.addEventListener('healthsync:update-available-changed', handleSameTabChange);
+        return () => {
+            window.removeEventListener('storage', handleStorage);
+            window.removeEventListener('healthsync:update-available-changed', handleSameTabChange);
+        };
     }, []);
 
     useEffect(() => {
@@ -443,8 +458,35 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         showToast(`Exported ${files.length} CSV file${files.length === 1 ? '' : 's'}`);
     };
 
-    const applyUpdate = () => {
+    const applyUpdate = async () => {
         const globalWindow = window as SerwistWindow;
+        let registration: ServiceWorkerRegistration | undefined;
+        try {
+            registration = await navigator.serviceWorker.getRegistration();
+        } catch (error) {
+            console.log('[settings] registration lookup error:', error);
+        }
+
+        // FIX: "Update" clicked -> save new version in cache (NOT Supabase)
+        writeLocalLastSeen(APP_VERSION);
+
+        if (!registration?.waiting) {
+            writePendingReloadAfterUpdate(false);
+            setUpdateAvailable(false);
+            try {
+                localStorage.setItem('healthsync_update_available', 'false');
+            } catch (error) {
+                console.log('[settings] localStorage write error:', error);
+            }
+            window.dispatchEvent(new CustomEvent('healthsync:update-available-changed', { detail: false }));
+            window.location.reload();
+            return;
+        }
+
+        // Mark that a reload should follow once the new service worker takes over.
+        // UpdateCenter's controllerchange listener reads this flag and reloads the page,
+        // so the reload is triggered reliably even when the update is started from Settings.
+        writePendingReloadAfterUpdate(true);
         globalWindow.serwist?.messageSkipWaiting();
     };
 
