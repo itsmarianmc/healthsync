@@ -1,10 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Content-Security-Policy. The unsafe-* directives are kept because the app
-// renders inline scripts (splash screen, Google Analytics) and loads a
-// third-party barcode library over the network. To remove them later, migrate
-// the inline scripts to nonces and bundle @zxing/browser via npm.
 const csp = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://unpkg.com",

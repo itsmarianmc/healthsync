@@ -1,5 +1,3 @@
-import { supabase } from './supabase';
-
 export interface ChangelogEntry {
     id: string;
     version: string;
@@ -7,16 +5,6 @@ export interface ChangelogEntry {
     description: string;
     category: string;
     created_at?: string | null;
-}
-
-interface ProfileChangelogState {
-    last_seen_changelog_version: string | null;
-}
-
-function splitVersion(version: string): number[] {
-    return version
-        .split(/[.-]/)
-        .map((part) => Number.parseInt(part.replace(/[^0-9]/g, ''), 10) || 0);
 }
 
 export function compareVersions(left: string, right: string): number {
@@ -33,44 +21,56 @@ export function compareVersions(left: string, right: string): number {
     return left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
 }
 
-export async function fetchChangelogEntries(): Promise<ChangelogEntry[]> {
-    const { data, error } = await supabase
-        .from('changelog_entries')
-        .select('id, version, title, description, category, created_at')
-        .order('created_at', { ascending: false });
+function splitVersion(version: string): number[] {
+    return version
+        .split(/[.-]/)
+        .map((part) => Number.parseInt(part.replace(/[^0-9]/g, ''), 10) || 0);
+}
 
-    if (error) {
-        console.error('[changelog] fetch entries error:', error.message);
-        return [];
+function convertJsonToChangelogEntries(jsonData: Record<string, Record<string, string[]>>): ChangelogEntry[] {
+    const entries: ChangelogEntry[] = [];
+    let id = 0;
+
+    for (const [version, categories] of Object.entries(jsonData)) {
+        for (const [category, descriptions] of Object.entries(categories)) {
+            const description = descriptions.join(' ');
+
+            entries.push({
+                id: String(id++),
+                version,
+                title: category,
+                description,
+                category: category.toLowerCase(),
+                created_at: new Date().toISOString(),
+            });
+        }
     }
 
-    return (data ?? []) as ChangelogEntry[];
+    return entries;
+}
+
+export async function fetchChangelogEntries(): Promise<ChangelogEntry[]> {
+    try {
+        const response = await fetch('/changelog.json');
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch changelog: ${response.status}`);
+        }
+
+        const jsonData = await response.json();
+        return convertJsonToChangelogEntries(jsonData);
+    } catch (error) {
+        console.error('[changelog] fetch entries error:', error);
+        return [];
+    }
 }
 
 export async function fetchLastSeenChangelogVersion(userId: string): Promise<string | null> {
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('last_seen_changelog_version')
-        .eq('id', userId)
-        .maybeSingle();
-
-    if (error) {
-        console.error('[changelog] fetch last seen error:', error.message);
-        return null;
-    }
-
-    return (data as ProfileChangelogState | null)?.last_seen_changelog_version ?? null;
+    return null;
 }
 
 export async function storeLastSeenChangelogVersion(userId: string, version: string): Promise<void> {
-    const { error } = await supabase
-        .from('profiles')
-        .update({ last_seen_changelog_version: version })
-        .eq('id', userId);
-
-    if (error) {
-        console.error('[changelog] store last seen error:', error.message);
-    }
+    return;
 }
 
 export const LAST_SEEN_STORAGE_KEY = 'healthsync_last_seen_changelog_version';
@@ -80,7 +80,6 @@ export function readLocalLastSeen(): string | null {
     try {
         return localStorage.getItem(LAST_SEEN_STORAGE_KEY);
     } catch (error) {
-        console.log('[changelog] localStorage read error:', error);
         return null;
     }
 }
@@ -88,16 +87,13 @@ export function readLocalLastSeen(): string | null {
 export function writeLocalLastSeen(version: string): void {
     try {
         localStorage.setItem(LAST_SEEN_STORAGE_KEY, version);
-    } catch (error) {
-        console.log('[changelog] localStorage write error:', error);
-    }
+    } catch (error) {}
 }
 
 export function readPendingReloadAfterUpdate(): boolean {
     try {
         return localStorage.getItem(PENDING_RELOAD_STORAGE_KEY) === 'true';
     } catch (error) {
-        console.log('[changelog] localStorage read error:', error);
         return false;
     }
 }
@@ -105,9 +101,7 @@ export function readPendingReloadAfterUpdate(): boolean {
 export function writePendingReloadAfterUpdate(pending: boolean): void {
     try {
         localStorage.setItem(PENDING_RELOAD_STORAGE_KEY, String(pending));
-    } catch (error) {
-        console.log('[changelog] localStorage write error:', error);
-    }
+    } catch (error) {}
 }
 
 export function pickHigherVersion(left: string | null, right: string | null): string | null {
@@ -121,7 +115,4 @@ export async function syncLastSeenVersion(
     localVersion: string,
     supabaseVersion: string | null,
 ): Promise<void> {
-    if (compareVersions(localVersion, supabaseVersion ?? '0') > 0) {
-        await storeLastSeenChangelogVersion(userId, localVersion);
-    }
 }

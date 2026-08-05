@@ -1499,7 +1499,7 @@ input::-webkit-inner-spin-button {
     display: flex;
     flex-direction: column;
     width: 100%;
-    min-width: 0; /* WICHTIG: Erlaubt dem Container, kleiner als sein Inhalt zu werden */
+    min-width: 0;
 }
 
 .weather-temperature {
@@ -1512,7 +1512,6 @@ input::-webkit-inner-spin-button {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    /* max-width: 100%; ist hier nicht mehr zwingend nötig, schadet aber nicht */
 }
 
 #AiBox.ai .dashboard-hero {
@@ -5428,7 +5427,7 @@ input::-webkit-inner-spin-button {
 	gap: 14px;
 	left: 16px;
 	margin: 0 auto;
-	max-width: 560px;
+	max-width: 400px;
 	padding: 12px 14px;
 	position: fixed;
 	right: 16px;

@@ -6,23 +6,13 @@ import { Serwist } from '@serwist/window';
 import { useAppShell } from '../../_context/AppShellContext';
 import { useAuth } from '../../_context/AuthContext';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
-import {
-    compareVersions,
-    fetchChangelogEntries,
-    fetchLastSeenChangelogVersion,
-    pickHigherVersion,
-    readLocalLastSeen,
-    readPendingReloadAfterUpdate,
-    storeLastSeenChangelogVersion,
-    syncLastSeenVersion,
-    writeLocalLastSeen,
-    writePendingReloadAfterUpdate,
-    type ChangelogEntry,
-} from '../../_lib/changelog';
+import { compareVersions, type ChangelogEntry } from '../../_lib/changelog';
 import { APP_VERSION } from '../../_lib/release';
 
 const UPDATE_AVAILABLE_STORAGE_KEY = 'healthsync_update_available';
 const DISMISSED_BANNER_STORAGE_KEY = 'healthsync_dismissed_banner';
+const LAST_SEEN_CHANGELOG_VERSION_STORAGE_KEY = 'healthsync_last_seen_changelog_version';
+const PENDING_RELOAD_AFTER_UPDATE_STORAGE_KEY = 'healthsync_pending_reload_after_update';
 const UPDATE_CENTER_ALLOWED_ROUTES = ['/dash', '/food', '/drinks'];
 
 type SerwistWindow = Window & {
@@ -33,7 +23,6 @@ function readDismissedBanner(): boolean {
     try {
         return localStorage.getItem(DISMISSED_BANNER_STORAGE_KEY) === 'true';
     } catch (error) {
-        console.log('[changelog] localStorage read error:', error);
         return false;
     }
 }
@@ -41,38 +30,56 @@ function readDismissedBanner(): boolean {
 function writeDismissedBanner(dismissed: boolean): void {
     try {
         localStorage.setItem(DISMISSED_BANNER_STORAGE_KEY, String(dismissed));
-    } catch (error) {
-        console.log('[changelog] localStorage write error:', error);
-    }
+    } catch (error) {}
 }
 
 function readUpdateAvailable(): boolean {
     try {
         return localStorage.getItem(UPDATE_AVAILABLE_STORAGE_KEY) === 'true';
     } catch (error) {
-        console.log('[changelog] localStorage read error:', error);
         return false;
     }
 }
 
-const UPDATE_AVAILABLE_CHANGED_EVENT = 'healthsync:update-available-changed';
-
 function writeUpdateAvailable(available: boolean): void {
     try {
         localStorage.setItem(UPDATE_AVAILABLE_STORAGE_KEY, String(available));
+    } catch (error) {}
+    window.dispatchEvent(new CustomEvent('healthsync:update-available-changed', { detail: available }));
+}
+
+function readLocalLastSeen(): string | null {
+    try {
+        return localStorage.getItem(LAST_SEEN_CHANGELOG_VERSION_STORAGE_KEY);
     } catch (error) {
-        console.log('[changelog] localStorage write error:', error);
+        return null;
     }
-    window.dispatchEvent(new CustomEvent(UPDATE_AVAILABLE_CHANGED_EVENT, { detail: available }));
+}
+
+function writeLocalLastSeen(version: string): void {
+    try {
+        localStorage.setItem(LAST_SEEN_CHANGELOG_VERSION_STORAGE_KEY, version);
+    } catch (error) {}
+}
+
+function readPendingReloadAfterUpdate(): boolean {
+    try {
+        return localStorage.getItem(PENDING_RELOAD_AFTER_UPDATE_STORAGE_KEY) === 'true';
+    } catch (error) {
+        return false;
+    }
+}
+
+function writePendingReloadAfterUpdate(pending: boolean): void {
+    try {
+        localStorage.setItem(PENDING_RELOAD_AFTER_UPDATE_STORAGE_KEY, String(pending));
+    } catch (error) {}
 }
 
 function sortEntries(entries: ChangelogEntry[]): ChangelogEntry[] {
     return [...entries].sort((left, right) => {
         const versionDelta = compareVersions(right.version, left.version);
         if (versionDelta !== 0) return versionDelta;
-
-        const timeDelta = new Date(right.created_at ?? 0).getTime() - new Date(left.created_at ?? 0).getTime();
-        if (timeDelta !== 0) return timeDelta;
 
         return right.title.localeCompare(left.title, undefined, { sensitivity: 'base' });
     });
@@ -81,6 +88,28 @@ function sortEntries(entries: ChangelogEntry[]): ChangelogEntry[] {
 function isUpdateCenterAllowedRoute(pathname: string | null): boolean {
     if (!pathname) return false;
     return UPDATE_CENTER_ALLOWED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+}
+
+function convertJsonToChangelogEntries(jsonData: Record<string, Record<string, string[]>>): ChangelogEntry[] {
+    const entries: ChangelogEntry[] = [];
+    let id = 0;
+
+    for (const [version, categories] of Object.entries(jsonData)) {
+        for (const [category, descriptions] of Object.entries(categories)) {
+            const description = descriptions.join(' ');
+
+            entries.push({
+                id: String(id++),
+                version,
+                title: category,
+                description,
+                category: category.toLowerCase(),
+                created_at: new Date().toISOString(),
+            });
+        }
+    }
+
+    return entries;
 }
 
 export default function UpdateCenter() {
@@ -98,16 +127,12 @@ export default function UpdateCenter() {
     const bootstrapRef = useRef(false);
     const profileSeenVersionRef = useRef<string | null>(null);
     const expandTimerRef = useRef<number | null>(null);
-    const serverChangelogResponseRef = useRef<{ profileSeenVersion: string | null; entries: ChangelogEntry[] } | null>(null);
 
     const sheet = useDraggableSheet({
         onClose: () => {
             closeUpdateCenter();
             const seenVersion = profileSeenVersionRef.current ?? APP_VERSION;
             writeLocalLastSeen(seenVersion);
-            if (user?.id) {
-                void storeLastSeenChangelogVersion(user.id, seenVersion);
-            }
         },
         transitionDurationMs: 500,
         transitionEasing: 'cubic-bezier(0.16, 1, 0.3, 1)',
@@ -161,9 +186,7 @@ export default function UpdateCenter() {
                     setUpdateAvailable(false);
                     writeUpdateAvailable(false);
                 }
-            } catch (error) {
-                console.log('[changelog] registration check error:', error);
-            }
+            } catch (error) { }
         });
 
         return () => {
@@ -180,50 +203,44 @@ export default function UpdateCenter() {
             setLoadError(null);
 
             try {
-                const [profileSeenVersion, allEntries] = await Promise.all([
-                    user?.id ? fetchLastSeenChangelogVersion(user.id) : Promise.resolve(null),
-                    fetchChangelogEntries(),
-                ]);
+                const response = await fetch('/changelog.json');
 
-                serverChangelogResponseRef.current = {
-                    profileSeenVersion,
-                    entries: allEntries,
-                };
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch changelog: ${response.status}`);
+                }
+
+                const jsonData = await response.json();
 
                 if (cancelled) return;
 
+                const allEntries = convertJsonToChangelogEntries(jsonData);
+
                 const localSeenVersion = readLocalLastSeen();
-                const lastSeenVersion = pickHigherVersion(profileSeenVersion, localSeenVersion);
-                const currentEntries = sortEntries(
-                    allEntries.filter((entry) => compareVersions(entry.version, APP_VERSION) <= 0)
+
+                const currentEntries = allEntries.filter((entry) =>
+                    compareVersions(entry.version, APP_VERSION) <= 0
                 );
+
                 const unseenEntries = currentEntries.filter((entry) => {
-                    if (!lastSeenVersion) return true;
-                    return compareVersions(entry.version, lastSeenVersion) > 0;
+                    if (!localSeenVersion) return true;
+                    return compareVersions(entry.version, localSeenVersion) > 0;
                 });
 
                 if (currentEntries.length > 0) {
-                    profileSeenVersionRef.current = profileSeenVersion;
                     setEntries(currentEntries);
                     if (unseenEntries.length > 0) {
                         setHasPendingChangelog(true);
                     }
-                    // FIX: compare local version with Supabase; if local is higher -> update Supabase
-                    if (user?.id && lastSeenVersion) {
-                        void syncLastSeenVersion(user.id, lastSeenVersion, profileSeenVersion);
+                    if (!localSeenVersion) {
+                        writeLocalLastSeen(APP_VERSION);
                     }
                 } else {
-                    profileSeenVersionRef.current = profileSeenVersion;
                     writeLocalLastSeen(APP_VERSION);
-                    if (user?.id) {
-                        void syncLastSeenVersion(user.id, APP_VERSION, profileSeenVersion);
-                    }
                 }
             } catch (error) {
                 if (!cancelled) {
                     setLoadError('Could not load the latest updates.');
                 }
-                console.error('[changelog] load error:', error);
             } finally {
                 if (!cancelled) setLoadingEntries(false);
             }
@@ -234,7 +251,7 @@ export default function UpdateCenter() {
         return () => {
             cancelled = true;
         };
-    }, [user?.id]);
+    }, []);
 
     useEffect(() => {
         if (hasPendingChangelog && isAllowedRoute && !updateCenterOpen && profileSeenVersionRef.current !== null) {
@@ -279,11 +296,8 @@ export default function UpdateCenter() {
         let registration: ServiceWorkerRegistration | undefined;
         try {
             registration = await navigator.serviceWorker.getRegistration();
-        } catch (error) {
-            console.log('[changelog] registration lookup error:', error);
-        }
+        } catch (error) {}
 
-        // FIX: "Update" clicked -> save new version in cache (NOT Supabase)
         writeLocalLastSeen(APP_VERSION);
 
         if (!registration?.waiting) {

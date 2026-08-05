@@ -1,0 +1,199 @@
+{
+    "3.1.2": {
+        "Updated changelog": [
+            "The changelog has been updated to use a local JSON file for easier maintenance and to avoid issues with the Supabase backend."
+        ]
+    },
+    "3.1.1": {
+        "Improved food detection": [
+            "Food description analysis now works more reliably using your AI settings."
+        ]
+    },
+    "3.1.0": {
+        "Better barcode scanning": [
+            "The camera now automatically selects the best lens for scanning barcodes, making it faster and more reliable."
+        ],
+        "More reliable food logging": [
+            "Improved validation prevents errors when saving food items with unusual nutrition data."
+        ],
+        "Improved update process": [
+            "Updates now download and install more reliably, with clearer prompts."
+        ],
+        "Better barcode scanning reliability": [
+            "The scanner now focuses properly on close-up barcodes instead of starting on the wide-angle lens."
+        ],
+        "Enhanced security and privacy": [
+            "Improved security measures protect your data and prevent potential vulnerabilities."
+        ],
+        "Removed debug logging": [
+            "Removed internal diagnostic logging that could accidentally capture user data."
+        ],
+        "Improved accessibility": [
+            "Screen can now be zoomed in and out for better readability."
+        ],
+        "Removed non-functional button": [
+            "Removed the non-working 'Switch Camera' button from the barcode scanner."
+        ],
+        "Updated documentation": [
+            "Help documentation updated to reflect current app behavior."
+        ]
+    },
+    "3.0.0": {
+        "Major update with many improvements": [
+            "New exercises, better instructions, and various improvements across the app."
+        ],
+        "Improved update flow": [
+            "Update process is now smoother with fewer prompts and better reliability."
+        ],
+        "Better workout tracking": [
+            "Exercise tracking now shows both primary and secondary muscles worked."
+        ],
+        "Weather shows location names": [
+            "Weather display now shows your location name instead of just coordinates."
+        ],
+        "More exercises available": [
+            "Many new exercises have been added to the workout library."
+        ],
+        "Better exercise instructions": [
+            "Each exercise now includes detailed step-by-step instructions and form tips."
+        ],
+        "Clearer muscle targeting": [
+            "Workouts now clearly show which muscles are primarily worked and which are secondary."
+        ],
+        "Customizable privacy settings": [
+            "You can now control which features use cookies and tracking in settings."
+        ],
+        "Added support page": [
+            "You can now report bugs or ask questions directly from the app settings."
+        ],
+        "Redesigned workout interface": [
+            "Workout browsing and exercise selection has been redesigned for easier use."
+        ],
+        "Faster and smoother performance": [
+            "App launches quicker and animations run more smoothly."
+        ],
+        "Cleaner settings and interface": [
+            "Settings menu and barcode scanner have been simplified and streamlined."
+        ],
+        "Fixed calorie tracker scrolling": [
+            "Fixed an issue where the calorie tracking screen would scroll unexpectedly."
+        ],
+        "Added manual update option": [
+            "You can now manually check for and install updates from the settings menu."
+        ],
+        "Various stability improvements": [
+            "Fixed multiple issues affecting AI detection, API connections, menu styling, and more."
+        ]
+    },
+    "2.2.1": {
+        "Update notifications in dashboard": [
+            "You can now see update news and release notes directly from the dashboard refresh button."
+        ]
+    },
+    "2.2.0": {
+        "Save favorite foods": [
+            "You can now save your frequently used foods for quick access in a new modal."
+        ],
+        "Updated app logo": [
+            "The app logo has been redesigned to better match the app's appearance and goals."
+        ],
+        "Workout break timer": [
+            "You can now adjust rest periods between sets during workouts by adding or removing 15 seconds."
+        ],
+        "Personal record notifications": [
+            "The app will now notify you when you lift more weight or do more reps than before."
+        ],
+        "Smoother screen transitions": [
+            "Moving between screens now feels more fluid and responsive."
+        ],
+        "Better supplement tracking": [
+            "Tracking your supplements is now more accurate and reliable."
+        ],
+        "Fixed data export": [
+            "Fixed an issue where exported data wasn't properly formatted as CSV."
+        ],
+        "Fixed hydration tracking": [
+            "Fixed a synchronization issue between server data and local storage for water tracking."
+        ]
+    },
+    "2.1.1": {
+        "In-app update center": [
+            "A new section in the app shows you the latest updates and what's new in each version."
+        ],
+        "New exercises with instructions": [
+            "Many new exercises have been added, each with step-by-step instructions and tips."
+        ],
+        "Enhanced workout tracking": [
+            "Workouts now track secondary muscles worked in addition to primary muscles."
+        ],
+        "Performance enhancements": [
+            "Performance has been improved with various bug fixes and visual improvements."
+        ]
+    },
+    "2.1.0": {
+        "Supplement Tracking": [
+            "New feature to track your supplements including dosage and frequency."
+        ],
+        "Playwright Testing": [
+            "Added automated testing via Playwright for better stability across the app."
+        ],
+        "Cookie Banner Update": [
+            "The cookie banner no longer shows up once you have already accepted it."
+        ],
+        "Glass Animation": [
+            "Added a smooth animation to the glass when using quick buttons."
+        ],
+        "Merged Download Button": [
+            "CalSync and DropSync downloads are now combined into a single button."
+        ],
+        "AI Supplement Awareness": [
+            "The AI now has access to supplement information for better recommendations."
+        ],
+        "Removed Copilot Instructions": [
+            "Cleaned up unnecessary Copilot instruction files from the project."
+        ],
+        "Quick Button Fixes": [
+            "Fixed issues with quick buttons on the dashboard and a missing hidden button when opening the drink modal."
+        ],
+        "Supabase Column Fix": [
+            "Fixed intensity values being written to a non-existent column in Supabase."
+        ],
+        "Footer Content Fix": [
+            "Fixed footer content not loading correctly."
+        ]
+    },
+    "2.0.0": {
+        "PWA Update Banner": [
+            "Added a banner to notify you about available updates for the PWA version of the app."
+        ],
+        "Current Weather Widget": [
+            "Added a small weather widget to the dashboard showing current conditions for your location."
+        ],
+        "Activity Status": [
+            "Added a status widget to the dashboard where you can track your current activity status (active, resting, injured). Supports date-specific entries and can be used to filter your health data."
+        ],
+        "Changelog Sync": [
+            "You can now see the latest changes directly in the app. The changelog is synced with the GitHub repository."
+        ]
+    },
+    "1.1.0": {
+        "Bug Fixes and Improvements": [
+            "Fixed issues with AI detection for self-hosted LLMs, date handling, and language spelling errors."
+        ]
+    },
+    "1.0.0": {
+        "Initial Release": [
+            "HealthSync launches with CalSync for calorie tracking and DropSync for hydration tracking as its core features."
+        ]
+    },
+    "0.1.0": {
+        "Initial HealthSync release": [
+            "Dashboard with health score, macro and hydration tracking, food logging (CalSync), hydration tracking (DropSync), workouts, and multiple themes.",
+            "Weather widget and activity status tracking.",
+            "AI detection for food descriptions via a self-hosted LLM.",
+            "Supplement tracking, food favourites, workout break timer and PR tracking.",
+            "Legal pages (privacy, cookies, terms, AI guidelines).",
+            "Various fixes including CSV data export and cookie banner handling."
+        ]
+    }
+}
