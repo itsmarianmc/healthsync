@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
+## [3.1.1] - 2026-08-05
+
+### Fixed
+- **Text-based food detection** (`CalSyncModal.tsx`): description analysis now routes
+  through Gemini using the same URL and API key as image/camera detection, replacing
+  the Ollama-based `analyzeWithPillama` path that depended on the `/api/proxy?type=pillama`
+  endpoint disabled by default in 3.1.0.
+
 ## [3.1.0] - 2026-08-05
 
 ### Added
