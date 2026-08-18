@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-### [4.0.0] - 2026-08-18 [BETA 1]
+### [4.0.0] - 2026-08-19 [BETA 1]
 
 ### Added
 - **Better error screens**: If something goes wrong, you now see a clear message with a "Try again" button instead of a blank page.
