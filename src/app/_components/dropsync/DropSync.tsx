@@ -105,15 +105,19 @@ export default function DropSync({
         showToast('Entry deleted');
     }, [entries, user, showToast]);
 
-    const handleClearAll = useCallback(() => {
+    const handleClearAll = useCallback(async () => {
         const warnEnabled = localStorage.getItem('dropsync_delete_warning') !== 'false';
         if (warnEnabled && !confirm('Delete all entries for today?')) return;
+        const deleted = entries.filter(e => e.date === today);
         const kept = entries.filter(e => e.date !== today);
         setEntries(kept);
         localStorage.setItem('dropsync_v3', JSON.stringify(kept));
         window.dispatchEvent(new Event('storage'));
+        for (const e of deleted) {
+            if (user) await deleteDrinkFromCloud(e.id, user.id);
+        }
         showToast('All entries deleted');
-    }, [entries, today, showToast]);
+    }, [entries, today, user, showToast]);
 
     const handleModalClose = useCallback(() => {
         setModalOpen(false);

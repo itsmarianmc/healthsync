@@ -27,7 +27,7 @@ export const metadata: Metadata = {
         type: 'website',
         title: 'HealthSync - Calorie, Drink & Workout Tracker',
         description: 'Track your daily calories, protein, carbs and fat. Log food by name, barcode or AI photo. Sync across devices.',
-        url: 'https://projects.itsmarian.dev/healthsync/',
+        url: 'https://healthsync.itsmarian.dev/',
     },
 };
 
@@ -35,6 +35,7 @@ export const viewport: Viewport = {
     themeColor: '#0F0F10',
     width: 'device-width',
     initialScale: 1,
+    viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -46,7 +47,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <link rel="stylesheet" href="https://static.itsmarian.dev/global/colors.css" />
                 <meta name="mobile-web-app-capable" content="yes" />
                 <link rel="icon" href="/favicon.ico" sizes="any" />
-                <link rel="apple-touch-icon" href="/favicon.png" />
+                <link rel="icon" href="/favicon.png" sizes="192x192" type="image/png" />
+                <link rel="icon" href="/favicon.png" sizes="512x512" type="image/png" />
+                <link rel="apple-touch-icon" href="/favicon.png" sizes="180x180" />
+                <link rel="apple-touch-icon" href="/favicon.png" sizes="192x192" />
+                <link rel="apple-touch-icon" href="/favicon.png" sizes="512x512" />
                 <Script
                     src="https://www.googletagmanager.com/gtag/js?id=G-EHN4P1ET7W"
                     strategy="lazyOnload"

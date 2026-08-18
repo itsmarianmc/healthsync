@@ -41,7 +41,7 @@ export default function AiGuidelinesPage() {
                     Please read all three before enabling AI features.
                 </div>
                 <div className="text-section">
-                    Last updated: 18 June 2026
+                    Last updated: 16 August 2026
                 </div>
             </section>
 
@@ -111,7 +111,7 @@ export default function AiGuidelinesPage() {
                 </div>
                 <div className="text-section">
                     AI Detection is powered by Google&apos;s <strong>Gemini API</strong> (currently
-                    <code> gemini-2.0-flash</code> or a comparable successor model). HealthSync
+                    <code> gemini-3.1-flash-lite</code> or a comparable successor model). HealthSync
                     integrates the API directly from your browser; we do <strong>not</strong> operate a
                     proxy that stores or relays your AI requests on our servers.
                 </div>

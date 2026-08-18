@@ -241,7 +241,8 @@ function GifModal({ url, name, instructions, instructionSteps, onClose }: {
     const showTabs = hasOverview || hasSteps;
 
     return (
-        <div className="app-overlay" ref={overlayRef} style={{ zIndex: 10001 }} onClick={e => { if (e.target === overlayRef.current) close(); }}>
+        <div className="app-overlay" ref={overlayRef} style={{ zIndex: 10001 }} onClick={e => { if (e.target === overlayRef.current) close(); }}
+            role="dialog" aria-modal="true" aria-label={`${name} exercise details`}>
             <div className="modal" ref={modalRef} style={{ transform: 'translateY(100%)' }}>
                 <div className="modal-handle-zone"
                     onPointerDown={e => { dragging.current = true; dragY.current = e.clientY; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); if (modalRef.current) modalRef.current.style.transition = 'none'; }}
@@ -342,19 +343,19 @@ function RoutineContextMenu({ rect, routineId, onEdit, onSort, onDelete, onClose
     };
 
     return (
-        <div ref={ref} className="routine-context-menu" style={{
+        <div ref={ref} className="routine-context-menu" role="menu" aria-label="Routine actions" style={{
             position: 'fixed', top: rect.top - 85, right: window.innerWidth - rect.right,
             left: 'auto', bottom: 'auto', zIndex: 10001, transform: 'scale(0.8)',
             transformOrigin: 'bottom right', transition: 'opacity 0.2s ease, transform 0.2s ease, visibility 0.2s',
             }}>
-            <div className="menu-item edit" onClick={e => { e.stopPropagation(); onEdit(routineId); handleClose(); }}>
-                <i className="fa-regular fa-pen-to-square" /> Edit Routine
+            <div className="menu-item edit" role="menuitem" tabIndex={0} onClick={e => { e.stopPropagation(); onEdit(routineId); handleClose(); }}>
+                <i className="fa-regular fa-pen-to-square" aria-hidden="true" /> Edit Routine
             </div>
-            <div className="menu-item sort-exercises" onClick={e => { e.stopPropagation(); onSort(routineId); handleClose(); }}>
-                <i className="fa-solid fa-arrow-up-wide-short" /> Sort Exercises
+            <div className="menu-item sort-exercises" role="menuitem" tabIndex={0} onClick={e => { e.stopPropagation(); onSort(routineId); handleClose(); }}>
+                <i className="fa-solid fa-arrow-up-wide-short" aria-hidden="true" /> Sort Exercises
             </div>
-            <div className="menu-item delete" onClick={e => { e.stopPropagation(); onDelete(routineId); handleClose(); }}>
-                <i className="fa-regular fa-trash-can" /> Delete Routine
+            <div className="menu-item delete" role="menuitem" tabIndex={0} onClick={e => { e.stopPropagation(); onDelete(routineId); handleClose(); }}>
+                <i className="fa-regular fa-trash-can" aria-hidden="true" /> Delete Routine
             </div>
         </div>
     );
@@ -369,7 +370,8 @@ function SortExercisesModal({ routine, onSave, onClose }: { routine: Routine; on
     useEffect(() => { sheet.open(); }, []);
 
     return (
-        <div className="app-overlay" ref={sheet.overlayRef} onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); }}>
+        <div className="app-overlay" ref={sheet.overlayRef} onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); }}
+            role="dialog" aria-modal="true" aria-label="Sort exercises">
             <div className="modal" ref={sheet.modalRef} style={{ transform: 'translateY(100%)' }}>
                 <div className="modal-handle-zone" {...sheet.handleProps}><div className="modal-handle" /></div>
                 <div className="modal-header">
@@ -428,7 +430,7 @@ function SortExercisesModal({ routine, onSave, onClose }: { routine: Routine; on
                                     onDragStart={() => { dragIdx.current = idx; }}
                                     onDragEnd={() => { setDragTarget(null); }}
                                 >
-                                    <i className="fa-solid fa-grip-vertical drag-handle" />
+                                    <i className="fa-solid fa-grip-vertical drag-handle" aria-hidden="true" />
                                     <img src={ex.image} className="sort-exercise-img" onError={e => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/40'; }} alt={ex.name} />
                                     <span className="sort-exercise-name">{ex.name}</span>
                                 </div>
@@ -501,8 +503,8 @@ function ExerciseCard({ ex, idx, onChange, onRemove, onShowGif }: {
                         </div>
                     )}
                 </div>
-                <button className="remove-exercise-btn" onClick={e => { e.stopPropagation(); onRemove(idx); }}>
-                    <i className="fa-regular fa-trash-can" />
+                <button className="remove-exercise-btn" onClick={e => { e.stopPropagation(); onRemove(idx); }} aria-label={`Remove ${nameDisplay}`}>
+                    <i className="fa-regular fa-trash-can" aria-hidden="true" />
                 </button>
             </div>
             <div className="sets-table">
@@ -512,17 +514,17 @@ function ExerciseCard({ ex, idx, onChange, onRemove, onShowGif }: {
                         <div key={setIdx} className="set-row" data-setidx={setIdx}>
                             <div className="set-number">{setIdx + 1}</div>
                             <input type="number" className="set-weight" value={set.weight} placeholder="0" step={2.5} min={0}
-                                onChange={e => updateSet(setIdx, 'weight', parseFloat(e.target.value) || 0)} />
+                                onChange={e => updateSet(setIdx, 'weight', parseFloat(e.target.value) || 0)} aria-label={`Set ${setIdx + 1} weight in kg`} />
                             <input type="number" className="set-reps" value={set.reps} placeholder="8" min={1} step={1}
-                                onChange={e => updateSet(setIdx, 'reps', parseInt(e.target.value) || 0)} />
-                            <button className="remove-set-btn" onClick={() => removeSet(setIdx)}>
-                                <i className="fa-regular fa-circle-xmark" />
+                                onChange={e => updateSet(setIdx, 'reps', parseInt(e.target.value) || 0)} aria-label={`Set ${setIdx + 1} reps`} />
+                            <button className="remove-set-btn" onClick={() => removeSet(setIdx)} aria-label="Remove set">
+                                <i className="fa-regular fa-circle-xmark" aria-hidden="true" />
                             </button>
                         </div>
                     ))}
                 </div>
             </div>
-            <button className="add-set-btn" onClick={addSet}>+ Add Set</button>
+            <button className="add-set-btn" onClick={addSet} aria-label="Add set">+ Add Set</button>
         </div>
     );
 }
@@ -574,7 +576,8 @@ function CreateModal({ editRoutine, onSave, onClose }: {
 
     return (
         <>
-            <div className="app-overlay" ref={sheet.overlayRef} onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); }}>
+            <div className="app-overlay" ref={sheet.overlayRef} onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); }}
+                role="dialog" aria-modal="true" aria-label={editRoutine ? 'Edit workout' : 'Create workout'}>
                 <div className="modal" ref={sheet.modalRef} style={{ transform: 'translateY(100%)' }}>
                     <div className="modal-handle-zone" {...sheet.handleProps}><div className="modal-handle" /></div>
                     <div className="modal-header">
@@ -589,12 +592,12 @@ function CreateModal({ editRoutine, onSave, onClose }: {
                     </div>
                     <div className="modal-body" id="workoutCreateModalBody" style={{ marginBottom: 20, padding: '0 16px 20px', overflowY: 'auto' }}>
                         <div className="form-row">
-                            <input type="text" className="form-input" placeholder="New Workout" value={name} onChange={e => setName(e.target.value)} />
+                            <input type="text" className="form-input" placeholder="New Workout" value={name} onChange={e => setName(e.target.value)} aria-label="Workout name" />
                         </div>
                         <div className="form-row" style={ { borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
                             <label className="form-label">Exercises</label>
                             <div className="add-workout" onClick={() => setShowAddExercises(true)}>
-                                <div className="add-wo-btn"><i className="fas fa-plus" /></div>
+                                <div className="add-wo-btn"><i className="fas fa-plus" aria-hidden="true" /></div>
                                 <div className="add-wo-text">Add Exercises</div>
                             </div>
                             <div className="selected-exercises" id="selectedExercisesListCreate">
@@ -684,7 +687,8 @@ function AddExercisesModal({ alreadyAdded, onAdd, onClose }: {
 
     return (
         <>
-            <div className="app-overlay" ref={sheet.overlayRef} onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); }}>
+            <div className="app-overlay" ref={sheet.overlayRef} onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); }}
+                role="dialog" aria-modal="true" aria-label="Add exercises">
                 <div className="modal" ref={sheet.modalRef} style={{ transform: 'translateY(100%)' }}>
                     <div className="modal-handle-zone" {...sheet.handleProps}><div className="modal-handle" /></div>
                     <div className="modal-header">
@@ -700,7 +704,7 @@ function AddExercisesModal({ alreadyAdded, onAdd, onClose }: {
                     <div className="modal-body" style={{ padding: '0 16px 20px', overflowY: 'auto' }}>
                         <div className="form-row">
                             <input type="text" className="form-input" placeholder="Search exercise..."
-                                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} aria-label="Search exercises" />
                         </div>
                         <div className="exercise-category-filters">
                             {categories.map(cat => (
@@ -744,7 +748,7 @@ function AddExercisesModal({ alreadyAdded, onAdd, onClose }: {
                                                 )}
                                             </div>
                                         </div>
-                                        <i className={`fa-solid ${isAdded ? 'fa-check' : isSelected ? 'fa-circle-check' : 'fa-plus'}`} />
+                                        <i className={`fa-solid ${isAdded ? 'fa-check' : isSelected ? 'fa-circle-check' : 'fa-plus'}`} aria-hidden="true" />
                                     </div>
                                 );
                             })}
@@ -792,16 +796,16 @@ function ActiveExerciseCard({ ex, exIdx, onChange, onShowGif }: {
                                     {setIdx + 1}
                                     {set.isPR && <span className="set-pr-pill" title="New personal record">PR</span>}
                                 </div>
-                                <input type="number" className="active-set-weight" value={set.weight} placeholder="0" step={2.5} min={0} disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { weight: parseFloat(e.target.value) || 0 })} onFocus={e => e.target.select()} />
-                                <input type="number" className="active-set-reps" value={set.reps} placeholder="8" min={1} step={1} disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { reps: parseInt(e.target.value) || 0 })} onFocus={e => e.target.select()} />
+                                <input type="number" className="active-set-weight" value={set.weight} placeholder="0" step={2.5} min={0} disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { weight: parseFloat(e.target.value) || 0 })} onFocus={e => e.target.select()} aria-label={`Set ${setIdx + 1} weight in kg`} />
+                                <input type="number" className="active-set-reps" value={set.reps} placeholder="8" min={1} step={1} disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { reps: parseInt(e.target.value) || 0 })} onFocus={e => e.target.select()} aria-label={`Set ${setIdx + 1} reps`} />
                                 {done
-                                ? <button className="set-check-btn set-check-done" disabled><i className="fa-solid fa-check" /></button>
+                                ? <button className="set-check-btn set-check-done" disabled aria-label="Set completed"><i className="fa-solid fa-check" aria-hidden="true" /></button>
                                 : active
-                                    ? <button className="set-active-btn" onClick={() => onChange(exIdx, setIdx, { state: 'completed', completedAt: Date.now() })}>
-                                        <i className="fa-regular fa-circle-check" />
+                                    ? <button className="set-active-btn" aria-label="Mark set as completed" onClick={() => onChange(exIdx, setIdx, { state: 'completed', completedAt: Date.now() })}>
+                                        <i className="fa-regular fa-circle-check" aria-hidden="true" />
                                     </button>
-                                    : <button className="set-play-btn" onClick={() => onChange(exIdx, setIdx, { state: 'active', activeStartTime: Date.now() })}>
-                                        <i className="fa-solid fa-play" />
+                                    : <button className="set-play-btn" aria-label="Start set" onClick={() => onChange(exIdx, setIdx, { state: 'active', activeStartTime: Date.now() })}>
+                                        <i className="fa-solid fa-play" aria-hidden="true" />
                                     </button>
                                 }
                             </div>
@@ -850,10 +854,10 @@ function RestTimerBar({ remaining, active, duration, onAdjust, onSkip, onStart, 
     const ss = String(display % 60).padStart(2, '0');
     const pct = active && duration > 0 ? Math.max(0, Math.min(100, (remaining / duration) * 100)) : 0;
     return (
-        <div className={`rest-timer-bar${active ? ' active' : ''}`}>
+        <div className={`rest-timer-bar${active ? ' active' : ''}`} role="timer" aria-live="polite" aria-label={active ? `Rest timer: ${mm}:${ss} remaining` : `Rest timer: ${mm}:${ss}`}>
             <div className="rest-timer-row">
                 <div className="rest-timer-label">
-                    <i className="fa-regular fa-clock" />
+                    <i className="fa-regular fa-clock" aria-hidden="true" />
                     <span>{active ? 'Rest' : 'Rest timer'}</span>
                 </div>
                 <div className="rest-timer-time">{mm}:{ss}</div>
@@ -862,16 +866,16 @@ function RestTimerBar({ remaining, active, duration, onAdjust, onSkip, onStart, 
                         <>
                             <button type="button" onClick={() => onAdjust(-15)} title="-15s">-15</button>
                             <button type="button" onClick={() => onAdjust(15)} title="+15s">+15</button>
-                            <button type="button" onClick={onSkip} title="Skip">
-                                <i className="fa-solid fa-forward" />
+                            <button type="button" onClick={onSkip} title="Skip" aria-label="Skip rest">
+                                <i className="fa-solid fa-forward" aria-hidden="true" />
                             </button>
                         </>
                     ) : (
                         <>
                             <button type="button" onClick={() => onDurationChange(duration - 15)} title="-15s">-15</button>
                             <button type="button" onClick={() => onDurationChange(duration + 15)} title="+15s">+15</button>
-                            <button type="button" onClick={onStart} title="Start rest">
-                                <i className="fa-solid fa-play" />
+                            <button type="button" onClick={onStart} title="Start rest" aria-label="Start rest timer">
+                                <i className="fa-solid fa-play" aria-hidden="true" />
                             </button>
                         </>
                     )}
@@ -1076,7 +1080,8 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     return (
         <div>
             <div className="app-overlay" id="activeWorkoutOverlay" ref={overlayRef}
-                onClick={e => { if (e.target === overlayRef.current) minimize(); }}>
+                onClick={e => { if (e.target === overlayRef.current) minimize(); }}
+                role="dialog" aria-modal="true" aria-label="Active workout">
                 <div className="modal" id="activeWorkoutModal" ref={modalRef} style={{ transform: 'translateY(100%)' }}>
                     <div className="modal-handle-zone" id="activeWorkoutHandleZone" ref={handleZoneRef}
                         onPointerDown={e => {
@@ -1107,8 +1112,8 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                     <div className="modal-header">
                         <div className="modal-title" id="activeWorkoutTimer">{timerStr}</div>
                         <div className="modal-btn" onClick={minimize}>
-                            <button className="back-btn" style= { { opacity: 1} }>
-                                <i className="fa-solid fa-chevron-down"></i>
+                            <button className="back-btn" style= { { opacity: 1} } aria-label="Minimize workout">
+                                <i className="fa-solid fa-chevron-down" aria-hidden="true"></i>
                             </button>
                         </div>
                     </div>
@@ -1186,7 +1191,8 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                 </div>
             </div>
 
-            <div id="miniWorkoutBar" className={`mini-workout-bar${minimized ? '' : ' hidden'}`}>
+            <div id="miniWorkoutBar" className={`mini-workout-bar${minimized ? '' : ' hidden'}`}
+                role="complementary" aria-label="Workout in progress">
                 <div className="mini-workout-content">
                     <div className="mini-workout-icon" onClick={restore}>
                         {restEndsAt !== null
@@ -1201,12 +1207,12 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                     </div>
                     <div className="mini-workout-actions">
                         {restEndsAt !== null && (
-                            <button title="Skip rest" onClick={skipRest}>
-                                <i className="fa-solid fa-forward" />
+                            <button title="Skip rest" aria-label="Skip rest" onClick={skipRest}>
+                                <i className="fa-solid fa-forward" aria-hidden="true" />
                             </button>
                         )}
-                        <button id="miniWorkoutFinishBtn" title="Finish" onClick={() => { if (confirm('Finish workout?')) finish(); }}>
-                            <i className="fa-solid fa-check" />
+                        <button id="miniWorkoutFinishBtn" title="Finish" aria-label="Finish workout" onClick={() => { if (confirm('Finish workout?')) finish(); }}>
+                            <i className="fa-solid fa-check" aria-hidden="true" />
                         </button>
                     </div>
                 </div>
@@ -1405,7 +1411,8 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
     return (
         <>
             <div className="app-overlay" id="workoutOverlay" ref={sheet.overlayRef}
-                onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); setContextMenu(null); }}>
+                onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); setContextMenu(null); }}
+                role="dialog" aria-modal="true" aria-label="My Routines">
                 <div className="modal" id="workoutModal" ref={sheet.modalRef} style={{ transform: 'translateY(100%)' }}>
                     <div className="modal-handle-zone" id="workoutHandleZone" {...sheet.handleProps}>
                         <div className="modal-handle" />
@@ -1430,17 +1437,17 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
                         {canUsePreferences && (
                             <>
                                 <div className="add-workout" id="newRoutineBtn" onClick={() => setCreateModal({ edit: null })}>
-                                    <div className="add-wo-btn"><i className="fas fa-plus" /></div>
+                                    <div className="add-wo-btn"><i className="fas fa-plus" aria-hidden="true" /></div>
                                     <div className="add-wo-text">Add new workout</div>
                                 </div>
                                 <div id="routineListContainer">
-                                    <div id="routineList" className="routine-list">
+                                    <div id="routineList" className="routine-list" role="list" aria-label="Workout routines">
                                         {routines.length === 0
                                         ? <div className="empty-state">No routines yet. Create one!</div>
                                         : routines.map((r, index) => {
                                             const { ex, sets } = getCount(r);
                                             return (
-                                                <div key={r.id} className="routine-item" data-id={r.id} data-index={index}
+                                                <div key={r.id} className="routine-item" data-id={r.id} data-index={index} role="listitem"
                                                     ref={el => { if (el) itemRefs.current.set(r.id, el); else itemRefs.current.delete(r.id); }}>
                                                     <div className="routine-main">
                                                     <div className="routine-info">

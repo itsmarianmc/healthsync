@@ -9,14 +9,12 @@ export interface CookieSettings {
     analytics: boolean;
     preferences: boolean;
     thirdparty: boolean;
-    marketing: boolean;
 }
 
 let globalSettings: CookieSettings = {
     analytics: false,
     preferences: false,
     thirdparty: false,
-    marketing: false,
 };
 
 const settingsChangeListeners: Array<(settings: CookieSettings) => void> = [];
@@ -38,7 +36,6 @@ function loadSettingsFromStorage(): CookieSettings | null {
                 analytics: !!parsed.analytics,
                 preferences: !!parsed.preferences,
                 thirdparty: !!parsed.thirdparty,
-                marketing: !!parsed.marketing,
             };
         }
         return null;
@@ -66,7 +63,7 @@ export function useCookieConsent() {
             globalSettings = loaded;
             return loaded;
         }
-        return { analytics: false, preferences: false, thirdparty: false, marketing: false };
+            return { analytics: false, preferences: false, thirdparty: false };
     });
 
     const updateSettings = useCallback((newSettings: CookieSettings) => {
@@ -112,7 +109,6 @@ export function useCookieConsent() {
         canUseAnalytics: settings.analytics,
         canUsePreferences: settings.preferences,
         canUseThirdParty: settings.thirdparty,
-        canUseMarketing: settings.marketing,
         settings,
         updateSettings,
     };

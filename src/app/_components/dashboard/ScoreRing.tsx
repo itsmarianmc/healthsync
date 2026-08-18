@@ -11,7 +11,7 @@ export default function ScoreRing({ score }: ScoreRingProps) {
 
     return (
         <div className="dashboard-score" aria-label="Daily progress score">
-            <svg viewBox="0 0 112 112" className="dashboard-score-ring">
+            <svg viewBox="0 0 112 112" className="dashboard-score-ring" role="img" aria-label={`Daily progress: ${score}%`}>
                 <defs>
                     <linearGradient id="dashboardScoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                         <stop offset="0%" stopColor="#b3cbf9" />

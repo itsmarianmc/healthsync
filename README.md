@@ -27,10 +27,10 @@ Goals for calories, water and macros. A built-in calorie calculator using the Mi
 Optional Google Gemini integration inside CalSync to estimate nutrition from a photo, camera capture or text description. Disabled by default, uses the user's own API key, never proxies through the HealthSync backend. See the in-app [AI Guidelines](https://healthsync.itsmarian.dev/legal/ai-guidelines) for details.
 
 **Update Center**
-In-app update notifications and changelog browser. Shows what's new in each version and allows seamless one-tap updates when using the PWA. Powered by Supabase-backed changelog.
+In-app update notifications and changelog browser. Shows what's new in each version and allows seamless one-tap updates when using the PWA. Powered by a local JSON changelog.
 
 **Auth**
-Email and password login with optional TOTP two-factor authentication. Register, forgot password, and change password flows. "Remember this device" skips the 2FA step on trusted devices. Session tokens are stored in secure cookies (not localStorage).
+Email and password login with optional TOTP two-factor authentication. Register, forgot password, and change password flows. When 2FA is enabled, the code is required on every sign-in. Session tokens are stored in secure cookies (not localStorage).
 
 **Offline & PWA**
 Installable on mobile via the browser's add-to-home-screen prompt. Fully usable without an account - entries then live only in your browser's local storage. Cloud sync is opt-in via a free user account.
@@ -74,13 +74,15 @@ HealthSync is **not** a medical device. It does not provide medical advice and m
 ## Project Structure
 
 ```
-app/
+src/app/
 ├── layout.tsx              # Root layout: AuthProvider, global CSS, splash, GA Consent Mode v2
 ├── page.tsx                # App shell: view switching, all modals
 ├── styles.css              # Global styles + theme tokens
+├── error.tsx               # App error boundary (friendly error + retry)
+├── global-error.tsx        # Root error boundary
+├── support/                # Support page
 ├── login/
-│   ├── layout.tsx          # Loads QRCode.js for 2FA setup
-│   └── page.tsx            # Full login, register, MFA, reset flows
+│   └── page.tsx            # Full login, register, MFA, reset flows (loads QRCode.js)
 ├── legal/
 │   ├── components/         # LegalLayout, LegalSection, LegalList, LegalEnumeration, Linkout, BackToTop, LegalScroller
 │   ├── legal.css           # HealthSync-tokenised legal stylesheet
@@ -89,7 +91,7 @@ app/
 │   ├── terms/page.tsx      # Terms of Use
 │   └── ai-guidelines/page.tsx  # AI Guidelines
 ├── api/
-│   └── proxy/route.ts      # Edge-style proxy for the optional local AI endpoint
+│   └── sync/verify/route.ts  # Server-side session verification for cloud sync
 ├── _lib/
 │   ├── camera.ts           # Back-camera selection helpers for barcode scanning
 │   ├── supabase.ts         # Supabase browser client
@@ -104,13 +106,12 @@ app/
 │   ├── useLocalStorage.ts  # SSR-safe localStorage hook
 │   └── useOnboarding.ts    # Onboarding state
 └── _components/
-    ├── shared/             # Toast, Tooltip, SplashScreen, PullToRefresh, CookieBanner, Footer
+    ├── shared/             # Toast, Tooltip, Sheet, SplashScreen, PullToRefresh, CookieBanner, Footer, HeaderTitle
     ├── navigation/         # BottomNav with animated slider
     ├── dashboard/          # ScoreRing, MetricGrid, MacroGrid, WeekChart, RecentList, NextWidget, AiTips, WeatherWidget, ActivityStatus
-    ├── calsync/            # CalSync view, modal, food list, barcode scanner, extra scanner
+    ├── calsync/            # CalSync view, modals, food list, barcode scanner
     ├── dropsync/           # DropSync view, modal, drink picker, glass input, history
     ├── settings/           # Settings sheet, goals, account, AI section, workout, supplements, notes
-    ├── notes/              # Notes modal
     ├── onboarding/         # Onboarding slides and tooltip tour
     └── update/             # Update Center component for in-app updates and changelog
 ```

@@ -26,7 +26,7 @@ function MacroCard({ name, label, value, goal, color, icon, idPrefix }: MacroCar
             <div className="dashboard-macro-value"><span id={`dashboard${name}`}>{Math.round(value)}</span> g</div>
             <div className="dashboard-macro-goal" id={`dashboard${name}Goal`}>{goalText}</div>
             <div className="dashboard-macro-track">
-                <div id={`dashboard${name}Progress`} style={{ width: pct + '%' }} />
+                <div id={`dashboard${name}Progress`} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={`${label}: ${Math.round(pct)}% of goal`} style={{ width: pct + '%' }} />
             </div>
         </div>
     );

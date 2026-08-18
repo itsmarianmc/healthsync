@@ -4,8 +4,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import ScoreRing from './ScoreRing';
 import { useCookieConsent } from '../../_lib/useCookieConsent';
 
-const REFRESH_INTERVAL = 5 * 60 * 1000;
-
 type ActivityStatus = 'active' | 'sick' | 'injured' | 'on_a_break';
 type StatusDuration = 'until_changed' | 'until_tomorrow' | '7_days' | '14_days' | 'custom';
 
@@ -456,7 +454,6 @@ export default function AiTips({ score }: AiTipsProps) {
     const [text, setText] = useState('');
     const [text2, setText2] = useState('');
     const lastHashRef = useRef('');
-    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [aiEnabled, setAiEnabled] = useState(() => isAIEnabled() && canUsePreferences);
     const [status, setStatus] = useState<ActivityStatus>('active');
 
@@ -492,14 +489,12 @@ export default function AiTips({ score }: AiTipsProps) {
             return;
         }
         refresh();
-        intervalRef.current = setInterval(refresh, REFRESH_INTERVAL);
         window.addEventListener('storage', refresh);
         const minuteInterval = setInterval(refresh, 60000);
         const handler = () => refresh();
         window.addEventListener('requestAITipUpdate', handler);
         (window as typeof window & { refreshAITip?: () => void }).refreshAITip = refresh;
         return () => {
-            if (intervalRef.current) clearInterval(intervalRef.current);
             clearInterval(minuteInterval);
             window.removeEventListener('storage', refresh);
             window.removeEventListener('requestAITipUpdate', handler);
@@ -518,16 +513,15 @@ export default function AiTips({ score }: AiTipsProps) {
                 </div>
                 <ScoreRing score={score} />
             </div>
-            <div className="dashboard-widget ai-tip-widget">
+            <div className="dashboard-widget ai-tip-widget" role="region" aria-label="Health tip">
                 <div className="dashboard-widget-rep">
                     {aiEnabled && canUsePreferences ? (
                         <>
                             <div
                                 className="dashboard-widget-title"
                                 id="aiTipTitle"
-                            >
-                                {title}
-                            </div>
+                                dangerouslySetInnerHTML={{ __html: title }}
+                            />
                             <div className="dashboard-widget-text" id="aiTipText">
                                 <div>{text}</div>
                                 <div>{text2}</div>

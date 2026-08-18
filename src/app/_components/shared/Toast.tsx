@@ -24,7 +24,7 @@ export default function Toast() {
     }, [toastQueue, consumeToast]);
 
     if (!current) return (
-        <div id="toast" className="toast" style={{ display: 'none', visibility: 'hidden' }} />
+        <div id="toast" className="toast" style={{ padding: "0 !important", visibility: "hidden" }} />
     );
 
     return (

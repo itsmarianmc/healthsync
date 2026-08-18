@@ -7,7 +7,7 @@ const csp = [
     "style-src 'self' 'unsafe-inline' https://static.itsmarian.dev",
     "img-src 'self' blob: data: https:",
     "font-src 'self' https://static.itsmarian.dev",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.itsmarian.dev https://generativelanguage.googleapis.com https://world.openfoodfacts.org https://nominatim.openstreetmap.org https://www.google-analytics.com https://*.google-analytics.com",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.itsmarian.dev https://api.open-meteo.com https://generativelanguage.googleapis.com https://world.openfoodfacts.org https://nominatim.openstreetmap.org https://www.google-analytics.com https://*.google-analytics.com",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

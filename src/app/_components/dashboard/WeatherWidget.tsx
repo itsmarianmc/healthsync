@@ -47,26 +47,36 @@ interface WeatherData {
 }
 
 const WEATHER_STORAGE_KEYS = {
-  enabled: ['healthsync_weather_enabled', 'weather_widget_enabled'],
-  latitude: ['healthsync_weather_lat', 'weather_latitude'],
-  longitude: ['healthsync_weather_lon', 'weather_longitude'],
-  locationName: ['healthsync_weather_name', 'weather_location_name'],
+    enabled: 'healthsync_weather_enabled',
+    latitude: 'healthsync_weather_lat',
+    longitude: 'healthsync_weather_lon',
+    locationName: 'healthsync_weather_name',
 } as const;
 
-function getStoredValue(keys: readonly string[], fallback = ''): string {
-  for (const key of keys) {
+const LEGACY_WEATHER_KEYS: Record<string, string> = {
+    enabled: 'weather_widget_enabled',
+    latitude: 'weather_latitude',
+    longitude: 'weather_longitude',
+    locationName: 'weather_location_name',
+};
+
+function getStoredValue(key: string, fallback = ''): string {
     const value = localStorage.getItem(key);
-    if (value !== null) {
-      return value;
+    if (value !== null) return value;
+    const legacyKey = LEGACY_WEATHER_KEYS[key];
+    if (legacyKey) {
+        const legacy = localStorage.getItem(legacyKey);
+        if (legacy !== null) {
+            localStorage.setItem(key, legacy);
+            localStorage.removeItem(legacyKey);
+            return legacy;
+        }
     }
-  }
-  return fallback;
+    return fallback;
 }
 
-function setStoredValue(keys: readonly string[], value: string): void {
-  for (const key of keys) {
+function setStoredValue(key: string, value: string): void {
     localStorage.setItem(key, value);
-  }
 }
 
 export default function WeatherWidget() {
@@ -206,13 +216,7 @@ export default function WeatherWidget() {
         });
 
         const response = await fetch(
-          `https://api.itsmarian.dev/api/proxy?type=weather&path=/v1/forecast&${params.toString()}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
+          `https://api.open-meteo.com/v1/forecast?${params.toString()}`
         );
 
         if (!response.ok) {

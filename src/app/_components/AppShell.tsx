@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAppShell } from '../_context/AppShellContext';
+import { AiDetectionProvider } from '../_context/AiDetectionContext';
+import { useAuth } from '../_context/AuthContext';
 import { useCookieConsent } from '../_lib/useCookieConsent';
 import BottomNav from './navigation/BottomNav';
 import Toast from './shared/Toast';
@@ -12,15 +14,15 @@ import NotesModal from './settings/NotesModal';
 import WorkoutModal from './settings/WorkoutModal';
 import WorkoutHistoryModal from './settings/WorkoutHistoryModal';
 import SupplementsModal from './settings/SupplementsModal';
-import BarcodeScanModal from './calsync/BarcodeScanModal';
-import ExtraScanner from './calsync/ExtraScanner';
+import BarcodeSearchPopup from './calsync/BarcodeSearchPopup';
 import UpdateCenter from './update/UpdateCenter';
+import AiDetectionIndicator from './calsync/AiDetectionIndicator';
 import { removeHeaderBtn, addHeaderBtn } from '../_lib/headerBtns';
 import { consumePendingTour, startTourWhenReady } from '../_lib/tour';
 
 const ONBOARDING_KEY = 'calsync_onboarding_done';
-
 const KNOWN_ROUTES = new Set(['/', '/dash', '/food', '/drinks', '/login']);
+const LEGAL_ROUTES_PREFIX = '/legal/';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const router = useRouter();
@@ -32,23 +34,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         workoutOpen, openWorkout, closeWorkout,
         workoutHistoryOpen, openWorkoutHistory, closeWorkoutHistory,
         supplementsOpen, openSupplements, closeSupplements,
-        scanModalOpen, openScanModal, closeScanModal,
-        calScanValue, setCalScanValue,
         extraMenuOpen, setExtraMenuOpen,
         extraBtnRef,
+        barcodeSearchOpen, setBarcodeSearchOpen,
     } = useAppShell();
 
     const { canUsePreferences } = useCookieConsent();
+    const { user } = useAuth();
 
     const [onboardingDone, setOnboardingDone] = useState(true);
     const [supplementsEnabled, setSupplementsEnabled] = useState(false);
+    const [aiDetectionUsable, setAiDetectionUsable] = useState(false);
+    const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
     useEffect(() => {
         setOnboardingDone(!!localStorage.getItem(ONBOARDING_KEY));
     }, []);
 
     useEffect(() => {
-        const read = () => setSupplementsEnabled(localStorage.getItem('calsync_track_supplements') === 'true');
+        const read = () => {
+            setSupplementsEnabled(localStorage.getItem('calsync_track_supplements') === 'true');
+            setAiDetectionUsable(
+                localStorage.getItem('calsync_ai_enabled') === 'true'
+                && !!localStorage.getItem('calsync_ai_api_key'),
+            );
+        };
         if (canUsePreferences) {
             read();
             window.addEventListener('storage', read);
@@ -63,10 +73,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }, []);
 
     useEffect(() => {
-        if (!onboardingDone && pathname !== '/onboarding') {
-        router.replace('/onboarding');
+        const hasValidSession = !!user;
+        const shouldRedirect = !onboardingDone && !hasValidSession;
+        if (shouldRedirect && pathname !== '/onboarding' && !pathname.startsWith(LEGAL_ROUTES_PREFIX)) {
+            router.replace('/onboarding');
         }
-    }, [onboardingDone, pathname, router]);
+    }, [onboardingDone, pathname, router, user]);
 
     useEffect(() => {
         if (!onboardingDone) return;
@@ -97,6 +109,29 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }, [extraMenuOpen, extraBtnRef, setExtraMenuOpen]);
 
     useEffect(() => {
+        const dismissed = localStorage.getItem('hs_install_dismissed');
+        if (dismissed) return;
+        const handler = (e: Event) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+        };
+        const installed = () => setDeferredPrompt(null);
+        window.addEventListener('beforeinstallprompt', handler);
+        window.addEventListener('appinstalled', installed);
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handler);
+            window.removeEventListener('appinstalled', installed);
+        };
+    }, []);
+
+    const handleInstall = useCallback(async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') setDeferredPrompt(null);
+    }, [deferredPrompt]);
+
+    useEffect(() => {
         const ids = ['db-openSettingsBtn', 'cs-openSettingsBtn', 'ds-openSettingsBtn'];
         if (settingsOpen) ids.forEach(removeHeaderBtn);
         else ids.forEach(addHeaderBtn);
@@ -110,6 +145,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     const handleExtraAction = useCallback((action: string) => {
         if (action === 'supplements' && !supplementsEnabled) return;
+        if ((action === 'describe-food' || action === 'import-food' || action === 'capture-food') && !aiDetectionUsable) return;
         setExtraMenuOpen(false);
         if (action === 'describe-food') {
             router.push('/food?openModal=true&mode=describe');
@@ -117,21 +153,32 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             router.push('/food?openModal=true&mode=import');
         } else if (action === 'capture-food') {
             router.push('/food?openModal=true&mode=capture');
-        } else if (action === 'scan-barcode') setExtraScannerOpen(true);
+        } else if (action === 'search-food') setSearchPopupOpen(true);
+        else if (action === 'scan-barcode') setSearchPopupOpen(true);
         else if (action === 'log-drink') {
             router.push('/drinks?openModal=true');
         } else if (action === 'training') openWorkout();
         else if (action === 'workout-history') openWorkoutHistory();
         else if (action === 'supplements') openSupplements();
-    }, [router, setExtraMenuOpen, openWorkout, openWorkoutHistory, openSupplements, supplementsEnabled]);
+    }, [router, setExtraMenuOpen, openWorkout, openWorkoutHistory, openSupplements, supplementsEnabled, aiDetectionUsable]);
 
-    const [extraScannerOpen, setExtraScannerOpen] = useState(false);
+    const [searchPopupOpen, setSearchPopupOpen] = useState(false);
+    const [searchPopupMode, setSearchPopupMode] = useState<'search' | 'camera'>('search');
 
-    const handleScanScanned = useCallback((barcode: string) => {
-        closeScanModal();
-        setCalScanValue(barcode);
-        router.push(`/food?openModal=true&barcode=${encodeURIComponent(barcode)}`);
-    }, [closeScanModal, setCalScanValue, router]);
+    useEffect(() => {
+        setBarcodeSearchOpen(searchPopupOpen);
+        return () => { if (searchPopupOpen) setBarcodeSearchOpen(false); };
+    }, [searchPopupOpen, setBarcodeSearchOpen]);
+
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent).detail as { mode?: 'search' | 'camera' } | undefined;
+            setSearchPopupMode(detail?.mode === 'camera' ? 'camera' : 'search');
+            setSearchPopupOpen(true);
+        };
+        window.addEventListener('extra:openBarcodeSearch', handler as EventListener);
+        return () => window.removeEventListener('extra:openBarcodeSearch', handler as EventListener);
+    }, []);
 
     const handleSettingsClose = useCallback(() => {
         closeSettings();
@@ -141,7 +188,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         closeSettings();
         openNotes();
     }, [closeSettings, openNotes]);
-
     if (!KNOWN_ROUTES.has(pathname)) {
         return <>{children}</>;
     }
@@ -150,80 +196,120 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     return (
         <>
-            <PullToRefresh />
+            <AiDetectionProvider>
+                <PullToRefresh />
 
-            {showFooter && (
-                <div className="app-footer">
-                    <BottomNav />
-                    <div
-                        className={`extra-btn${extraMenuOpen ? ' open' : ''}`}
-                        id="extraActionBtn"
-                        ref={extraBtnRef}
-                        onClick={() => setExtraMenuOpen(!extraMenuOpen)}
-                        >
-                        <div className="extra-icon">
-                            <i className="fa-solid fa-plus" />
-                        </div>
-                        <div className="extra-menu-grid" id="extraMenuGrid" onClick={e => e.stopPropagation()}>
-                            <div className="grid-item" data-action="describe-food" onClick={() => handleExtraAction('describe-food')}>
-                            <i className="fa-solid fa-font" /><span>Describe Food</span>
-                            </div>
-                            <div className="grid-item" data-action="import-food" onClick={() => handleExtraAction('import-food')}>
-                            <i className="fa-solid fa-image-circle-plus" /><span>Import Food</span>
-                            </div>
-                            <div className="grid-item" data-action="capture-food" onClick={() => handleExtraAction('capture-food')}>
-                            <i className="fa-utility-fill fa-semibold fa-camera" /><span>Capture Food</span>
-                            </div>
-                            <div className="grid-item" data-action="scan-barcode" onClick={() => handleExtraAction('scan-barcode')}>
-                            <i className="fa-solid fa-barcode-read" /><span>Scan Barcode</span>
-                            </div>
-                            <div className="grid-item" data-action="training" onClick={() => handleExtraAction('training')}>
-                            <i className="fa-solid fa-dumbbell" /><span>View Templates</span>
-                            </div>
-                            <div className="grid-item" data-action="log-drink" onClick={() => handleExtraAction('log-drink')}>
-                            <i className="fa-solid fa-droplet" /><span>Log Drink</span>
-                            </div>
-                            <div className="grid-item" data-action="workout-history" onClick={() => handleExtraAction('workout-history')}>
-                            <i className="fa-solid fa-clock-rotate-left" /><span>View Workouts</span>
-                            </div>
-                            <div
-                                className={`grid-item${supplementsEnabled ? '' : ' disabled'}`}
-                                data-action="supplements"
-                                aria-disabled={!supplementsEnabled}
-                                onClick={() => handleExtraAction('supplements')}
+                {showFooter && (
+                    <div className="app-footer">
+                        <BottomNav />
+                        <AiDetectionIndicator />
+                        <div
+                            className={`extra-btn${extraMenuOpen ? ' open' : ''}`}
+                            id="extraActionBtn"
+                            ref={extraBtnRef}
+                            onClick={() => setExtraMenuOpen(!extraMenuOpen)}
                             >
-                            <i className="fa-solid fa-capsules" /><span>Supplements</span>
+                            <div className="extra-icon">
+                                <i className="fa-solid fa-plus" />
+                            </div>
+                            <div className="extra-menu-grid" id="extraMenuGrid" onClick={e => e.stopPropagation()}>
+                                <button
+                                    type="button"
+                                    className={`grid-item${aiDetectionUsable ? '' : ' disabled'}`}
+                                    data-action="describe-food"
+                                    disabled={!aiDetectionUsable}
+                                    onClick={() => handleExtraAction('describe-food')}
+                                >
+                                <i className="fa-solid fa-font" /><span>Describe Food</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`grid-item${aiDetectionUsable ? '' : ' disabled'}`}
+                                    data-action="import-food"
+                                    disabled={!aiDetectionUsable}
+                                    onClick={() => handleExtraAction('import-food')}
+                                >
+                                <i className="fa-solid fa-image-circle-plus" /><span>Import Food</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`grid-item${aiDetectionUsable ? '' : ' disabled'}`}
+                                    data-action="capture-food"
+                                    disabled={!aiDetectionUsable}
+                                    onClick={() => handleExtraAction('capture-food')}
+                                >
+                                <i className="fa-utility-fill fa-semibold fa-camera" /><span>Capture Food</span>
+                                </button>
+                                <button type="button" className="grid-item" data-action="scan-barcode" onClick={() => { setSearchPopupMode('camera'); handleExtraAction('scan-barcode'); }}>
+                                <i className="fa-solid fa-barcode" /><span>Scan Barcode</span>
+                                </button>
+                                <button type="button" className="grid-item" data-action="search-food" onClick={() => { setSearchPopupMode('search'); handleExtraAction('search-food'); }}>
+                                <i className="fa-solid fa-magnifying-glass" /><span>Search</span>
+                                </button>
+                                <button type="button" className="grid-item" data-action="log-drink" onClick={() => handleExtraAction('log-drink')}>
+                                <i className="fa-solid fa-droplet" /><span>Log Drink</span>
+                                </button>
+                                <button type="button" className="grid-item" data-action="workout-history" onClick={() => handleExtraAction('workout-history')}>
+                                <i className="fa-solid fa-clock-rotate-left" /><span>View Workouts</span>
+                                </button>
+                                <button type="button" className="grid-item" data-action="training" onClick={() => handleExtraAction('training')}>
+                                <i className="fa-solid fa-dumbbell" /><span>View Templates</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`grid-item${supplementsEnabled ? '' : ' disabled'}`}
+                                    data-action="supplements"
+                                    disabled={!supplementsEnabled}
+                                    onClick={() => handleExtraAction('supplements')}
+                                >
+                                <i className="fa-solid fa-capsules" /><span>Supplements</span>
+                                </button>
                             </div>
                         </div>
                     </div>
+                )}
+
+                <div className="views">
+                    {children}
                 </div>
-            )}
 
-            <div className="views">
-                {children}
-            </div>
+                <UpdateCenter />
 
-            <UpdateCenter />
+                <SettingsModal
+                    isOpen={settingsOpen}
+                    onClose={handleSettingsClose}
+                    onOpenNotes={handleOpenNotesFromSettings}
+                />
 
-            <SettingsModal
-                isOpen={settingsOpen}
-                onClose={handleSettingsClose}
-                onOpenNotes={handleOpenNotesFromSettings}
-            />
+                <NotesModal isOpen={notesOpen} onClose={closeNotes} />
+                <WorkoutModal isOpen={workoutOpen} onClose={closeWorkout} />
+                <WorkoutHistoryModal isOpen={workoutHistoryOpen} onClose={closeWorkoutHistory} />
+                <SupplementsModal isOpen={supplementsOpen} onClose={closeSupplements} />
 
-            <NotesModal isOpen={notesOpen} onClose={closeNotes} />
-            <WorkoutModal isOpen={workoutOpen} onClose={closeWorkout} />
-            <WorkoutHistoryModal isOpen={workoutHistoryOpen} onClose={closeWorkoutHistory} />
-            <SupplementsModal isOpen={supplementsOpen} onClose={closeSupplements} />
-            <BarcodeScanModal
-                isOpen={scanModalOpen}
-                onClose={closeScanModal}
-                onScanned={handleScanScanned}
-            />
+                <BarcodeSearchPopup
+                    isOpen={searchPopupOpen}
+                    onClose={() => setSearchPopupOpen(false)}
+                    initialMode={searchPopupMode}
+                />
 
-            <ExtraScanner isOpen={extraScannerOpen} onClose={() => setExtraScannerOpen(false)} />
+                <Toast />
 
-            <Toast />
+                {deferredPrompt && (
+                    <div className="install-banner" role="status" aria-label="Install HealthSync">
+                        <div className="install-banner-icon">
+                            <img src="/favicon.png" alt="" />
+                        </div>
+                        <div className="install-banner-text">
+                            <div className="install-banner-title">Install HealthSync</div>
+                            <div className="install-banner-subtitle">Add HealthSync to your home screen for quick access</div>
+                        </div>
+                        <div className="install-banner-actions">
+                            <button className="install-banner-btn" type="button" onClick={handleInstall}>Install</button>
+                            <button className="install-banner-dismiss" type="button" onClick={() => { localStorage.setItem('hs_install_dismissed', '1'); setDeferredPrompt(null); }} aria-label="Dismiss install prompt">&times;</button>
+                        </div>
+                    </div>
+                )}
+            </AiDetectionProvider>
         </>
     );
 }

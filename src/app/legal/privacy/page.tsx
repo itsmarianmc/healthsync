@@ -45,7 +45,7 @@ export default function PrivacyPage() {
                     The terms used herein are not gender-specific.
                 </div>
                 <div className="text-section">
-                    Last updated: 18 June 2026
+                    Last updated: 18 August 2026
                 </div>
             </section>
 
@@ -173,6 +173,13 @@ export default function PrivacyPage() {
                     Federal Act on Data Protection (FADP) and pursuant to the General Data Protection
                     Regulation (GDPR). For this reason, please note that the terminology of the GDPR is
                     used due to its broader geographical scope and comprehensibility.
+                </div>
+                <div className="text-section">
+                    <strong>Supervisory authority: </strong>
+                    Der Landesbeauftragte für den Datenschutz und die Informationsfreiheit
+                    Rheinland-Pfalz (LfDI RL-P), poststelle@datenschutz.rlp.de.
+                    You may also lodge a complaint with the supervisory authority of your habitual
+                    residence, place of work or place of the alleged infringement.
                 </div>
                 <div className="text-section">
                     <strong>Legal bases at a glance: </strong>
@@ -351,6 +358,10 @@ export default function PrivacyPage() {
                     {
                         label: 'Right to lodge a complaint with a supervisory authority',
                         text: 'Without prejudice to any other administrative or judicial remedy, you have the right to lodge a complaint with a supervisory authority, in particular in the Member State of your habitual residence, place of work or place of the alleged infringement.',
+                    },
+                    {
+                        label: 'Right not to be subject to automated individual decision-making (Art. 22 GDPR)',
+                        text: 'HealthSync does not use any form of automated individual decision-making, including profiling, within the meaning of Art. 22 GDPR. The AI Detection feature (Google Gemini) is strictly opt-in and only processes data when you actively trigger a request; it does not produce decisions that similarly affect you.',
                     },
                 ]} />
             </section>
@@ -586,10 +597,10 @@ export default function PrivacyPage() {
                     from your authenticator app, which is verified server-side.
                 </div>
                 <div className="text-section">
-                    If you choose &quot;Remember this device&quot;, your e-mail address is added to a
-                    locally stored list (<code>mfa_trusted_emails</code> in your browser&apos;s
-                    localStorage) so that the MFA step is skipped on this device for future logins. You
-                    can revoke this trust at any time by clearing the app&apos;s site data or signing out.
+                    The two-factor code is always required and verified server-side on every login.
+                    HealthSync does not store a list of &quot;trusted&quot; devices in your browser, because such
+                    a client-side list could be tampered with and would silently bypass the second
+                    factor. You can revoke access at any time by signing out.
                 </div>
                 <div className="text-section">
                     <strong>Legal basis: </strong>
@@ -639,6 +650,41 @@ export default function PrivacyPage() {
                     For details on how AI is used inside HealthSync, the risks it brings and your
                     responsibilities, please refer to our{' '}
                     <Linkout item="/legal/ai-guidelines" type="internal" className="linkout nodecoration">AI Guidelines</Linkout>.
+                </div>
+            </section>
+
+            <section className="section" id="m-weather">
+                <div className="text-section">
+                    <span className="legal-h1">Weather Widget &amp; Geolocation (Open-Meteo, Nominatim)</span>
+                </div>
+                <div className="text-section">
+                    HealthSync offers an optional weather widget on the dashboard. When you enable it,
+                    your device&apos;s browser Geolocation API is used to obtain your approximate latitude
+                    and longitude. This coordinate is sent to the public Open-Meteo API to retrieve current
+                    weather data, and to the public Nominatim (OpenStreetMap) API to resolve a human-readable
+                    location name.
+                </div>
+                <div className="text-section">
+                    Service providers: Open-Meteo (open-source weather API, no personal data retained);
+                    Nominatim / OpenStreetMap Foundation. Legal basis: your consent (Art. 6(1)(a) GDPR)
+                    obtained via the cookie banner. You can disable the weather widget at any time in
+                    Settings. Neither service receives your IP address directly from HealthSync; standard
+                    request metadata (IP, user agent) may be logged by the services.
+                </div>
+            </section>
+
+            <section className="section" id="m-support-api">
+                <div className="text-section">
+                    <span className="legal-h1">Support Form (api.itsmarian.dev)</span>
+                </div>
+                <div className="text-section">
+                    When you submit a support request through the in-app support form, your message
+                    content, e-mail address and standard request metadata (IP address, user agent) are
+                    transmitted to{' '}
+                    <code>api.itsmarian.dev</code>, an API endpoint operated by us. The data is processed
+                    solely to respond to your enquiry and is not shared with third parties.
+                    Legal basis: pre-contractual measures and performance of a contract (Art. 6(1)(b) GDPR);
+                    legitimate interests (Art. 6(1)(f) GDPR) in responding to user enquiries.
                 </div>
             </section>
 
@@ -701,7 +747,7 @@ export default function PrivacyPage() {
                     },
                     {
                         label: 'Retention and erasure',
-                        text: 'Cookies are stored for up to two years (or shorter, depending on type). Erasure of cookies takes place automatically or via your browser settings.',
+                        text: 'Cookies are stored for up to 14 months (or shorter, depending on type). Erasure of cookies takes place automatically or via your browser settings.',
                     },
                     {
                         label: 'Legal bases',

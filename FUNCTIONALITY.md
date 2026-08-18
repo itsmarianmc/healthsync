@@ -1,52 +1,52 @@
 # HealthSync
 
-**HealthSync** ist eine mobile-first Progressive Web App (PWA) für persönliches Gesundheitstracking. Die App kombiniert Kalorienzählung (CalSync), Hydration-Tracking (DropSync) und Workout-Logging unter einer einheitlichen Oberfläche und ist unter `healthsync.itsmarian.dev` erreichbar.
+**HealthSync** is a mobile-first Progressive Web App (PWA) for personal health tracking. The app combines calorie counting (CalSync), hydration tracking (DropSync), and workout logging under a unified interface and is available at `healthsync.itsmarian.dev`.
 
-Das Projekt entstand als eigenständige Weiterentwicklung aus zwei separaten Projekten - CalSync und DropSync - die zu einer gemeinsamen Plattform zusammengeführt wurden. HealthSync ist ein persönliches Projekt von Marian und wird aktiv weiterentwickelt.
+The project originated as an independent evolution from two separate projects — CalSync and DropSync — which were merged into a single platform. HealthSync is a personal project by Marian and is actively maintained.
 
 ---
 
-## Ziele
+## Goals
 
-- Tägliche Kalorien- und Makronährstoff-Erfassung so reibungslos wie möglich machen
-- Hydration-Tracking mit minimalem Aufwand ermöglichen (Drink auswählen, Menge per Drag einstellen, fertig)
-- Workout-Sessions mit Live-Timer und Set-Logging festhalten
-- Alle Daten sowohl lokal (offline-fähig via localStorage) als auch in der Cloud (Supabase) speichern
-- Eine native App-ähnliche Erfahrung im Browser liefern: keine Seitenreloads, Sheet-Modals, Haptic Feedback, PWA-Manifest
+- Make daily calorie and macronutrient logging as seamless as possible
+- Enable hydration tracking with minimal effort (pick a drink, set the amount by dragging, done)
+- Log workout sessions with live timer and set logging
+- Store all data both locally (offline-capable via localStorage) and in the cloud (Supabase)
+- Deliver a native app-like experience in the browser: no page reloads, sheet modals, haptic feedback, PWA manifest
 
 ---
 
 ## Tech Stack
 
-| Bereich | Technologie |
+| Area | Technology |
 |---|---|
 | Framework | Next.js 16 (App Router, Turbopack) |
-| Sprache | TypeScript (strict) |
-| Styling | Vanilla CSS (eigene CSS-Variablen, kein Tailwind für App-Styles) |
+| Language | TypeScript (strict) |
+| Styling | Vanilla CSS (custom CSS variables, no Tailwind for app styles) |
 | Backend / Auth | Supabase (PostgreSQL, Row Level Security, MFA/TOTP) |
-| Schriften | DM Sans (Google Fonts) |
+| Fonts | DM Sans (Google Fonts) |
 | Icons | Font Awesome v7 |
-| Barcode-Scanner | ZXing (`@zxing/browser`) |
-| QR-Code (Login) | QRCode.js (CDN) |
-| Deployment | Vercel, Domain `healthsync.itsmarian.dev` |
+| Barcode Scanner | ZXing (`@zxing/browser`) |
+| QR Code (Login) | QRCode.js (CDN) |
+| Deployment | Vercel, domain `healthsync.itsmarian.dev` |
 
 ---
 
-## Design-Sprache
+## Design Language
 
-HealthSync hat ein konsequentes Dark-Mode-Design mit einem warmen Orange-Akzent. Die App soll sich auf dem Smartphone wie eine native App anfühlen.
+HealthSync has a consistent dark-mode design with a warm orange accent. The app should feel like a native app on smartphones.
 
-**CSS-Variablen (Root):**
+**CSS Variables (Root):**
 ```css
---bg: #0F0F10           /* Hintergrund */
---surface: #1A1A1C      /* Karten-Hintergrund */
---surface2: #232326     /* Inputs, sekundäre Flächen */
---surface3: #2E2E32     /* Hover-Zustände */
+--bg: #0F0F10           /* background */
+--surface: #1A1A1C      /* card background */
+--surface2: #232326     /* inputs, secondary surfaces */
+--surface3: #2E2E32     /* hover states */
 --border: rgba(255,255,255,0.08)
 --text: #F5F5F7
---text2: #8E8E93        /* Sekundärtext */
---text3: #48484A        /* Placeholder, deaktiviert */
---accent: #E4840F       /* Primäre Akzentfarbe (Orange) */
+--text2: #8E8E93        /* secondary text */
+--text3: #48484A        /* placeholder, disabled */
+--accent: #E4840F       /* primary accent color (orange) */
 --accent2: #FF9F0A
 --error: #FF453A
 --success: #30D158
@@ -55,31 +55,31 @@ HealthSync hat ein konsequentes Dark-Mode-Design mit einem warmen Orange-Akzent.
 --ease: cubic-bezier(0.34, 1.15, 0.64, 1)
 ```
 
-Schrift: **DM Sans** durchgängig. Kein Inter, kein Roboto, kein System-Font-Stack.
+Font: **DM Sans** throughout. No Inter, no Roboto, no system font stack.
 
 ---
 
-## Projektstruktur (Next.js)
+## Project Structure (Next.js)
 
 ```
 healthsync/
 ├── public/
-│   └── healthsync-static/     ← Original Vanilla-Quelldateien (Referenz für Migration)
+│   └── healthsync-static/     ← Original vanilla source files (reference for migration)
 ├── src/
 │   └── app/
-│       ├── layout.tsx          ← Root Layout: AuthProvider, CSS-Import, Metadata
-│       ├── page.tsx            ← Haupt-App-Shell: View-Switching, alle Modals
-│       ├── styles.css          ← Globales CSS (1:1 aus healthsync-static übernommen)
+│       ├── layout.tsx          ← Root layout: AuthProvider, CSS import, metadata
+│       ├── page.tsx            ← Main app shell: view switching, all modals
+│       ├── styles.css          ← Global CSS (1:1 migrated from healthsync-static)
 │       ├── login/
-│       │   ├── layout.tsx      ← Login-Layout: QRCode CDN Script
-│       │   ├── page.tsx        ← Vollständige Login-Seite als React Client Component
-│       │   └── styles.css      ← Login-spezifische Styles
+│       │   ├── layout.tsx      ← Login layout: QRCode CDN script
+│       │   ├── page.tsx        ← Full login page as React client component
+│       │   └── styles.css      ← Login-specific styles
 │       ├── _lib/
-│       │   ├── supabase.ts     ← createBrowserClient Singleton (@supabase/ssr)
-│       │   ├── types.ts        ← Alle TypeScript Interfaces
-│       │   └── sync.ts         ← Alle Supabase CRUD Funktionen
+│       │   ├── supabase.ts     ← createBrowserClient singleton (@supabase/ssr)
+│       │   ├── types.ts        ← all TypeScript interfaces
+│       │   └── sync.ts         ← all Supabase CRUD functions
 │       ├── _context/
-│       │   └── AuthContext.tsx ← Auth State, User, Settings, syncEnabled
+│       │   └── AuthContext.tsx ← auth state, user, settings, syncEnabled
 │       ├── _hooks/
 │       │   ├── useLocalStorage.ts
 │       │   ├── useDashboardData.ts
@@ -87,189 +87,189 @@ healthsync/
 │       └── _components/
 │           ├── shared/         ← Toast, Tooltip, SplashScreen
 │           ├── navigation/     ← BottomNav
-│           ├── dashboard/      ← Dashboard + alle Unter-Komponenten inkl. WeatherWidget und ActivityStatus
-│           ├── calsync/        ← CalSync + Modal + FoodList + BarcodeScanner
-│           ├── dropsync/       ← DropSync + Modal + DrinkPicker + GlassInput + History
-│           ├── settings/       ← SettingsModal + Goals + Account + Workout
-│           ├── onboarding/     ← Onboarding Slides + TooltipTour
-│           └── update/         ← Update Center für In-App-Updates und Changelog
+│           ├── dashboard/      ← Dashboard + all sub-components including WeatherWidget and ActivityStatus
+│           ├── calsync/        ← CalSync + modal + FoodList + BarcodeScanner
+│           ├── dropsync/       ← DropSync + modal + DrinkPicker + GlassInput + history
+│           ├── settings/       ← SettingsModal + goals + account + workout
+│           ├── onboarding/     ← Onboarding slides + tooltip tour
+│           └── update/         ← Update center for in-app updates and changelog
 ```
 
 ---
 
-## App-Aufbau: Die drei Hauptbereiche
+## App Structure: The Three Main Sections
 
-Die App ist eine Single-Page-Application. Es gibt keine Next.js-Routes für die drei Bereiche - das View-Switching passiert über React State in `page.tsx`. Die Bottom-Navigation wechselt zwischen `'dashboard'`, `'calsync'` und `'dropsync'`.
+The app is a single-page application. There are no Next.js routes for the three sections — view switching happens via React state in `page.tsx`. The bottom navigation switches between `'dashboard'`, `'calsync'`, and `'dropsync'`.
 
 ### Dashboard
 
-Die Startseite der App. Zeigt eine tagesaktuelle Gesamtübersicht.
+The home page of the app. Shows a daily overview.
 
-**Komponenten und ihre Funktion:**
+**Components and their functions:**
 
-- **ScoreRing** - SVG-Ring-Diagramm mit einem Gesamtscore von 0–100. Der Score wird gewichtet berechnet: Kalorien (40%), Wasser (35%), Makros (25%). Falls keine Makroziele gesetzt sind, wird nur Kalorien (50%) + Wasser (50%) gewertet. `id="dashboardScoreRing"` auf dem `<circle>`, Radius 48, `strokeDasharray = 2 * Math.PI * 48`.
+- **ScoreRing** — SVG ring chart with a total score of 0–100. The score is calculated with weights: calories (40%), water (35%), macros (25%). If no macro goals are set, only calories (50%) + water (50%) are weighted. `id="dashboardScoreRing"` on the `<circle>`, radius 48, `strokeDasharray = 2 * Math.PI * 48`.
 
-- **MetricGrid** - Zwei Progress Bars für Kalorien und Wasser. Zeigt Gesamtmenge, Zielwert und Restmenge ("X kcal left" / "X ml over"). IDs: `dashboardCalProgress`, `dashboardWaterProgress`, `dashboardCalories`, `dashboardWater`, `dashboardCalGoal`, `dashboardWaterGoal`, `dashboardCalLeft`, `dashboardWaterLeft`.
+- **MetricGrid** — Two progress bars for calories and water. Shows total amount, goal amount, and remaining amount ("X kcal left" / "X ml over"). IDs: `dashboardCalProgress`, `dashboardWaterProgress`, `dashboardCalories`, `dashboardWater`, `dashboardCalGoal`, `dashboardWaterGoal`, `dashboardCalLeft`, `dashboardWaterLeft`.
 
-- **MacroGrid** - Drei Progress Bars für Protein, Kohlenhydrate, Fett. Nur aktiv wenn Makroziele in den Settings gesetzt wurden. Zeigt "X / Y g". IDs folgen dem Schema `dashboardProtein`, `dashboardProteinGoal`, `dashboardProteinProgress` etc.
+- **MacroGrid** — Three progress bars for protein, carbs, fat. Only active if macro goals are set in settings. Shows "X / Y g". IDs follow the pattern `dashboardProtein`, `dashboardProteinGoal`, `dashboardProteinProgress` etc.
 
-- **WeekChart** - 7-Tage Balkendiagramm ohne externe Chart-Library. Flex-Container mit je einem `div.dashboard-week-day` pro Tag. Jeder Tag hat zwei Bars (`.dashboard-week-bar.calories`, `.dashboard-week-bar.water`) deren `height` als Prozentwert inline gesetzt wird. Der heutige Tag bekommt die Klasse `.today`.
+- **WeekChart** — 7-day bar chart without external chart library. Flex container with one `div.dashboard-week-day` per day. Each day has two bars (`.dashboard-week-bar.calories`, `.dashboard-week-bar.water`) whose `height` is set inline as a percentage. The current day gets the class `.today`.
 
-- **RecentList** - Liste der letzten 5 Einträge des Tages (Food + Drinks kombiniert, nach Timestamp sortiert). Leerer Zustand zeigt "Nothing logged yet."
+- **RecentList** — List of the last 5 entries of the day (food + drinks combined, sorted by timestamp). Empty state shows "Nothing logged yet."
 
-- **NextWidget** - Regelbasierter Tipp-Widget. Zeigt je nach Tagesstand eine Empfehlung: Hydration fokussieren wenn Wasser < 55%, Protein nachbessern wenn Protein < 55%, Kalorien wenn < 65%, oder "Goals complete" wenn beides ≥ 100%.
+- **NextWidget** — Rule-based tip widget. Shows a recommendation based on daily progress: focus on hydration if water < 55%, boost protein if protein < 55%, calories if < 65%, or "Goals complete" if both ≥ 100%.
 
-- **AiTips** - Widget mit `id="AiBox"`, `id="aiTipTitle"`, `id="aiTipText"`. Wird nur angezeigt wenn `calsync_ai_enabled === 'true'`. Sonst Skeleton-Loader. Aktualisiert sich alle 5 Minuten (`REFRESH_INTERVAL`) oder wenn sich Stats-Hash ändert (`totalCal|totalWater|totalProtein|entryCount|calGoal|waterGoal|proteinGoal`). Hört auf `viewChanged`-Event: startet bei Dashboard, stoppt bei anderem Tab. Hört auf `requestAITipUpdate` Custom Event. Nachrichten sind vollständig regelbasiert (kein API-Call) mit zeitabhängigen Varianten (Morgen/Mittag/Abend/Nacht). `window.refreshAITip` für externen Refresh.
+- **AiTips** — Widget with `id="AiBox"`, `id="aiTipTitle"`, `id="aiTipText"`. Only displayed when `calsync_ai_enabled === 'true'`. Otherwise shows a skeleton loader. Refreshes every 5 minutes (`REFRESH_INTERVAL`) or when the stats hash changes (`totalCal|totalWater|totalProtein|entryCount|calGoal|waterGoal|proteinGoal`). Listens to `viewChanged` event: starts on dashboard tab, stops on other tabs. Listens to `requestAITipUpdate` custom event. Messages are fully rule-based (no API call) with time-dependent variants (morning/afternoon/evening/night). `window.refreshAITip` for external refresh.
 
-- **WeatherWidget** - Wetter-Widget das aktuelle Wetter für den Standort des Benutzers anzeigt. Nutzt die Open-Meteo API über einen Proxy-Endpoint. Shows temperature, weather conditions, and location. Can be enabled/disabled in Settings and uses cached location data.
+- **WeatherWidget** — Weather widget that displays current weather for the user's location. Uses the Open-Meteo API via a proxy endpoint. Shows temperature, weather conditions, and location. Can be enabled/disabled in settings and uses cached location data.
 
-- **ActivityStatus** - Aktivitätsstatus-Widget das aktuellen Trainingszustand des Benutzers anzeigt (aktiv, krank, verletzt, oder pause). Ermöglicht es Benutzern, ihren aktuellen Zustand zu setzen und eine Dauer festzulegen (bis geändert, bis morgen, 7 Tage, 14 Tage, oder benutzerdefiniertes Datum). Der Status wird im Dashboard angezeigt und kann in den Einstellungen verwaltet werden.
+- **ActivityStatus** — Activity status widget that shows the user's current training status (active, sick, injured, or on a break). Allows users to set their current status and specify a duration (until changed, until tomorrow, 7 days, 14 days, or custom date). The status is displayed on the dashboard and can be managed in settings.
 
-**Datenquelle:** Ausschließlich localStorage. Kein Supabase-Aufruf im Dashboard. Reaktiviert sich bei `storage`-Events, `focus`-Events, `viewChanged`-Events und alle 30 Sekunden via `setInterval`.
+**Data source:** Exclusively localStorage. No Supabase call in the dashboard. Reacts on `storage` events, `focus` events, `viewChanged` events, and every 30 seconds via `setInterval`.
 
-**Streak-Berechnung:** Zählt rückwärts von heute wie viele aufeinanderfolgende Tage Einträge existieren. Ein Tag gilt als "vorhanden" wenn mindestens ein Food- oder Drink-Eintrag dieses Datums im localStorage liegt.
+**Streak calculation:** Counts backward from today how many consecutive days have entries. A day counts as "present" if at least one food or drink entry for that date exists in localStorage.
 
 ---
 
-### CalSync (Food-Tracking)
+### CalSync (Food Tracking)
 
-CalSync ist der Food-Logging-Bereich. Der Tab-Name im Original war "CalSync", die Section-ID ist `calsync-view`.
+CalSync is the food logging section. The tab name in the original was "CalSync", the section ID is `calsync-view`.
 
-**CalSyncModal** - Das Hauptmodal zum Hinzufügen von Einträgen. Öffnet sich als Bottom-Sheet. Hat drei Eingabemodi:
+**CalSyncModal** — The main modal for adding entries. Opens as a bottom-sheet. Has three input modes:
 
-1. **Suche** - Freitextsuche in einer lokalen Lebensmitteldatenbank
-2. **Barcode-Scanner** - ZXing-basierter Kamera-Scanner. Scannt EAN-Barcodes und sucht das Produkt in Open Food Facts oder einer eigenen Datenbank. Button-ID: `cs-openModalBtn`
-3. **Manuell** - Formular mit Feldern für Name, Kalorien, Protein, Kohlenhydrate, Fett, Gewicht. IDs: `manualKcal`, `manualProtein`, `manualCarbs`, `manualFat` (diese werden für die Kalorienvorschau-Berechnung benötigt - `updateCaloriePreview()` wird bei `input`-Events aufgerufen).
+1. **Search** — Free-text search in a local food database
+2. **Barcode Scanner** — ZXing-based camera scanner. Scans EAN barcodes and looks up the product in Open Food Facts or a custom database. Button ID: `cs-openModalBtn`
+3. **Manual** — Form with fields for name, calories, protein, carbs, fat, weight. IDs: `manualKcal`, `manualProtein`, `manualCarbs`, `manualFat` (these are needed for the calorie preview calculation — `updateCaloriePreview()` is called on `input` events).
 
-**Eintrag-Datenstruktur:**
+**Entry data structure:**
 ```typescript
 interface FoodEntry {
   id: string           // UUID
-  food: string         // Lebensmittelname
+  food: string         // food name
   kcal: number
-  prot: number         // Protein in g
-  carb: number         // Kohlenhydrate in g
-  fat: number          // Fett in g
-  weight?: number      // Gewicht in g
-  emoji?: string       // z.B. "🍎"
-  color?: string       // CSS Farbe für Icon
-  ts: number           // Unix Timestamp (ms)
+  prot: number         // protein in g
+  carb: number         // carbs in g
+  fat: number          // fat in g
+  weight?: number      // weight in g
+  emoji?: string       // e.g. "🍎"
+  color?: string       // CSS color for icon
+  ts: number           // unix timestamp (ms)
   date: string         // new Date().toDateString()
   source?: string      // 'manual' | 'barcode' | 'search'
 }
 ```
 
-**Speicherung:** localStorage Key `calsync_v1` (Array). Cloud-Sync in Supabase Tabelle `food_entries`.
+**Storage:** localStorage key `calsync_v1` (array). Cloud sync to Supabase table `food_entries`.
 
-**MacroRings** - SVG-Ringdiagramme für Protein, Carbs, Fett. Zeigen Tagesfortschritt relativ zu den Goals. Wenn kein Goal gesetzt, wird der Ring in Neutralfarbe angezeigt.
+**MacroRings** — SVG ring charts for protein, carbs, fat. Shows daily progress relative to goals. If no goal is set, the ring is displayed in neutral color.
 
-**FoodList** - Liste aller heutigen Einträge. Jeder Eintrag hat einen Swipe-to-Delete oder Tap-to-Delete Button. Beim Löschen wird der Eintrag aus localStorage entfernt und via `deleteFoodFromCloud()` aus Supabase gelöscht.
+**FoodList** — List of all today's entries. Each entry has a swipe-to-delete or tap-to-delete button. When deleting, the entry is removed from localStorage and deleted via `deleteFoodFromCloud()` from Supabase.
 
 ---
 
-### DropSync (Hydration-Tracking)
+### DropSync (Hydration Tracking)
 
-DropSync ist der komplexeste Bereich der App. Die Section-ID ist `dropsync-view`.
+DropSync is the most complex section of the app. The section ID is `dropsync-view`.
 
-**Ring-Anzeige** - SVG-Kreis mit `id="ringProgress"`. Radius 95. Circumference = `2 * Math.PI * 95`. `strokeDashoffset = circumference * (1 - totalToday / GOAL_DS)`. Daneben: `ringAmount` (Textanzeige der Gesamtmenge, wechselt Einheit bei ≥ 1000ml auf "x,x L"), `statPct` (Prozentanzeige), `statCount` (Anzahl Einträge), `statLast` (letzter Eintrag "x min ago").
+**Ring display** — SVG circle with `id="ringProgress"`. Radius 95. Circumference = `2 * Math.PI * 95`. `strokeDashoffset = circumference * (1 - totalToday / GOAL_DS)`. Beside it: `ringAmount` (text display of total amount, switches unit at ≥ 1000ml to "x,x L"), `statPct` (percentage display), `statCount` (number of entries), `statLast` (last entry "x min ago").
 
-**DropSyncModal** - Bottom-Sheet-Modal mit zwei Steps und eigenem Drag-System.
+**DropSyncModal** — Bottom-sheet modal with two steps and its own drag system.
 
-*Sheet-States:*
-- `'closed'` - Modal unsichtbar
-- `'open'` - Modal in natürlicher Höhe (auto), von unten eingeblendet
-- `'expanded'` - Modal füllt fast den gesamten Screen (`window.innerHeight - 24px`)
+*Sheet states:*
+- `'closed'` — modal invisible
+- `'open'` — modal at natural height (auto), fades in from bottom
+- `'expanded'` — modal fills almost the entire screen (`window.innerHeight - 24px`)
 
-Übergänge via CSS-Transition auf `height` und `transform translateY`. Während Drag: `transition: none`. Nach Loslassen: Transition wieder aktiv, snap zur nächsten Position.
+Transitions via CSS transition on `height` and `transform translateY`. During drag: `transition: none`. After release: transition re-enabled, snap to next position.
 
 *Step 1 - DrinkPicker:*
-Grid mit Drink-Optionen. Jede Option ist ein `div.drink-option` mit `data-drink`, `data-emoji`, `data-color`. Nach Auswahl wird zu Step 2 gewechselt.
+Grid with drink options. Each option is a `div.drink-option` with `data-drink`, `data-emoji`, `data-color`. After selection, switches to Step 2.
 
 *Step 2 - GlassInput:*
-Ein SVG-Glas (`ds-glassContainer`) dessen Füllstand per Drag gesteuert wird. Pointer nach oben = mehr Wasser, nach unten = weniger. Delta in Pixeln wird in ml umgerechnet: `deltaMl = (dy / 300) * 1000`. Snap-Points bei `[100, 150, 200, 250, 330, 400, 500, 750, 1000]` ml mit Threshold 28 ml. Bei Snap: `navigator.vibrate(18)` für haptisches Feedback.
+An SVG glass (`ds-glassContainer`) whose fill level is controlled by drag. Pointer up = more water, down = less. Delta in pixels is converted to ml: `deltaMl = (dy / 300) * 1000`. Snap-points at `[100, 150, 200, 250, 330, 400, 500, 750, 1000]` ml with a threshold of 28 ml. On snap: `navigator.vibrate(18)` for haptic feedback.
 
-Quick-Buttons (`.quick-btn`) mit `data-ml` für häufige Mengen.
+Quick-buttons (`.quick-btn`) with `data-ml` for common amounts.
 
-*Eintrag-Datenstruktur:*
+*Entry data structure:*
 ```typescript
 interface DrinkEntry {
   id: string           // UUID
-  drink: string        // Getränkename z.B. "Water"
-  emoji?: string       // z.B. "💧"
-  color?: string       // CSS Farbe
+  drink: string        // drink name e.g. "Water"
+  emoji?: string       // e.g. "💧"
+  color?: string       // CSS color
   amount: number       // ml
-  ts: number           // Unix Timestamp (ms)
+  ts: number           // unix timestamp (ms)
   date: string         // new Date().toDateString()
   source?: string      // 'dropsync'
 }
 ```
 
-**Speicherung:** localStorage Key `dropsync_v3`. Cloud-Sync in Supabase Tabelle `dropsync_entries`.
+**Storage:** localStorage key `dropsync_v3`. Cloud sync to Supabase table `dropsync_entries`.
 
-**HistoryModal** - Zweites Drag-Sheet. Zeigt alle Einträge nach Datum gruppiert (mit `formatDateLabel`: "Today", "Yesterday", oder ausgeschriebenes Datum). Gleiches Drag-System wie das Haupt-Modal. Button-ID: `ds-openHistoryBtn`.
+**HistoryModal** — Second drag sheet. Shows all entries grouped by date (with `formatDateLabel`: "Today", "Yesterday", or full date). Same drag system as the main modal. Button ID: `ds-openHistoryBtn`.
 
-**DrinkLog** - Tages-Log innerhalb des Modals (`ds-logList`). Neue Einträge werden oben eingefügt ohne das gesamte List neu zu rendern (Set `renderedIds` verhindert Doppel-Rendering). Beim Löschen: optimistisches UI-Update, danach Cloud-Delete.
+**DrinkLog** — Daily log within the modal (`ds-logList`). New entries are inserted at the top without re-rendering the entire list (Set `renderedIds` prevents duplicate rendering). On delete: optimistic UI update, then cloud delete.
 
 ---
 
-## Settings-Modal
+## Settings Modal
 
-Erreichbar über Button `db-openSettingsBtn` auf dem Dashboard und `ds-openSettingsBtn` in DropSync. Öffnet als Bottom-Sheet (gleiches Drag-System wie DropSync).
+Accessible via button `db-openSettingsBtn` on the dashboard and `ds-openSettingsBtn` in DropSync. Opens as a bottom-sheet (same drag system as DropSync).
 
 **GoalsSection:**
-- Kaloriengoal (localStorage: `calsync_goal`, Default: 2000)
-- Wassergoal in ml (localStorage: `dropsync_goal`, Default: 2500)
-- Makroziele: Protein, Carbs, Fett in g (localStorage: `calsync_goal_protein`, `calsync_goal_carbs`, `calsync_goal_fat`, Default: 0 = kein Goal)
-- Bei Änderung: localStorage aktualisieren + `syncUserSettingsToCloud()` aufrufen (Push zu Supabase)
-- **GoalModal**: separates Sheet-Modal (`id="goalModal"`) für Kaloriengoal-Eingabe, hat zwei Modi: "set" (direkte Eingabe) und "calc" (Kalorien-Rechner). Eigenes `createDraggableSheet` Setup.
-- **Kalorien-Rechner**: Mifflin-St.-Jeor-Formel. Inputs: Gewicht, Größe, Alter, Geschlecht (Option-Buttons), Aktivitätslevel (Option-Buttons), Ziel (lose/maintain/gain). Ergebnis: TDEE in kcal + Makrovorschläge (30% Protein, 40% Carbs, 30% Fett). Separate Hydrations-Berechnung: `weight * 24.33` als Basis + Zuschläge für Geschlecht, Aktivität und Klima. Ergebnisse werden in `window.lastKcalResult`, `window.lastProteinResult` etc. gespeichert für "Apply"-Buttons.
+- Calorie goal (localStorage: `calsync_goal`, default: 2000)
+- Water goal in ml (localStorage: `dropsync_goal`, default: 2500)
+- Macro goals: protein, carbs, fat in g (localStorage: `calsync_goal_protein`, `calsync_goal_carbs`, `calsync_goal_fat`, default: 0 = no goal)
+- On change: update localStorage + call `syncUserSettingsToCloud()` (push to Supabase)
+- **GoalModal**: separate sheet modal (`id="goalModal"`) for calorie goal input, has two modes: "set" (direct input) and "calc" (calorie calculator). Own `createDraggableSheet` setup.
+- **Calorie calculator**: Mifflin-St. Jeor formula. Inputs: weight, height, age, gender (option buttons), activity level (option buttons), goal (lose/maintain/gain). Result: TDEE in kcal + macro suggestions (30% protein, 40% carbs, 30% fat). Separate hydration calculation: `weight * 24.33` as base + adjustments for gender, activity, and climate. Results are stored in `window.lastKcalResult`, `window.lastProteinResult` etc. for "Apply" buttons.
 
 **AccountSection:**
-- Wenn eingeloggt: Avatar (Initial oder Profilbild), Name, "Synced"-Badge, Logout-Button, "Manage Account"-Link → `/login?keep_login_page=true`
-- Wenn ausgeloggt: Login-Button → `/login?signinginto=healthsync`
-- Avatar-Initial: erster Buchstabe von `full_name` oder `name` aus `user_metadata`, Fallback `email.split('@')[0]`
-- `removeHeaderBtn(id)` / `addHeaderBtn(id)` - Hilfsfunktionen die Settings-Buttons in den View-Headern beim Öffnen/Schließen verstecken/anzeigen
+- If logged in: avatar (initials or profile picture), name, "Synced" badge, logout button, "Manage Account" link → `/login?keep_login_page=true`
+- If logged out: login button → `/login?signinginto=healthsync`
+- Avatar initials: first letter of `full_name` or `name` from `user_metadata`, fallback `email.split('@')[0]`
+- `removeHeaderBtn(id)` / `addHeaderBtn(id)` — helper functions that hide/show settings buttons in view headers when opening/closing
 
 **AI Detection Section:**
 - Toggle `calsync_ai_enabled` (localStorage)
-- Erfordert akzeptierte Nutzungsbedingungen (`calsync_ai_terms_accepted`) und einen Gemini API Key (`calsync_ai_api_key`)
-- Prüft Cookie-Zustimmung: `cookieSettings.thirdparty === true` muss gesetzt sein
-- `isAIReady()` gibt `true` zurück wenn alle vier Bedingungen erfüllt sind
-- Nach Speichern des API Keys: `location.reload()` nach 2222ms
+- Requires accepted terms of use (`calsync_ai_terms_accepted`) and a Gemini API key (`calsync_ai_api_key`)
+- Checks cookie consent: `cookieSettings.thirdparty === true` must be set
+- `isAIReady()` returns `true` if all four conditions are met
+- After saving API key: `location.reload()` after 2222ms
 
 **WorkoutSection:**
-- 4-Tage-Plan: Pull (Rücken/Bizeps), Push (Brust/Trizeps), Legs (Beine), Arms (Arme/Schultern)
-- Pläne werden in localStorage unter `healthsync_workouts` gespeichert und via `workout_routines` (jsonb) in `user_settings` mit Cloud synchronisiert
-- Aktive Session: Live-Timer (Sekunden), Set-Logging (Gewicht + Reps pro Satz), "Finish Session" speichert in `workout_sessions`
-- Exercise-GIF-Modal: Tap auf Exercise-Card-Header öffnet ein Video-Modal mit dem Übungs-GIF
-- Sort-Exercises-Modal: Drag-to-Reorder für Übungen innerhalb einer Routine
+- 4-day plan: Pull (back/biceps), Push (chest/triceps), Legs (legs), Arms (arms/shoulders)
+- Plans stored in localStorage under `healthsync_workouts` and synced to cloud via `workout_routines` (jsonb) in `user_settings`
+- Active session: live timer (seconds), set logging (weight + reps per set), "Finish Session" saves to `workout_sessions`
+- Exercise GIF modal: tap on exercise card header opens a video modal with the exercise GIF
+- Sort exercises modal: drag-to-reorder for exercises within a routine
 
 ---
 
 ## Onboarding
 
-Beim ersten Besuch (kein `calsync_onboarding_done` in localStorage) wird ein Overlay mit Slides angezeigt. Slides werden horizontal via `translateX` verschoben. Dot-Indikatoren zeigen den Fortschritt.
+On first visit (no `calsync_onboarding_done` in localStorage), an overlay with slides is shown. Slides are shifted horizontally via `translateX`. Dot indicators show progress.
 
-Nach Abschluss optional: **Tooltip-Tour** (8 Steps). Jeder Step zeigt einen Tooltip an einem Element (`id`-basiert) mit einer Erklärung. Tooltip positioniert sich relativ zum Element. Next-Button führt zum nächsten Step, letzter Step schließt die Tour.
+After completion: **tooltip tour** (8 steps) is optional. Each step shows a tooltip on an element (based on `id`) with an explanation. Tooltip is positioned relative to the element. Next button advances to the next step, last step closes the tour.
 
-`window.showOnboarding = startOnboarding` ermöglicht das Neustarten aus den Settings.
+`window.showOnboarding = startOnboarding` enables restarting from settings.
 
 ---
 
-## Notes-Modal
+## Notes Modal
 
-Erreichbar über Button `openNotes` in der App. Öffnet als Bottom-Sheet über dem Settings-Modal (Settings bekommt dabei die Klasse `.small`). Gleiches Drag-Sheet-System wie Settings und DropSync. `notes.js` ist kein IIFE - Variablen sind global, kein `DOMContentLoaded` Guard. Beim Schließen wird `.small` nach 100ms von Settings entfernt.
+Accessible via button `openNotes` in the app. Opens as a bottom-sheet above the settings modal (settings gets the `.small` class in the process). Same drag-sheet system as settings and DropSync. `notes.js` is not an IIFE — variables are global, no `DOMContentLoaded` guard. When closing, `.small` is removed from settings after 100ms.
 
 ---
 ## Update Center
 
-Zeigt verfügbare App-Updates und changelog-Einträge an. Benutzer werden über neue Versionen informiert und können diese direkt in der App installieren. Nutzt die Supabase-Changelog-Datenbank um Versionshinweise und neue Features anzuzeigen. Enthält eine "Was ist neu?"-Modal die aktualisierte Versionsinformationen und Änderungen anzeigt.
+Shows available app updates and changelog entries. Users are notified about new versions and can install them directly in the app. Uses the Supabase changelog database to display version notes and new features. Includes a "What's new?" modal that displays updated version information and changes.
 
 ---
 
-## Wiederverwendbares Sheet-System (`createDraggableSheet`)
+## Reusable Sheet System (`createDraggableSheet`)
 
-Settings, Notes-Modal und GoalModal teilen sich dasselbe generische Drag-Sheet-System. Es wird über `createDraggableSheet(config)` initialisiert (definiert in `script.js`):
+Settings, Notes Modal, and GoalModal share the same generic drag-sheet system. It is initialized via `createDraggableSheet(config)` (defined in `script.js`):
 
 ```javascript
 createDraggableSheet({
@@ -282,37 +282,37 @@ createDraggableSheet({
 })
 ```
 
-In Next.js wird das ein `useDraggableSheet(config)` Hook der per Ref auf die Modal-Elemente zugreift.
+In Next.js, this becomes a `useDraggableSheet(config)` hook that accesses the modal elements via ref.
 
 ---
 
 ## Pull-to-Refresh
 
-In `menu.js` als IIFE `initPullToRefresh()`. Touch-basiert: bei `touchstart` am Top des Dokuments (`scrollY === 0`, kein Modal-Element im Pfad) wird ein PTR-Indikator (`id="ptr-indicator"`) eingeblendet. Bei ausreichend Pull (`THRESHOLD = 50px`, `MAX_HEIGHT = 60px`) und Loslassen wird `refreshAllData()` aufgerufen.
+Implemented in `menu.js` as an IIFE `initPullToRefresh()`. Touch-based: when `touchstart` occurs at the top of the document (`scrollY === 0`, no modal element in the path), a PTR indicator (`id="ptr-indicator"`) is shown. When sufficient pull occurs (`THRESHOLD = 50px`, `MAX_HEIGHT = 60px`) and it's released, `refreshAllData()` is called.
 
-`refreshAllData()` ruft auf: localStorage neu laden, `refreshDropsyncUI()`, `updateUI()`, `updateDateLabel()`, `updateCalorieWeekWidget()`, `updateSecondaryStats()`, `updateMacroRingsAndLeft()`, `renderLog()`. In Next.js: `useCallback`-basiertes Refresh das alle relevanten States und Context-Funktionen neu triggert. Der PTR-Indikator wird als eigene `PullToRefresh.tsx` Komponente umgesetzt.
+`refreshAllData()` calls: reload localStorage, `refreshDropsyncUI()`, `updateUI()`, `updateDateLabel()`, `updateCalorieWeekWidget()`, `updateSecondaryStats()`, `updateMacroRingsAndLeft()`, `renderLog()`. In Next.js: `useCallback`-based refresh that re-triggers all relevant states and context functions. The PTR indicator is implemented as a separate `PullToRefresh.tsx` component.
 
 ---
 
-## Toast-System
+## Toast System
 
-Queue-basiertes Toast-System. Toasts erscheinen unten über der Navigation. Bei mehreren Toasts in kurzer Folge werden sie nacheinander angezeigt (Queue wird abgearbeitet). Jeder Toast ist für ~2 Sekunden sichtbar, dann Fade-out.
+Queue-based toast system. Toasts appear at the bottom above the navigation. When multiple toasts appear in quick succession, they are shown sequentially (queue is processed). Each toast is visible for ~2 seconds, then fades out.
 
 ---
 
 ## Auth & Supabase
 
-### Session-Handling
+### Session Handling
 
-Der Supabase-Client wird mit `createBrowserClient` aus `@supabase/ssr` initialisiert. Sessions werden in **Cookies** gespeichert (nicht localStorage). Das ist wichtig: Der `createClient` aus `@supabase/supabase-js` würde localStorage verwenden und ist mit dem Next.js-Setup inkompatibel.
+The Supabase client is initialized with `createBrowserClient` from `@supabase/ssr`. Sessions are stored in **cookies** (not localStorage). This is important: the `createClient` from `@supabase/supabase-js` would use localStorage and is incompatible with the Next.js setup.
 
 ### AuthContext
 
-Globaler React Context der folgendes bereitstellt:
+Global React context that provides the following:
 ```typescript
 interface AuthContextType {
   user: User | null
-  syncEnabled: boolean       // true wenn user !== null
+  syncEnabled: boolean       // true if user !== null
   loading: boolean
   settings: UserSettings | null
   refreshSettings: () => Promise<void>
@@ -320,172 +320,171 @@ interface AuthContextType {
 }
 ```
 
-Beim Mount: `supabase.auth.getSession()` → User setzen → `user_settings` aus Supabase laden → Goals in localStorage spiegeln.
+On mount: `supabase.auth.getSession()` → set user → load `user_settings` from Supabase → sync goals to localStorage.
 
-`onAuthStateChange` Listener läuft durchgehend und reagiert auf Login/Logout.
+`onAuthStateChange` listener runs continuously and reacts to login/logout.
 
-### Sync-Strategie
+### Sync Strategy
 
-**Food & Drinks:** Beim Pull wird Cloud mit Local zusammengeführt. Cloud-IDs als Set → lokale Einträge die nicht in der Cloud sind werden ergänzt → nach `ts` sortiert → in localStorage gespeichert.
+**Food & Drinks:** On pull, cloud and local are merged. Cloud IDs as a Set → local entries not in cloud are added → sorted by `ts` → stored in localStorage.
 
-Beim Push (neuer Eintrag): Sofort lokal speichern (optimistisch), dann `upsert` zu Supabase mit `onConflict: 'entry_id'`.
+On push (new entry): save locally immediately (optimistic), then `upsert` to Supabase with `onConflict: 'entry_id'`.
 
-**Settings:** `upsert` mit `onConflict: 'user_id'`. Beim Pull: Werte in localStorage spiegeln und UI-Refresh-Funktionen aufrufen.
+**Settings:** `upsert` with `onConflict: 'user_id'`. On pull: sync values to localStorage and call UI refresh functions.
 
-**Workouts:** Timestamp-basierte Merge-Strategie. `_updated_at` wird verglichen - neuerer Stand gewinnt.
+**Workouts:** Timestamp-based merge strategy. `_updated_at` is compared — newer version wins.
 
 ### MFA (TOTP)
 
-Die App unterstützt Zwei-Faktor-Authentifizierung via TOTP (Time-based One-Time Password). Flow:
-1. Login mit Email + Password
-2. `mfa.getAuthenticatorAssuranceLevel()` prüfen
-3. Falls `nextLevel === 'aal2'` und nicht bereits verifiziert → MFA-Challenge starten
-4. TOTP-Code verifizieren via `mfa.verify()`
+The app supports two-factor authentication via TOTP (Time-based One-Time Password). Flow:
+1. Login with email + password
+2. Check `mfa.getAuthenticatorAssuranceLevel()`
+3. If `nextLevel === 'aal2'` and not already verified → start MFA challenge
+4. Verify TOTP code via `mfa.verify()`
 
-"Remember this device" speichert die E-Mail in `mfa_trusted_emails` (localStorage) und überspringt den MFA-Step beim nächsten Login.
+The TOTP code is required on every login and verified server-side. No list of trusted devices is stored in the browser (the earlier `mfa_trusted_emails` concept was removed as it could undermine 2FA).
 
-Setup/Disable über die Login-Seite nach erfolgreichem Login (viewSetup2FA).
+Setup/disable via the login page after successful login (viewSetup2FA).
 
 ---
 
-## Supabase Datenbank-Schema
+## Supabase Database Schema
 
 ### `calsync_entries`
-| Spalte | Typ | Beschreibung |
+| Column | Type | Description |
 |---|---|---|
-| id | uuid PK | Automatisch generiert |
-| user_id | uuid | Supabase Auth User ID |
-| entry_id | text UNIQUE | Vom Client generierte UUID |
-| food | text | Lebensmittelname |
-| brand | text | Marke (sofern über Open Food Facts angegeben) |
-| kcal | numeric | Kalorien |
-| amount | number | Das Gewicht (roh) |
-| unit | text | Einheit für "amount" |
+| id | uuid PK | Auto-generated |
+| user_id | uuid | Supabase auth user ID |
+| entry_id | text UNIQUE | Client-generated UUID |
+| food | text | Food name |
+| brand | text | Brand (if provided by Open Food Facts) |
+| kcal | numeric | Calories |
+| amount | number | The weight (raw) |
+| unit | text | Unit for "amount" |
 | prot | numeric | Protein in g |
-| carb | numeric | Kohlenhydrate in g |
-| fat | numeric | Fett in g |
-| barcide | text | sofern barcode über OFF |
-| ts | bigint | Unix Timestamp in ms |
-| date | text | `new Date().toDateString()` Format |
-| created_at | timestampz | Zeitstempel wann das Essen hinzugefügt wurde |
-| is_drink | sofern Getränk (damit Getränk in DropSync angezeigt wird) |
+| carb | numeric | Carbs in g |
+| fat | numeric | Fat in g |
+| barcide | text | if barcode via OFF |
+| ts | bigint | Unix timestamp in ms |
+| date | text | `new Date().toDateString()` format |
+| created_at | timestampz | Timestamp when the food was added |
+| is_drink | boolean | if it's a drink (so it appears in DropSync) |
 
-RLS: User kann nur eigene Einträge lesen/schreiben (`user_id = auth.uid()`).
+RLS: user can only read/write their own entries (`user_id = auth.uid()`).
 
 ### `dropsync_entries`
-| Spalte | Typ | Beschreibung |
+| Column | Type | Description |
 |---|---|---|
-| id | uuid PK | Automatisch generiert |
-| user_id | uuid | Supabase Auth User ID |
-| entry_id | text UNIQUE | Vom Client generierte UUID |
-| drink | text | Getränkename |
-| emoji | text | Emoji-Symbol (optional) |
-| color | text | CSS-Farbe (optional) |
-| amount | integer | Menge in ml |
-| ts | bigint | Unix Timestamp in ms |
-| date | text | `new Date().toDateString()` Format |
-| created_at | timestamptz | Roh Datum |
+| id | uuid PK | Auto-generated |
+| user_id | uuid | Supabase auth user ID |
+| entry_id | text UNIQUE | Client-generated UUID |
+| drink | text | Drink name |
+| emoji | text | Emoji symbol (optional) |
+| color | text | CSS color (optional) |
+| amount | integer | Amount in ml |
+| ts | bigint | Unix timestamp in ms |
+| date | text | `new Date().toDateString()` format |
+| created_at | timestamptz | Raw date |
 | source | text | 'dropsync' |
 
 ### `user_settings`
-| Spalte | Typ | Beschreibung |
+| Column | Type | Description |
 |---|---|---|
-| user_id | uuid PK | Supabase Auth User ID |
-| goal_ml | integer | Wassergoal in ml (Default: 2500) |
-| updated_at | timestamptz | Letztes Update (für Workout-Sync) |
-| calorie_goal | integer | Tägliches Kaloriengoal (Default: 2000) |
-| protein_goal | integer | Proteingoal in g (Default: 0 = kein Goal) |
-| carbs_goal | integer | Kohlenhydratgoal in g |
-| fat_goal | integer | Fettgoal in g |
-| workout_routines | jsonb | Workout-Pläne als JSON |
+| user_id | uuid PK | Supabase auth user ID |
+| goal_ml | integer | Water goal in ml (default: 2500) |
+| updated_at | timestamptz | Last update (for workout sync) |
+| calorie_goal | integer | Daily calorie goal (default: 2000) |
+| protein_goal | integer | Protein goal in g (default: 0 = no goal) |
+| carbs_goal | integer | Carb goal in g |
+| fat_goal | integer | Fat goal in g |
+| workout_routines | jsonb | Workout plans as JSON |
 
 ---
 
-## localStorage-Schlüssel (vollständige Referenz)
+## localStorage Keys (Complete Reference)
 
-| Key | Inhalt | Typ |
+| Key | Content | Type |
 |---|---|---|
-| `calsync_v1` | Array aller Food-Einträge | `FoodEntry[]` JSON |
-| `dropsync_v3` | Array aller Drink-Einträge | `DrinkEntry[]` JSON |
-| `calsync_goal` | Tägliches Kaloriengoal | Number als String |
-| `calsync_goal_protein` | Proteingoal in g | Number als String |
-| `calsync_goal_carbs` | Kohlenhydratgoal in g | Number als String |
-| `calsync_goal_fat` | Fettgoal in g | Number als String |
-| `dropsync_goal` | Wassergoal in ml | Number als String |
-| `calsync_goal_ml` | Alias für Wassergoal (wird von `auth.js` pullWaterGoal genutzt, identisch mit `dropsync_goal`) | Number als String |
-| `healthsync_workouts` | Workout-Pläne + `_updated_at` | JSON |
-| `calsync_onboarding_done` | Onboarding bereits gesehen | `'1'` |
-| `mfa_trusted_emails` | Vertrauenswürdige E-Mails für MFA-Skip | `string[]` JSON |
-| `calsync_ai_enabled` | AI-Tips aktiviert | `'true'` / `'false'` |
-| `calsync_ai_api_key` | Gemini API Key | String |
-| `calsync_ai_terms_accepted` | AI-Nutzungsbedingungen akzeptiert | `'true'` |
-| `calsync_theme` | Aktives Theme | Theme-String |
-| `dropsync_theme` | Aktives Theme (Mirror) | Theme-String |
-| `calsync_first_name` | Vorname für personalisierten Header-Greeting | String |
-| `cookieSettings` | Cookie-Zustimmungseinstellungen (JSON mit `thirdparty` Boolean) | JSON |
+| `calsync_v1` | Array of all food entries | `FoodEntry[]` JSON |
+| `dropsync_v3` | Array of all drink entries | `DrinkEntry[]` JSON |
+| `calsync_goal` | Daily calorie goal | Number as string |
+| `calsync_goal_protein` | Protein goal in g | Number as string |
+| `calsync_goal_carbs` | Carb goal in g | Number as string |
+| `calsync_goal_fat` | Fat goal in g | Number as string |
+| `dropsync_goal` | Water goal in ml | Number as string |
+| `calsync_goal_ml` | Alias for water goal (used by `auth.js` `pullWaterGoal`, identical to `dropsync_goal`) | Number as string |
+| `healthsync_workouts` | Workout plans + `_updated_at` | JSON |
+| `calsync_onboarding_done` | Onboarding already seen | `'1'` |
+| `calsync_ai_enabled` | AI tips enabled | `'true'` / `'false'` |
+| `calsync_ai_api_key` | Gemini API key | String |
+| `calsync_ai_terms_accepted` | AI terms of use accepted | `'true'` |
+| `calsync_theme` | Active theme | Theme string |
+| `dropsync_theme` | Active theme (mirror) | Theme string |
+| `calsync_first_name` | First name for personalized header greeting | String |
+| `cookieSettings` | Cookie consent settings (JSON with `thirdparty` boolean) | JSON |
 
 ---
 
-## Login-Seite (`/login`)
+## Login Page (`/login`)
 
-Die Login-Seite ist eine eigenständige Route innerhalb des Next.js-Projekts. Sie wird auch für Account-Management genutzt (via `?keep_login_page=true`).
+The login page is a standalone route within the Next.js project. It is also used for account management (via `?keep_login_page=true`).
 
-**Views (als React State):**
-- `'login'` - Email + Password, Forgot Password Link
-- `'register'` - Name, Email, Password (mit Stärke-Indicator), Confirm Password
-- `'mfa'` - 6-stelliger OTP-Input, "Remember this device" Checkbox
-- `'setup2fa'` - QR-Code (QRCode.js), Secret Key, OTP-Verifikation, optional Disable
-- `'reset'` - Email-Eingabe für Reset-Link
-- `'resetMfa'` - MFA-Verifikation vor Password-Reset
-- `'confirm'` - Bestätigungshinweis nach Register
-- `'loggedIn'` - Erfolgsansicht mit Redirect-Timer und optionalem 2FA-Setup
+**Views (as React state):**
+- `'login'` — email + password, forgot password link
+- `'register'` — name, email, password (with strength indicator), confirm password
+- `'mfa'` — 6-digit OTP input
+- `'setup2fa'` — QR code (QRCode.js), secret key, OTP verification, optional disable
+- `'reset'` — email input for reset link
+- `'resetMfa'` — MFA verification before password reset
+- `'confirm'` — confirmation hint after registration
+- `'loggedIn'` — success view with redirect timer and optional 2FA setup
 
-**Password-Stärke:** 3 Bars (`#bar1`, `#bar2`, `#bar3`). Klassen: `weak` (1 Bar), `medium` (2 Bars), `strong` (3 Bars). Regeln: min. 8 Zeichen, min. 1 Großbuchstabe, min. 1 Zahl.
+**Password strength:** 3 bars (`#bar1`, `#bar2`, `#bar3`). Classes: `weak` (1 bar), `medium` (2 bars), `strong` (3 bars). Rules: min. 8 characters, min. 1 uppercase letter, min. 1 number.
 
-**OTP-Input:** 6 einzelne `<input type="number">` Felder. Auto-Advance, Backspace-Rücksprung, Paste-Support.
+**OTP input:** 6 individual `<input type="number">` fields. Auto-advance, backspace jump-back, paste support.
 
-**Nach Login:** Redirect zu `/?reload=true`. Der `reload`-Parameter triggert nach ~2.2 Sekunden ein `window.location.replace` ohne den Parameter, damit die App frisch initialisiert.
+**After login:** redirect to `/?reload=true`. The `reload` parameter triggers a `window.location.replace` without the parameter after ~2.2 seconds, so the app initializes fresh.
 
 ---
 
-## Besonderheiten und Stolperstellen
+## Particularities and Gotchas
 
-### `date`-Format
-Einträge verwenden `new Date().toDateString()` als `date`-Feld (z.B. `"Mon Jun 09 2025"`). Kein ISO-Format. Alle Datum-Vergleiche im Dashboard und DropSync laufen über dieses Format. Nicht ändern.
+### `date` Format
+Entries use `new Date().toDateString()` as the `date` field (e.g. `"Mon Jun 09 2025"`). Not ISO format. All date comparisons in the dashboard and DropSync work with this format. Do not change.
 
-### `ts`-Feld
-Unix-Timestamp in Millisekunden (`Date.now()`), als `bigint` in Supabase gespeichert. Wird für Sortierung und "X ago"-Anzeigen verwendet.
+### `ts` Field
+Unix timestamp in milliseconds (`Date.now()`), stored as `bigint` in Supabase. Used for sorting and "X ago" displays.
 
 ### `entry_id` vs `id`
-In Supabase haben Einträge eine auto-generierte `id` (UUID). Die vom Client generierte ID wird in `entry_id` gespeichert. Im localStorage ist die Client-UUID der primäre Schlüssel (`entry.id`). Bei Sync-Operationen wird immer auf `entry_id` gejoined, nicht auf `id`.
+In Supabase, entries have an auto-generated `id` (UUID). The client-generated ID is stored in `entry_id`. In localStorage, the client UUID is the primary key (`entry.id`). On sync operations, always join on `entry_id`, not `id`.
 
 ### `updateCaloriePreview`
-Diese Funktion wird in `onboarding.js` im DOMContentLoaded-Listener auf den manuellen Eingabefeldern registriert. Sie ist in `script.js` (CalSync) definiert. In der Next.js-Version muss sie aus CalSync exportiert und in der Onboarding-Komponente per Ref oder Context verfügbar gemacht werden.
+This function is registered on the manual input fields in `onboarding.js` within the DOMContentLoaded listener. It is defined in `script.js` (CalSync). In the Next.js version, it must be exported from CalSync and made available in the onboarding component via ref or context.
 
-### Doppelter `updateUI`
-In `dropsync-integration.js` existiert eine lokale `updateUI`-Funktion. In `dashboard.js` existiert ebenfalls eine `updateUI`-Funktion. Diese sind komplett unabhängig voneinander und dürfen in React nicht auf denselben Namen verweisen.
+### Double `updateUI`
+In `dropsync-integration.js` there is a local `updateUI` function. In `dashboard.js` there is also an `updateUI` function. These are completely independent and must not refer to the same name in React.
 
-### `window.reload`-Trick nach Login
-Nach erfolgreichem Login wird zu `/?reload=true` weitergeleitet. `page.tsx` prüft diesen Parameter beim Mount und führt nach einem kurzen Delay (2200ms aus `auth.js`) `window.location.replace('/')` aus - das sorgt dafür dass Auth-State und localStorage sauber initialisiert werden ohne den Parameter in der URL zu behalten.
+### `window.reload` trick after login
+After successful login, users are redirected to `/?reload=true`. `page.tsx` checks this parameter on mount and performs `window.location.replace('/')` after a short delay (2200ms from `auth.js`) — this ensures auth state and localStorage are cleanly initialized without keeping the parameter in the URL.
 
 ### `removeHeaderBtn` / `addHeaderBtn`
-`settings.js` blendet beim Öffnen des Settings-Modals die Settings-Buttons in den View-Headern aus. In React: `settingsOpen` Boolean State der den Buttons conditional `display: none` gibt.
+`settings.js` hides the settings buttons in the view headers when opening the settings modal. In React: `settingsOpen` boolean state that gives the buttons conditional `display: none`.
 
 ### `syncUserSettingsToCloud`
-In `settings.js` definiert (nicht in `auth.js`). Wird nach jeder Goal-Änderung aufgerufen. Ruft intern `pushUserSettings` auf. In Next.js: `pushSettings` aus `sync.ts` direkt aus den Settings-Komponenten.
+Defined in `settings.js` (not in `auth.js`). Called after every goal change. Internally calls `pushUserSettings`. In Next.js: `pushSettings` from `sync.ts` called directly from settings components.
 
 ### `checkAndNotifyMissingMacros`
-Wird in `initAuth` nach Auth-Erfolg und nach Login-Wechsel aufgerufen. Prüft ob Makroziele fehlen und zeigt ggf. einen Toast. In Next.js im `AuthContext` nach `fetchSettings` aufrufen.
+Called in `initAuth` after auth success and after login change. Checks if macro goals are missing and shows a toast if needed. In Next.js: call after `fetchSettings` in the `AuthContext`.
 
-### Doppelter `updateUI`
-`ai-tips.js` hat eine interne `updateUI(title, text)`. `script.js` hat eine globale `updateUI()`. `dropsync-integration.js` ebenfalls eine eigene. In React kein Problem - alle leben in getrennten Komponenten.
+### Double `updateUI` (AI Tips)
+`ai-tips.js` has an internal `updateUI(title, text)`. `script.js` has a global `updateUI()`. `dropsync-integration.js` has its own. In React, no problem — they all live in separate components.
 
 ### `escapeHTML`
-In `menu.js` als `window.escapeHTML` für Workout-Routine-Namen in innerHTML. In React irrelevant (JSX escaped automatisch).
+In `menu.js` as `window.escapeHTML` for workout routine names in innerHTML. Irrelevant in React (JSX escapes automatically).
 
 ### `window.entries`
-In `menu.js` wird bei Pull-to-Refresh `window.entries = JSON.parse(localStorage.getItem('calsync_v1') || '[]')` gesetzt. Globaler Cache den `script.js` als Datenquelle nutzt. In React: ein State im CalSync-Kontext.
+In `menu.js`, on pull-to-refresh `window.entries = JSON.parse(localStorage.getItem('calsync_v1') || '[]')` is set. A global cache that `script.js` uses as data source. In React: a state in the CalSync context.
 
 ### `calsync_goal_ml` vs `dropsync_goal`
-`auth.js` nutzt `calsync_goal_ml` in `pullWaterGoal` und `ensureUserSettings`. `settings.js` nutzt `dropsync_goal`. Beide zeigen auf denselben Wert. In Next.js einheitlich auf `dropsync_goal` normalisieren und `calsync_goal_ml` als Alias beim Pull spiegeln.
+`auth.js` uses `calsync_goal_ml` in `pullWaterGoal` and `ensureUserSettings`. `settings.js` uses `dropsync_goal`. Both point to the same value. In Next.js, normalize to `dropsync_goal` and mirror `calsync_goal_ml` as an alias on pull.
 

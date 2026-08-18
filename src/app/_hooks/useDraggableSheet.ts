@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 
 interface DraggableSheetConfig {
   onClose: () => void;
@@ -16,6 +16,7 @@ const SHEET_TOP_MARGIN = 24;
 const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
 const CLOSE_EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 const FLING_CLOSE_VEL = 1500;
+const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 let bodyLockCount = 0;
 
 function lockBodyScroll() {
@@ -26,6 +27,10 @@ function lockBodyScroll() {
 function unlockBodyScroll() {
   bodyLockCount = Math.max(0, bodyLockCount - 1);
   if (bodyLockCount === 0) document.body.classList.remove('modal-open');
+}
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
 }
 
 export function useDraggableSheet(config: DraggableSheetConfig) {
@@ -49,6 +54,7 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
   const lastTimeRef = useRef(0);
   const isClosingRef = useRef(false);
   const isOpeningRef = useRef(false);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const expandedHeight = useCallback(
     () => getExpandedHeight?.() ?? window.innerHeight - SHEET_TOP_MARGIN,
@@ -80,6 +86,35 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
     modalRef.current.style.transform = 'translateY(0)';
   }, [expandedHeight, setTransition]);
 
+  const refreshHeight = useCallback(() => {
+    if (
+      !modalRef.current ||
+      stateRef.current === 'closed' ||
+      isDraggingRef.current ||
+      isOpeningRef.current ||
+      isClosingRef.current
+    ) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = modalRef.current;
+        if (!el || stateRef.current === 'closed' || isDraggingRef.current || isOpeningRef.current || isClosingRef.current) return;
+        if (stateRef.current === 'expanded') return;
+        const prevHeight = el.style.height;
+        const prevTransition = el.style.transition;
+        el.style.transition = 'none';
+        el.style.height = 'auto';
+        const measured = el.offsetHeight;
+        el.style.height = prevHeight;
+        void el.offsetHeight;
+        el.style.transition = prevTransition;
+        if (measured === naturalHeightRef.current) return;
+        naturalHeightRef.current = measured;
+        setTransition(['height', 'transform']);
+        el.style.height = measured + 'px';
+      });
+    });
+  }, [setTransition]);
+
   const close = useCallback(() => {
     if (!modalRef.current || isClosingRef.current) return;
     isClosingRef.current = true;
@@ -103,6 +138,10 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
         naturalHeightRef.current = 0;
       }
       isClosingRef.current = false;
+      if (previousFocusRef.current && previousFocusRef.current.isConnected) {
+        previousFocusRef.current.focus();
+      }
+      previousFocusRef.current = null;
       onClose();
     }, 400);
   }, [closeTransitionDurationMs, closeTransitionEasing, onClose]);
@@ -178,6 +217,7 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
       return;
     isOpeningRef.current = true;
     stateRef.current = 'open';
+    previousFocusRef.current = document.activeElement as HTMLElement;
     modalRef.current.style.transition = 'none';
     modalRef.current.style.height = 'auto';
     modalRef.current.style.transform = 'translateY(100%)';
@@ -207,9 +247,41 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
           modalRef.current.style.height = naturalHeightRef.current + 'px';
         }
         isOpeningRef.current = false;
+        const firstFocusable = modalRef.current?.querySelector<HTMLElement>(FOCUSABLE);
+        if (firstFocusable) firstFocusable.focus();
       }),
     );
   }, [expandedHeight, setTransition]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && stateRef.current !== 'closed') {
+        e.preventDefault();
+        close();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [close]);
+
+  useEffect(() => {
+    const handleTabTrap = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || stateRef.current === 'closed' || !modalRef.current) return;
+      const focusable = getFocusableElements(modalRef.current);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', handleTabTrap);
+    return () => document.removeEventListener('keydown', handleTabTrap);
+  }, []);
 
   return {
     modalRef,
@@ -222,6 +294,7 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
     },
     open,
     close,
+    refreshHeight,
     snapToExpanded,
     handleProps: {
       onPointerDown: onHandlePointerDown,

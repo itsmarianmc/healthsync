@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { User } from '@supabase/supabase-js';
+import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '../_lib/supabase';
 import {
   pullSettings, ensureSettings, mergeFoodEntries, mergeDrinkEntries,
@@ -15,7 +16,7 @@ interface AuthContextType {
   loading: boolean;
   settings: UserSettings | null;
   refreshSettings: () => Promise<void>;
-  logout: () => Promise<void>;
+  logout: (clearData?: boolean) => Promise<void>;
   showToast: (msg: string, duration?: number, undo?: (() => void) | null, cls?: string) => void;
   toastQueue: ToastItem[];
   consumeToast: () => void;
@@ -31,9 +32,16 @@ interface ToastItem {
 
 let toastIdCounter = 0;
 
+function isTokenExpired(session: { expires_at?: number } | null): boolean {
+    if (!session || !session.expires_at) return true;
+    return session.expires_at * 1000 <= Date.now();
+}
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+    const router = useRouter();
+    const pathname = usePathname();
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -53,16 +61,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const applySettingsToLocalStorage = useCallback((data: UserSettings) => {
-        if (data.calorie_goal) localStorage.setItem('calsync_goal', String(data.calorie_goal));
-        if (data.protein_goal !== undefined && data.protein_goal !== null)
+        if (data.calorie_goal > 0)
+        localStorage.setItem('calsync_goal', String(data.calorie_goal));
+        if (data.protein_goal > 0)
         localStorage.setItem('calsync_goal_protein', String(data.protein_goal));
-        if (data.carbs_goal !== undefined && data.carbs_goal !== null)
+        if (data.carbs_goal > 0)
         localStorage.setItem('calsync_goal_carbs', String(data.carbs_goal));
-        if (data.fat_goal !== undefined && data.fat_goal !== null)
+        if (data.fat_goal > 0)
         localStorage.setItem('calsync_goal_fat', String(data.fat_goal));
-        if (data.goal_ml !== undefined && data.goal_ml !== null) {
-        localStorage.setItem('dropsync_goal', String(data.goal_ml));
-        localStorage.setItem('calsync_goal_ml', String(data.goal_ml));
+        if (data.goal_ml > 0) {
+            localStorage.setItem('dropsync_goal', String(data.goal_ml));
         }
         if (data.weight_kg !== undefined && data.weight_kg !== null)
         localStorage.setItem('calsync_user_weight_kg', String(data.weight_kg));
@@ -102,10 +110,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [user, fetchSettings]);
 
     const performCloudSync = useCallback(async (userId: string) => {
-        showToast('Syncing...', 2000, null, undefined);
+        const suppressToast = pathname === '/login' || pathname === '/onboarding';
+        const { data: { session } } = await supabase.auth.getSession();
+        const hasValidSession = !!session && !!session.user && !isTokenExpired(session);
+        if (!suppressToast && hasValidSession) showToast('Syncing...', 2000, null, undefined);
         if (isSyncingRef.current || lastSyncedUserIdRef.current === userId) return;
+        if (!hasValidSession) return;
         isSyncingRef.current = true;
         lastSyncedUserIdRef.current = userId;
+
+        try {
+            const hasDropsyncGoal = localStorage.getItem('dropsync_goal');
+            const legacyWater = localStorage.getItem('calsync_goal_ml') ?? '';
+            if (!hasDropsyncGoal && legacyWater !== '' && parseInt(legacyWater, 10) > 0) {
+                localStorage.setItem('dropsync_goal', legacyWater);
+                localStorage.removeItem('calsync_goal_ml');
+            }
+        } catch {}
         try {
             await ensureSettings(userId);
             await fetchSettings(userId);
@@ -141,24 +162,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await syncWorkouts(userId);
 
             window.dispatchEvent(new Event('storage'));
-            setTimeout(() => showToast('Sync complete', 2000, null, 'toast-success'), 1000);
+            if (!suppressToast) setTimeout(() => showToast('Sync complete', 2000, null, 'toast-success'), 1000);
         } catch (err) {
             console.error('[Auth] sync error:', err);
             lastSyncedUserIdRef.current = null;
         } finally {
             isSyncingRef.current = false;
         }
-    }, [fetchSettings, showToast]);
+    }, [fetchSettings, showToast, pathname]);
 
-    const logout = useCallback(async () => {
+    const logout = useCallback(async (clearData = false) => {
+        if (clearData) {
+            const keys = [
+                'calsync_v1', 'dropsync_v3', 'calsync_goal', 'calsync_goal_protein',
+                'calsync_goal_carbs', 'calsync_goal_fat', 'dropsync_goal',
+                'calsync_pending', 'calsync_user_weight_kg', 'calsync_creatine_goal',
+                'calsync_magnesium_goal', 'calsync_track_supplements', 'calsync_supplements_taken',
+                'healthsync_activity_status', 'healthsync_workouts',
+                'calsync_ai_api_key', 'calsync_ai_enabled', 'calsync_ai_terms_accepted',
+                'calsync_first_name', 'calsync_theme', 'calsync_splash_enabled',
+                'healthsync_weather_enabled', 'healthsync_weather_lat',
+                'healthsync_weather_lon', 'healthsync_weather_name',
+                'calsync_onboarding_done', 'calsync_tour_done',
+            ];
+            keys.forEach(k => localStorage.removeItem(k));
+            window.dispatchEvent(new Event('storage'));
+        }
         await supabase.auth.signOut();
         setUser(null);
         setSettings(null);
-        showToast('Logged out');
-        setTimeout(() => {
-            window.location.href = '/login?signinginto=healthsync';
-        }, 1000);
-    }, [showToast]);
+        isSyncingRef.current = false;
+        lastSyncedUserIdRef.current = null;
+        showToast(clearData ? 'Logged out · local data cleared' : 'Logged out');
+        setTimeout(() => router.push('/login'), 500);
+    }, [showToast, router]);
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -177,17 +214,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         return () => subscription.unsubscribe();
     }, [performCloudSync]);
-
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const params = new URLSearchParams(window.location.search);
-            if (params.get('reload') === 'true') {
-                setTimeout(() => {
-                window.location.replace('/');
-                }, 2200);
-            }
-        }
-    }, []);
 
     return (
         <AuthContext.Provider value={{

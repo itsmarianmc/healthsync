@@ -8,6 +8,7 @@ import { supabase } from '../../_lib/supabase';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { calcSupplements, persistSupplementGoals } from '../../_lib/supplements';
 import { reverseGeocodeLocation } from '../../_lib/location';
+import { validateApiKey } from '../../_lib/gemini';
 import { APP_VERSION } from '../../_lib/release';
 import { writeLocalLastSeen, writePendingReloadAfterUpdate } from '../../_lib/changelog';
 import { Serwist } from '@serwist/window';
@@ -39,6 +40,31 @@ function applyTheme(theme: string, canUsePreferences: boolean) {
     if (canUsePreferences) {
         localStorage.setItem('calsync_theme', theme);
         localStorage.setItem('dropsync_theme', theme);
+    }
+}
+
+function sanitizeNumericSetting(raw: string, current: string | undefined, setter: (next: string) => void, key: string, notifyStorage: () => void, showToast: (msg: string) => void): void {
+    if (typeof raw !== 'string') return;
+
+    const trimmed = raw.trim();
+    if (!trimmed) { setter(''); notifyStorage(); return; }
+    if (!/^(\d+\.?\d*)$/.test(trimmed)) {
+        showToast(`Please enter a valid number for ${displayNameKey(key)}.`);
+
+        if (current) setter(current);
+        notifyStorage();
+        return;
+    }
+
+    setter(trimmed);
+    notifyStorage();
+}
+
+function displayNameKey(key: string): string {
+    switch (key) {
+        case 'calsync_goal': return 'calorie goal';
+        case 'dropsync_goal': return 'water goal';
+        default: return key;
     }
 }
 
@@ -103,6 +129,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     const [macroFat, setMacroFat] = useState('');
     const [trackSupplements, setTrackSupplements] = useState(false);
     const [supplementGoals, setSupplementGoals] = useState<{ creatine_g: number; magnesium_mg: number } | null>(null);
+    const [logoutConfirm, setLogoutConfirm] = useState(false);
+    const [logoutChecked, setLogoutChecked] = useState(false);
+    const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
+    const [deleteAccountChecked, setDeleteAccountChecked] = useState(false);
 
     useEffect(() => {
         if (!canUsePreferences) {
@@ -215,6 +245,24 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         else if (sheet.stateRef.current !== 'closed') sheet.close();
     }, [isOpen]);
 
+    const deleteAccountSheet = useDraggableSheet({
+        onClose: () => { setDeleteAccountConfirm(false); setDeleteAccountChecked(false); },
+    });
+
+    useEffect(() => {
+        if (deleteAccountConfirm) deleteAccountSheet.open();
+        else if (deleteAccountSheet.stateRef.current !== 'closed') deleteAccountSheet.close();
+    }, [deleteAccountConfirm, deleteAccountSheet]);
+
+    const logoutSheet = useDraggableSheet({
+        onClose: () => { setLogoutConfirm(false); setLogoutChecked(false); },
+    });
+
+    useEffect(() => {
+        if (logoutConfirm) logoutSheet.open();
+        else if (logoutSheet.stateRef.current !== 'closed') logoutSheet.close();
+    }, [logoutConfirm, logoutSheet]);
+
     useEffect(() => {
         if (calcWeight && calcHeight && calcAge) {
         setCalcResult(runCalc(calcFields, parseFloat(calcWeight), parseFloat(calcHeight), parseFloat(calcAge)));
@@ -238,13 +286,18 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
 
     const syncSettings = async () => {
         if (!user || !canUsePreferences) return;
-        await pushSettings(user.id, {
-            calorie_goal: parseInt(calGoal),
-            protein_goal: parseInt(macroProtein) || 0,
-            carbs_goal: parseInt(macroCarbs) || 0,
-            fat_goal: parseInt(macroFat) || 0,
-            goal_ml: parseInt(waterGoal),
-        });
+        const payload: Record<string, unknown> = { user_id: user.id };
+        const calorieGoal = parseInt(calGoal);
+        if (!isNaN(calorieGoal)) payload.calorie_goal = calorieGoal;
+        const protein = parseInt(macroProtein);
+        if (!isNaN(protein)) payload.protein_goal = protein;
+        const carbs = parseInt(macroCarbs);
+        if (!isNaN(carbs)) payload.carbs_goal = carbs;
+        const fat = parseInt(macroFat);
+        if (!isNaN(fat)) payload.fat_goal = fat;
+        const waterMl = parseInt(waterGoal);
+        if (!isNaN(waterMl)) payload.goal_ml = waterMl;
+        await pushSettings(user.id, payload);
     };
 
     const setAndSaveGoal = (kcal: number) => {
@@ -310,11 +363,22 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         }
         showToast('AI Detection disabled');
     };
-    const handleSaveApiKey = () => {
+    const handleSaveApiKey = async () => {
         if (!canUseThirdParty) return;
-        localStorage.setItem('calsync_ai_api_key', aiApiKey);
-        showToast('Changes Saved!');
-        setTimeout(() => location.reload(), 2222);
+
+        const trimmed = aiApiKey.trim();
+        if (!trimmed) { showToast('Please enter your Gemini API key.'); return; }
+
+        showToast('Validating API key…');
+        const valid = await validateApiKey(trimmed);
+        if (!valid) {
+            showToast('Invalid API key – please check and try again.');
+            return;
+        }
+
+        localStorage.setItem('calsync_ai_api_key', trimmed);
+        window.dispatchEvent(new Event('storage'));
+        showToast('API key saved and verified.');
     };
 
     const handleWeatherToggle = () => {
@@ -326,7 +390,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     };
 
     const handleSaveWeather = () => {
-        if (!hasWeatherConsent) return;
+        if (!hasWeatherConsent) {
+            showToast('Please approve Preferences and Third Party cookies to save weather.');
+            return;
+        }
         localStorage.setItem('healthsync_weather_lat', weatherLat);
         localStorage.setItem('healthsync_weather_lon', weatherLon);
         localStorage.setItem('healthsync_weather_name', weatherName);
@@ -502,6 +569,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     );
 
     return (
+        <>
         <div className="app-overlay" id="settingsOverlay" ref={sheet.overlayRef} onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); }}>
             <div className="modal" id="settingsModal" ref={sheet.modalRef}>
                 <div className="modal-handle-zone" id="settingsHandleZone" {...sheet.handleProps}>
@@ -538,7 +606,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                     </div>
                                     <span className="sync-badge active">Synced</span>
                                 </div>
-                                <button id="accountLogoutBtn" className="settings-btn mgmnt-btn" style={{ margin: '8px 0 0', width: '100%' }} onClick={async () => { await logout(); showToast('Logged out'); sheet.close(); }}>Logout</button>
+                                <button id="accountLogoutBtn" className="settings-btn mgmnt-btn logout-btn" onClick={() => setLogoutConfirm(true)}>Logout</button>
+                                <button id="deleteAccountBtn" className="settings-btn mgmnt-btn delete-account-btn" onClick={() => setDeleteAccountConfirm(true)}>
+                                    <i className="fa-regular fa-trash-can" /> Delete Account
+                                </button>
                                 <div className="divider">or</div>
                                 <button id="manageAccount" className="option-btn active" style={{ width: '100%', borderRadius: 'var(--radius-sm)', padding: '13px 16px' }}
                                     onClick={() => { sheet.close(); window.location.href = '/login'; }}>
@@ -561,6 +632,9 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                 <button
                                     className="app-toggle-switch"
                                     id="aiEnabledToggle"
+                                    role="switch"
+                                    aria-checked={aiEnabled}
+                                    aria-label="Enable AI Detection"
                                     aria-pressed={String(aiEnabled) as 'true'|'false'}
                                     onClick={handleAiToggle}
                                     disabled={!canUseThirdParty}
@@ -580,7 +654,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                             <ul>
                                                 <li>Nutrition values generated by AI are <strong>automated estimates</strong>. Results may differ significantly from actual values.</li>
                                                 <li>You are responsible for your own Gemini API key. Never share it publicly.</li>
-                                                <li>By using this feature, you agree to <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener"><strong>Google&apos;s Gemini API Terms</strong></a>.</li>
+                                                <li>By using this feature, you agree to <a href="https://healthsync.itsmarian.dev/legal/ai-guidelines" target="_blank" rel="noopener"><strong>HealthSync&apos;s AI Guidelines</strong></a> and <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener"><strong>Google&apos;s Gemini API Terms</strong></a>.</li>
                                                 <li>API usage may generate costs. HealthSync assumes no responsibility for API charges.</li>
                                             </ul>
                                             <p className="ai-terms-warning"><i className="fa-solid fa-triangle-exclamation" />By accepting, you use this feature at your own risk.</p>
@@ -625,6 +699,9 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                 <button
                                     className="app-toggle-switch"
                                     id="weatherEnabledToggle"
+                                    role="switch"
+                                    aria-checked={weatherEnabled}
+                                    aria-label="Show weather on dashboard"
                                     aria-pressed={String(weatherEnabled) as 'true'|'false'}
                                     onClick={handleWeatherToggle}
                                     disabled={!hasWeatherConsent}
@@ -664,7 +741,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                                 setWeatherLon(String(lon));
                                                 const name = await reverseGeocodeLocation(lat, lon);
                                                 setWeatherName(name);
-                                                showToast('Location filled - press Save to persist');
+                                                localStorage.setItem('healthsync_weather_lat', String(lat));
+                                                localStorage.setItem('healthsync_weather_lon', String(lon));
+                                                localStorage.setItem('healthsync_weather_name', name);
+                                                showToast(`Location filled · ${name || 'no name'}`);
                                             } catch (err) {
                                                 console.warn('Use Location (settings) failed', err);
                                                 showToast('Unable to get location');
@@ -718,6 +798,9 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                             <button
                                 className="app-toggle-switch"
                                 id="deleteWarningToggle"
+                                role="switch"
+                                aria-checked={deleteWarn}
+                                aria-label="Delete entry warning"
                                 aria-pressed={String(deleteWarn) as 'true'|'false'}
                                 onClick={handleDeleteWarn}
                                 disabled={!canUsePreferences}
@@ -731,6 +814,9 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                             <button
                                 className="app-toggle-switch"
                                 id="splashScreenToggle"
+                                role="switch"
+                                aria-checked={splashEnabled}
+                                aria-label="Show splash screen"
                                 aria-pressed={String(splashEnabled) as 'true'|'false'}
                                 onClick={handleSplashEnabled}
                                 disabled={!canUsePreferences}
@@ -744,6 +830,9 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                             <button
                                 className="app-toggle-switch"
                                 id="modalsExpandedToggle"
+                                role="switch"
+                                aria-checked={modalsExpanded}
+                                aria-label="Open every menu as expanded"
                                 aria-pressed={String(modalsExpanded) as 'true'|'false'}
                                 onClick={handleModalsExpanded}
                                 disabled={!canUsePreferences}
@@ -772,6 +861,9 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                             <button
                                 className="app-toggle-switch"
                                 id="trackSupplementsToggle"
+                                role="switch"
+                                aria-checked={trackSupplements}
+                                aria-label="Track supplements"
                                 aria-pressed={String(trackSupplements) as 'true'|'false'}
                                 onClick={handleTrackSupplements}
                                 disabled={!canUsePreferences}
@@ -802,6 +894,9 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                             <button
                                 className="app-toggle-switch"
                                 id="displayNameOnStart"
+                                role="switch"
+                                aria-checked={displayName}
+                                aria-label="Display name on start"
                                 aria-pressed={String(displayName) as 'true'|'false'}
                                 onClick={handleDisplayName}
                                 disabled={!canUsePreferences}
@@ -849,7 +944,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                         ) : (
                             <div style={{ padding: '12px 14px', textAlign: 'center', color: 'var(--text2)', fontSize: 14 }}>
                                 <i className="fa-solid fa-check" style={{ marginRight: 6, color: '#30D158' }} />
-                                App is up to date
+                                App is up to date (v{APP_VERSION})
                             </div>
                         )}
                     </div>
@@ -925,8 +1020,8 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                 onCalcWeightChange={setCalcWeight}
                 onCalcHeightChange={setCalcHeight}
                 onCalcAgeChange={setCalcAge}
-                onCalGoalChange={v => { setCalGoal(v); if (canUsePreferences) { localStorage.setItem('calsync_goal', v); window.dispatchEvent(new Event('storage')); } }}
-                onWaterGoalChange={v => { setWaterGoal(v); if (canUsePreferences) { localStorage.setItem('dropsync_goal', v); window.dispatchEvent(new Event('storage')); } }}
+                onCalGoalChange={v => sanitizeNumericSetting(v, calGoal, c => setCalGoal(c), 'calsync_goal', () => window.dispatchEvent(new Event('storage')), showToast)}
+                onWaterGoalChange={v => sanitizeNumericSetting(v, waterGoal, w => setWaterGoal(w), 'dropsync_goal', () => window.dispatchEvent(new Event('storage')), showToast)}
                 onMacroProteinChange={v => { setMacroProtein(v); saveMacro('calsync_goal_protein', v); }}
                 onMacroCarbsChange={v => { setMacroCarbs(v); saveMacro('calsync_goal_carbs', v); }}
                 onMacroFatChange={v => { setMacroFat(v); saveMacro('calsync_goal_fat', v); }}
@@ -951,6 +1046,120 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                 />
             )}
         </div>
+
+        {logoutConfirm && (
+            <div className="app-overlay logout-overlay" id="logoutOverlay" ref={logoutSheet.overlayRef} onClick={e => { if (e.target === logoutSheet.overlayRef.current) logoutSheet.close(); }}>
+                <div className="modal logout-modal" id="logoutModal" ref={logoutSheet.modalRef} style={{ transform: 'translateY(100%)' }} role="dialog" aria-modal="true" aria-labelledby="logoutTitle">
+                    <div className="modal-handle-zone" id="logoutHandleZone" {...logoutSheet.handleProps}>
+                        <div className="modal-handle" />
+                    </div>
+                    <div className="modal-header">
+                        <div className="modal-title" id="logoutTitle">Logout</div>
+                    </div>
+                    <div className="modal-body" id="logoutModalBody">
+                        <p className="logout-info">Choose whether to keep your locally stored data on this device or delete everything when signing out.</p>
+                        <label className="custom-checkbox-label logout-checkbox-label" htmlFor="logoutDeleteDataCheckbox">
+                            <input
+                                type="checkbox"
+                                id="logoutDeleteDataCheckbox"
+                                className="custom-checkbox-input"
+                                checked={logoutChecked}
+                                onChange={e => setLogoutChecked(e.target.checked)}
+                            />
+                            <span className="custom-checkbox-box" aria-hidden="true">
+                                <svg className="custom-checkbox-check" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </span>
+                            <span>Sign out and delete data on this device</span>
+                        </label>
+                    </div>
+                    <div className="modal-footer logout-actions">
+                        <button
+                            className="option-btn logout-cancel-btn"
+                            id="logoutCancelBtn"
+                            onClick={() => logoutSheet.close()}
+                        >Cancel</button>
+                        <button
+                            className="option-btn logout-confirm-btn"
+                            id="logoutConfirmBtn"
+                            onClick={async () => {
+                                const shouldClear = logoutChecked;
+                                setLogoutConfirm(false);
+                                setLogoutChecked(false);
+                                await logout(shouldClear);
+                                sheet.close();
+                            }}
+                        >Confirm Logout</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {deleteAccountConfirm && (
+            <div className="app-overlay delete-account-overlay" id="deleteAccountOverlay" ref={deleteAccountSheet.overlayRef} onClick={e => { if (e.target === deleteAccountSheet.overlayRef.current) deleteAccountSheet.close(); }}>
+                <div className="modal delete-account-modal" id="deleteAccountModal" ref={deleteAccountSheet.modalRef} style={{ transform: 'translateY(100%)' }} role="dialog" aria-modal="true" aria-labelledby="deleteAccountTitle">
+                    <div className="modal-handle-zone" id="deleteAccountHandleZone" {...deleteAccountSheet.handleProps}>
+                        <div className="modal-handle" />
+                    </div>
+                    <div className="modal-header">
+                        <div className="modal-title" id="deleteAccountTitle">Delete HealthSync Account</div>
+                    </div>
+                    <div className="modal-body" id="deleteAccountModalBody">
+                        <p className="delete-account-warning">This action is permanent and cannot be undone. Deleting your account will erase everything you've built in HealthSync, including all your cloud data, every meal logged, your complete hydration history, all exercise and workout logs, your health metrics, and every progress you've made until now.</p>
+                        <label className="custom-checkbox-label delete-account-checkbox-label" htmlFor="deleteAccountCheckbox">
+                            <input
+                                type="checkbox"
+                                id="deleteAccountCheckbox"
+                                className="custom-checkbox-input"
+                                checked={deleteAccountChecked}
+                                onChange={e => setDeleteAccountChecked(e.target.checked)}
+                            />
+                            <span className="custom-checkbox-box" aria-hidden="true">
+                                <svg className="custom-checkbox-check" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </span>
+                            <span>I understand this is irreversible</span>
+                        </label>
+                    </div>
+                    <div className="modal-footer delete-account-actions">
+                        <button
+                            className="option-btn delete-account-cancel-btn"
+                            id="deleteAccountCancelBtn"
+                            onClick={() => deleteAccountSheet.close()}
+                        >Cancel</button>
+                        <button
+                            className="option-btn delete-account-confirm-btn"
+                            id="deleteAccountConfirmBtn"
+                            disabled={!deleteAccountChecked}
+                            onClick={async () => {
+                                if (!deleteAccountChecked) { showToast('Please confirm first'); return; }
+                                try {
+                                    const { data: { session } } = await supabase.auth.getSession();
+                                    const token = session?.access_token;
+                                    if (!token || !user) { showToast('Session expired – please log in again'); return; }
+                                    setDeleteAccountConfirm(false);
+                                    setDeleteAccountChecked(false);
+                                    showToast('Deleting account…');
+                                    const res = await fetch('/api/account/delete', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ accessToken: token, userId: user.id }),
+                                    });
+                                    const json = await res.json();
+                                    if (!json.ok) { showToast(json.error || 'Delete failed'); return; }
+                                    await logout(true);
+                                    showToast('Account deleted');
+                                    sheet.close();
+                                } catch { showToast('Delete failed – try again'); }
+                            }}
+                        >Permanently Delete</button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 }
 

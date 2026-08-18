@@ -2,29 +2,47 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
-import { resolveBackCameraConstraints, upgradeToPreferredBackCamera } from '../../_lib/camera';
+import { resolveBackCameraConstraints, upgradeToPreferredBackCamera, friendlyCameraLabel } from '../../_lib/camera';
 
 interface BarcodeScannerProps {
     isOpen: boolean;
     onClose: () => void;
     onScanned: (barcode: string) => void;
     embedded?: boolean;
+    selectedDeviceId?: string;
+    onCamerasChange?: (cameras: MediaDeviceInfo[], activeDeviceId?: string) => void;
 }
 
-export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded }: BarcodeScannerProps) {
+export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded, selectedDeviceId, onCamerasChange }: BarcodeScannerProps) {
     const sheet = useDraggableSheet({ onClose });
     const videoRef = useRef<HTMLVideoElement>(null);
     const [status, setStatus] = useState('Looking for barcode...');
     const streamRef = useRef<MediaStream | null>(null);
     const readerRef = useRef<unknown>(null);
     const activeRef = useRef(false);
-    const cameraIndexRef = useRef(0);
     const deviceIdRef = useRef<string | undefined>(undefined);
+    const mountedRef = useRef(true);
+    const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const startEpochRef = useRef(0);
+
+    const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+    const [activeDeviceId, setActiveDeviceId] = useState<string | undefined>(undefined);
+
+    const onCamerasChangeRef = useRef(onCamerasChange);
+    useEffect(() => { onCamerasChangeRef.current = onCamerasChange; }, [onCamerasChange]);
 
     const stopCamera = () => {
+        startEpochRef.current += 1;
         activeRef.current = false;
         if (readerRef.current) {
-            try { (readerRef.current as { reset: () => void }).reset(); } catch {}
+            try {
+                const reader = readerRef.current as { reset: () => void; stop: () => void };
+                if (typeof reader.stop === 'function') {
+                    reader.stop();
+                } else {
+                    reader.reset();
+                }
+            } catch {}
             readerRef.current = null;
         }
         if (streamRef.current) {
@@ -32,6 +50,15 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded }:
             streamRef.current = null;
         }
         if (videoRef.current) videoRef.current.srcObject = null;
+    };
+
+    const refreshCameraList = async (activeId: string | undefined) => {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const cams = devices.filter(d => d.kind === 'videoinput');
+            setCameras(cams);
+            onCamerasChangeRef.current?.(cams, activeId);
+        } catch {}
     };
 
     const startCamera = async (deviceId?: string) => {
@@ -46,34 +73,44 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded }:
             };
         };
         if (!ZXing) { setStatus('Barcode library not loaded.'); return; }
+        const epoch = startEpochRef.current;
             const constraints: MediaStreamConstraints = await resolveBackCameraConstraints(deviceId);
+        if (epoch !== startEpochRef.current) return;
         try {
             if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
             let stream = await navigator.mediaDevices.getUserMedia(constraints);
+            if (epoch !== startEpochRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
             if (!deviceId) {
                 stream = await upgradeToPreferredBackCamera(stream);
+                if (epoch !== startEpochRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
             }
             streamRef.current = stream;
+            const settingsDeviceId = stream.getVideoTracks()[0]?.getSettings().deviceId;
+            deviceIdRef.current = settingsDeviceId;
+            setActiveDeviceId(settingsDeviceId);
+            refreshCameraList(settingsDeviceId);
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
                 await videoRef.current.play();
             }
+            if (epoch !== startEpochRef.current) return;
             const reader = new ZXing.BrowserMultiFormatReader();
             readerRef.current = reader;
             activeRef.current = true;
             setStatus('Looking for barcode...');
             reader.decodeFromStream(stream, videoRef.current!, (result, err) => {
-                if (result && activeRef.current) {
+                if (!mountedRef.current || !activeRef.current) return;
+                if (result) {
                 const code = result.getText();
                 setStatus(`Scanned: ${code}`);
                 stopCamera();
                 onScanned(code);
                 if (!embedded) onClose();
-                } else if (err && activeRef.current) {
+                } else if (err) {
                 if ((err as Error & { name: string }).name !== 'NotFoundException') {
                     console.warn('Scan error:', err);
                 }
-                setStatus('Scanning...');
+                if (mountedRef.current && activeRef.current) setStatus('Scanning...');
                 }
             });
         } catch {
@@ -81,30 +118,38 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded }:
         }
     };
 
-    const switchCamera = async () => {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const cams = devices.filter(d => d.kind === 'videoinput');
-        if (cams.length > 1) {
-            cameraIndexRef.current = (cameraIndexRef.current + 1) % cams.length;
-            deviceIdRef.current = cams[cameraIndexRef.current].deviceId;
-            startCamera(deviceIdRef.current);
-        } else {
-            setStatus('Only one camera available.');
-        }
+    const scheduleStart = (deviceId?: string, delay = 300) => {
+        if (startTimerRef.current) clearTimeout(startTimerRef.current);
+        startTimerRef.current = setTimeout(() => {
+            startTimerRef.current = null;
+            if (!mountedRef.current) return;
+            startCamera(deviceId);
+        }, delay);
     };
 
     useEffect(() => {
+        if (!selectedDeviceId || selectedDeviceId === deviceIdRef.current) return;
+        stopCamera();
+        startCamera(selectedDeviceId);
+    }, [selectedDeviceId]);
+
+    useEffect(() => {
+        mountedRef.current = true;
         if (isOpen && !embedded) {
             sheet.open();
             stopCamera();
-            setTimeout(() => startCamera(deviceIdRef.current), 300);
+            scheduleStart(deviceIdRef.current, 300);
         } else if (isOpen && embedded) {
             stopCamera();
-            setTimeout(() => startCamera(deviceIdRef.current), 300);
+            scheduleStart(deviceIdRef.current, 300);
         } else {
             stopCamera();
         }
-        return () => stopCamera();
+        return () => {
+            mountedRef.current = false;
+            if (startTimerRef.current) { clearTimeout(startTimerRef.current); startTimerRef.current = null; }
+            stopCamera();
+        };
     }, [isOpen, embedded]);
 
     if (!isOpen) return null;
@@ -162,23 +207,27 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded }:
                             <div className="scan-frame" />
                         </div>
                     </div>
+                    {cameras.length > 1 && (
+                        <select
+                            className="form-input camera-select"
+                            value={activeDeviceId}
+                            onChange={e => { stopCamera(); startCamera(e.target.value); }}
+                            style={{ marginTop: 12 }}
+                        >
+                            {cameras.map((cam, i) => (
+                                <option key={cam.deviceId || i} value={cam.deviceId}>{friendlyCameraLabel(cam, i)}</option>
+                            ))}
+                        </select>
+                    )}
                     <div id="cameraStatus" className="search-status" style={{ marginTop: 12 }}>{status}</div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                         <button
                             id="restartCameraBtn"
                             className="option-btn"
                             style={{ flex: 1 }}
-                            onClick={() => { stopCamera(); setTimeout(() => startCamera(deviceIdRef.current), 100); }}
+                            onClick={() => { stopCamera(); scheduleStart(deviceIdRef.current, 100); }}
                             >
                             Restart Camera
-                        </button>
-                        <button
-                            id="switchCameraBtn"
-                            className="option-btn"
-                            style={{ flex: 1 }}
-                            onClick={switchCamera}
-                            >
-                            Switch Camera
                         </button>
                     </div>
                 </div>

@@ -19,7 +19,7 @@ export default function RecentList({ entries, today }: RecentListProps) {
             </div>
             <div className="dashboard-recent-list" id="dashboardRecentList">
                 {display.length === 0
-                    ? <div className="dashboard-empty-state">Nothing logged yet.</div>
+                    ? <div className="dashboard-empty-state">Nothing logged yet. <br />Start logging your activities!</div>
                     : display.map((entry, i) => (
                         <div key={entry.ts + '_' + i} className="dashboard-recent-item">
                             <div className="dashboard-recent-icon">

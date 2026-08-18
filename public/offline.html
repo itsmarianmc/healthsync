@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<meta name="theme-color" content="#0F0F10">
+	<title>HealthSync - Offline</title>
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body { background: #0F0F10; color: #fff; font-family: 'DM Sans', system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; padding: 24px env(safe-area-inset-left, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-right, 0px); }
+		.card { text-align: center; max-width: 320px; }
+		.icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+		h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+		p { color: rgba(255,255,255,0.55); font-size: 14px; line-height: 1.5; margin-bottom: 24px; }
+		button { background: #e4a10f; color: #000; border: none; border-radius: 12px; padding: 12px 28px; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; transition: opacity 0.15s; }
+		button:active { opacity: 0.7; }
+	</style>
+</head>
+<body>
+	<div class="card">
+		<div class="icon">&#128247;</div>
+		<h1>You're Offline</h1>
+		<p>No internet connection detected. Your locally saved data is still available. Try again when you're back online.</p>
+		<button onclick="window.location.reload()">Retry</button>
+	</div>
+</body>
+</html>

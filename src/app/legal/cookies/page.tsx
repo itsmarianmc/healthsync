@@ -47,7 +47,7 @@ export default function CookiesPage() {
                     &quot;Change Cookie Preferences&quot; in the footer of any page.
                 </div>
                 <div className="text-section">
-                    Last updated: 18 June 2026
+                    Last updated: 18 August 2026
                 </div>
             </section>
 
@@ -141,6 +141,41 @@ export default function CookiesPage() {
                 functional and secure service (Art. 6(1)(f) GDPR) and the statutory exemption under §
                 25(2) TDDDG. All other cookies are placed only on the basis of your explicit, freely
                 given consent (Art. 6(1)(a) GDPR), which you may withdraw at any time.
+            </LegalSection>
+
+            <LegalSection heading="Cookie inventory">
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                                <th style={{ textAlign: 'left', padding: '8px 6px' }}>Cookie / Storage</th>
+                                <th style={{ textAlign: 'left', padding: '8px 6px' }}>Type</th>
+                                <th style={{ textAlign: 'left', padding: '8px 6px' }}>Duration</th>
+                                <th style={{ textAlign: 'left', padding: '8px 6px' }}>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                                <td style={{ padding: '8px 6px' }}><code>sb-access-token</code>, <code>sb-refresh-token</code></td>
+                                <td style={{ padding: '8px 6px' }}>Supabase auth cookie</td>
+                                <td style={{ padding: '8px 6px' }}>Session / 30 days</td>
+                                <td style={{ padding: '8px 6px' }}>Authentication session management</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                                <td style={{ padding: '8px 6px' }}><code>_ga</code>, <code>_ga_*</code></td>
+                                <td style={{ padding: '8px 6px' }}>Analytics (consent)</td>
+                                <td style={{ padding: '8px 6px' }}>Up to 14 months</td>
+                                <td style={{ padding: '8px 6px' }}>Google Analytics session and usage tracking</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                                <td style={{ padding: '8px 6px' }}><code>healthsync_*</code> localStorage</td>
+                                <td style={{ padding: '8px 6px' }}>Local storage</td>
+                                <td style={{ padding: '8px 6px' }}>Until cleared by user</td>
+                                <td style={{ padding: '8px 6px' }}>App preferences, settings, cached data</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </LegalSection>
 
             <LegalSection heading="Managing your cookies">

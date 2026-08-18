@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, Fragment } from 'react';
 import { usePathname } from 'next/navigation';
 import { Serwist } from '@serwist/window';
 import { useAppShell } from '../../_context/AppShellContext';
@@ -334,15 +334,16 @@ export default function UpdateCenter() {
                 </div>
             )}
 
-            <div className="app-overlay whats-new-overlay" ref={setOverlayRef} onClick={(event) => { if (event.target === event.currentTarget) closeUpdateCenter(); }}>
+            <div className="app-overlay whats-new-overlay" ref={setOverlayRef} onClick={(event) => { if (event.target === event.currentTarget) closeUpdateCenter(); }}
+                role="dialog" aria-modal="true" aria-label="What's new">
                 <div className="modal whats-new-modal" ref={setModalRef} id="whatsNewModal">
                     <div className="modal-handle-zone" id="ws-handleZone" {...handleProps}>
                         <div className="modal-handle" />
                     </div>
                     <div className="modal-header">
                         <div className="modal-btn">
-                            <button className="close-btn" id="backBtn" type="button" onClick={closeUpdateCenter} aria-label="Close update center">
-                                <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="#e3e3e3">
+                            <button className="close-btn" id="updateCenterBackBtn" type="button" onClick={closeUpdateCenter} aria-label="Close update center">
+                                <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="#e3e3e3" aria-hidden="true">
                                     <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
                                 </svg>
                             </button>
@@ -357,16 +358,22 @@ export default function UpdateCenter() {
                         )}
                         {!loadingEntries && !loadError && entries.length > 0 && (
                             <div className="whats-new-list">
-                                {entries.map((entry) => (
-                                    <article key={entry.id} className="whats-new-entry">
-                                        <div className="whats-new-entry-meta">
-                                            <span className="whats-new-entry-category">{entry.category}</span>
-                                            <span className="whats-new-entry-version">v{entry.version}</span>
-                                        </div>
-                                        <h3 className="whats-new-entry-title">{entry.title}</h3>
-                                        <p className="whats-new-entry-description">{entry.description}</p>
-                                    </article>
-                                ))}
+                                {entries.map((entry, index) => {
+                                    const isNewVersionGroup = index > 0 && entry.version !== entries[index - 1].version;
+                                    return (
+                                        <Fragment key={entry.id}>
+                                            {isNewVersionGroup && <div className="whats-new-divider" />}
+                                            <article className="whats-new-entry">
+                                                <div className="whats-new-entry-meta">
+                                                    <span className="whats-new-entry-category">{entry.category}</span>
+                                                    <span className="whats-new-entry-version">v{entry.version}</span>
+                                                </div>
+                                                <h3 className="whats-new-entry-title">{entry.title}</h3>
+                                                <p className="whats-new-entry-description">{entry.description}</p>
+                                            </article>
+                                        </Fragment>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

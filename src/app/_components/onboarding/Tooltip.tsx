@@ -32,7 +32,6 @@ interface BoxPosition {
 const ARROW_SIZE = 12;
 const GAP = 16;
 const H_PADDING = 20;
-const BOX_MAX_WIDTH = 260;
 const ANIMATION_DURATION = 300;
 
 function calcPosition(
@@ -251,26 +250,11 @@ export default function Tooltip() {
     };
 
     const overlayStyle: React.CSSProperties = {
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.75)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
-        zIndex: 9997,
         opacity: visible ? 1 : 0,
         transition: `opacity ${ANIMATION_DURATION}ms var(--ease, ease)`,
     };
 
     const boxStyle: React.CSSProperties = {
-        position: 'fixed',
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-sm)',
-        padding: '20px',
-        maxWidth: `${BOX_MAX_WIDTH}px`,
-        width: `calc(100% - ${H_PADDING * 4}px)`,
-        boxShadow: 'var(--shadow)',
-        zIndex: 9999,
         opacity: visible ? 1 : 0,
         transform: visible ? 'scale(1)' : 'scale(0.9)',
         transition: `opacity ${ANIMATION_DURATION}ms var(--ease, ease), transform ${ANIMATION_DURATION}ms var(--ease, ease)`,
@@ -279,16 +263,13 @@ export default function Tooltip() {
     };
 
     const arrowBaseStyle: React.CSSProperties = {
-        position: 'absolute',
-        width: 0,
-        height: 0,
-        borderStyle: 'solid',
         ...(arrowStyle ?? {}),
     };
 
     return createPortal(
         <>
             <div
+                className="hs-tooltip-overlay"
                 style={overlayStyle}
                 aria-hidden="true"
                 onClick={close}
@@ -297,44 +278,22 @@ export default function Tooltip() {
                     ref={boxRef}
                     role="tooltip"
                     aria-live="polite"
+                    className="hs-tooltip-box"
                     style={boxStyle}
                     >
                     <div
-                        style={{
-                            color: 'var(--text)',
-                            fontSize: '15px',
-                            lineHeight: 1.5,
-                            marginBottom: '5px',
-                        }}
+                        className="hs-tooltip-message"
                         dangerouslySetInnerHTML={{ __html: state.message }}
                     />
 
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                        }}
-                    >
-                    <span
-                        style={{
-                            color: 'var(--accent)',
-                            fontSize: '7.5px',
-                            }}
-                        >
+                    <div className="hs-tooltip-footer">
+                    <span className="hs-tooltip-progress">
                         {state.progress}
                     </span>
 
                     <button
+                        className="hs-tooltip-btn"
                         style={{
-                            color: 'var(--accent)',
-                            borderRadius: '8px',
-                            border: 'none',
-                            background: 'transparent',
-                            padding: '6px',
-                            fontSize: '14px',
-                            fontWeight: 500,
-                            cursor: 'pointer',
                             transition: `opacity ${ANIMATION_DURATION}ms var(--ease, ease)`,
                         }}
                         onMouseDown={e => ((e.currentTarget as HTMLButtonElement).style.opacity = '0.7')}
@@ -345,7 +304,7 @@ export default function Tooltip() {
                     </button>
                 </div>
 
-                {arrowStyle && <div style={arrowBaseStyle} aria-hidden="true" />}
+                {arrowStyle && <div className="hs-tooltip-arrow" style={arrowBaseStyle} aria-hidden="true" />}
             </div>
         </>,
         document.body,

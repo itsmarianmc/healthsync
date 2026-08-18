@@ -185,7 +185,7 @@ export default function SupportPage() {
                                     borderRadius: 'var(--radius-sm)',
                                     color: 'var(--text)',
                                     fontFamily: 'inherit',
-                                    fontSize: 14,
+                                    fontSize: 16,
                                     maxHeight: 333,
                                     padding: '12px 14px',
                                     resize: 'vertical',

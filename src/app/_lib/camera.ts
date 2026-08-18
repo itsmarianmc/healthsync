@@ -45,3 +45,13 @@ export async function upgradeToPreferredBackCamera(stream: MediaStream): Promise
         return stream;
     }
 }
+
+export function friendlyCameraLabel(cam: MediaDeviceInfo, index: number): string {
+    const label = cam.label || '';
+    if (/ultra.*wide/i.test(label)) return 'Ultra Wide';
+    if (/tele(photo)?/i.test(label)) return 'Telephoto';
+    if (/macro/i.test(label)) return 'Macro';
+    if (/front|user/i.test(label)) return 'Front Camera';
+    if (/back|rear|environment/i.test(label)) return 'Back Camera';
+    return label || `Camera ${index + 1}`;
+}

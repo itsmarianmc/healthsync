@@ -19,7 +19,6 @@ export default function CookieBanner() {
     const [analytics, setAnalytics] = useState(settings.analytics)
     const [preferences, setPreferences] = useState(settings.preferences)
     const [thirdparty, setThirdparty] = useState(settings.thirdparty)
-    const [marketing, setMarketing] = useState(settings.marketing)
 
     const bannerRef = useRef<HTMLDivElement>(null)
 
@@ -27,7 +26,6 @@ export default function CookieBanner() {
         setAnalytics(settings.analytics)
         setPreferences(settings.preferences)
         setThirdparty(settings.thirdparty)
-        setMarketing(settings.marketing)
     }, [settings])
 
     const defaultConsent = {
@@ -44,15 +42,14 @@ export default function CookieBanner() {
         analytics: boolean
         preferences: boolean
         thirdparty: boolean
-        marketing: boolean
     }) => {
         if (typeof window.gtag !== 'undefined') {
             window.gtag('consent', 'update', {
                 analytics_storage: settings.analytics ? 'granted' : 'denied',
                 functionality_storage: settings.preferences ? 'granted' : 'denied',
-                ad_storage: settings.marketing ? 'granted' : 'denied',
-                ad_user_data: settings.marketing ? 'granted' : 'denied',
-                ad_personalization: settings.marketing ? 'granted' : 'denied',
+                ad_storage: 'denied',
+                ad_user_data: 'denied',
+                ad_personalization: 'denied',
                 personalization_storage: settings.preferences ? 'granted' : 'denied',
                 security_storage: 'granted'
             })
@@ -83,7 +80,7 @@ export default function CookieBanner() {
     }
 
     const saveCookieSettings = () => {
-        const newSettings = { analytics, preferences, thirdparty, marketing };
+        const newSettings = { analytics, preferences, thirdparty };
         updateSettings(newSettings);
         applyConsent(newSettings);
     }
@@ -105,7 +102,7 @@ export default function CookieBanner() {
     }
 
     const acceptAll = () => {
-        const allTrue = { analytics: true, preferences: true, thirdparty: true, marketing: true };
+        const allTrue = { analytics: true, preferences: true, thirdparty: true };
         updateSettings(allTrue);
         applyConsent(allTrue);
         hideBanner()
@@ -125,7 +122,7 @@ export default function CookieBanner() {
         const bannerAccepted = localStorage.getItem('bannerAccepted') === 'true'
 
         if (bannerAccepted) {
-            if (settings.analytics || settings.preferences || settings.thirdparty || settings.marketing) {
+            if (settings.analytics || settings.preferences || settings.thirdparty) {
                 applyConsent(settings);
             }
             return
@@ -135,7 +132,6 @@ export default function CookieBanner() {
         setAnalytics(false)
         setPreferences(false)
         setThirdparty(false)
-        setMarketing(false)
         if (typeof window.gtag !== 'undefined') {
             window.gtag('consent', 'default', defaultConsent)
         }
@@ -288,26 +284,6 @@ export default function CookieBanner() {
                                 </div>
                                 <p className="category-description">These cookies are set by third-party services that we use to provide additional features, such as embedded videos, maps, or social media content. Third-party providers may also use these cookies to deliver personalized advertising.</p>
                                 <p className="app-feature-hint">This enables weather forecasts, AI food detection, and barcode product lookups.</p>
-                            </div>
-
-                            <div className="cookie-category cookie-category-bottom">
-                                <div className="category-header">
-                                    <div className="category-icon" style={{ background: 'rgba(236, 72, 153, 0.15)' }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" height="30" viewBox="0 -960 960 960" width="30" fill="#ec4899">
-                                            <path d="M200-280h560v-80H200v80Zm0-160h560v-80H200v80Zm0-160h400v-80H200v80Zm-40 440q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm0-80h640v-480H160v480Zm0 0v-480 480Z"/>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 className="category-title">Marketing and Advertising</h3>
-                                    </div>
-                                    <div className="toggle-container">
-                                        <label className="toggle-switch">
-                                            <input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} />
-                                            <span className="slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <p className="category-description">These cookies are used to show visitors relevant advertising on other websites. They are also used to limit the frequency of ad display and measure the effectiveness of advertising campaigns.</p>
                             </div>
                         </div>
                         <div className="settings-footer">

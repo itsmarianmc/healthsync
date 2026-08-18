@@ -21,6 +21,14 @@ const serwist = new Serwist({
     runtimeCaching: defaultCache,
 });
 
+serwist.setCatchHandler(async ({ request }) => {
+    if (request.mode === 'navigate') {
+        const cached = await caches.match('/offline.html');
+        if (cached) return cached;
+    }
+    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+});
+
 self.addEventListener('message', (event) => {
     if (event.data?.type === 'SKIP_WAITING') {
         void self.skipWaiting();

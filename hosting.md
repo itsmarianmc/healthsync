@@ -27,9 +27,8 @@ into a custom backend.
    - [Auth configuration](#43-auth-configuration)
    - [MFA / TOTP](#44-mfa--totp)
 5. [Option B - SQLite (DIY backend)](#5-option-b--sqlite-diy-backend)
-6. [Optional: AI Detection (Google Gemini)](#6-optional-ai-detection-google-gemini)
-7. [Optional: Local AI proxy (`/api/proxy?type=pillama`)](#7-optional-local-ai-proxy)
-8. [Development](#8-development)
+6. [Optional: AI detection with Google Gemini](#6-optional-ai-detection-with-google-gemini)
+7. [Development](#development-section-below)
 9. [Production build & deployment](#9-production-build--deployment)
 10. [Updating & migrations](#10-updating--migrations)
 11. [Backups & data export](#11-backups--data-export)
@@ -75,9 +74,8 @@ Create a `.env.local` file in the project root. **Never commit it.**
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR-PUBLISHABLE-OR-ANON-KEY
 
-# Optional - override the local AI proxy used by /api/proxy?type=pillama.
-# Defaults to http://127.0.0.1:11434/v1/completions (Ollama on the same host).
-OLLAMA_PROXY_URL=
+## Optional overrides (rarely needed): see Hosting §6 for AI Detection notes if applicable.
+# ENABLE_OLLAMA_PROXY=true
 ```
 
 Both Supabase values can be found in your Supabase project at
@@ -243,8 +241,9 @@ Email confirmation can be enabled under **Authentication → Providers → Email
 
 HealthSync's login flow supports TOTP via Supabase Auth. Enable it under
 **Authentication → Multi-factor authentication** in the Supabase dashboard.
-The app handles enrolment and challenge from `src/app/login/page.tsx` and
-remembers trusted devices locally via `mfa_trusted_emails` in localStorage.
+The app handles enrolment and challenge from `src/app/login/page.tsx`. The
+two-factor code is always required and verified server-side on every login;
+no trusted-device list is stored in the browser.
 
 ---
 
@@ -412,22 +411,7 @@ notice reflects that AI Detection is opt-in and uses the user's own key.
 
 ---
 
-## 7. Optional: Local AI proxy
-
-The file `src/app/api/proxy/route.ts` exposes a tiny POST endpoint at
-`/api/proxy?type=pillama`. It forwards the request body to a local AI server
-(by default `http://127.0.0.1:11434/v1/completions`, i.e. [Ollama](https://ollama.com)).
-This is an experimental hook and is not required for HealthSync to function.
-
-Set `OLLAMA_PROXY_URL` in your environment to point at a different completion
-endpoint. Leave it unset to use the default. The route is **disabled by
-default** and returns `404` unless you explicitly set `ENABLE_OLLAMA_PROXY=true`
-(e.g. for local development). Do not enable it on a public deployment without
-adding authentication first.
-
----
-
-## 8. Development
+#### Development (added as §7) — `npm run dev`, `npx playwright test` etc
 
 ```bash
 npm run dev          # next dev (Turbopack)
@@ -440,7 +424,7 @@ use Chrome DevTools' device toolbar for a realistic preview.
 
 ---
 
-## 9. Production build & deployment
+## 8. Production build &amp; deployment
 
 ### Vercel (default)
 
@@ -502,7 +486,7 @@ docker run --rm -p 3000:3000 \
 
 ---
 
-## 10. Updating & migrations
+## 9. Updating &amp; migrations
 
 Pull the latest code, reinstall dependencies and run any newly added SQL
 fragments. The schema in §4.2 / §5 is idempotent (`if not exists`), so you
@@ -554,7 +538,7 @@ your jurisdiction requires Art. 20 GDPR (data portability) self-service.
 - [ ] HTTPS is terminated in front of HealthSync; HTTP requests are redirected to HTTPS.
 - [ ] Email confirmations and a sensible password policy are enabled in Supabase Auth.
 - [ ] MFA / TOTP is enabled for accounts that hold real health data.
-- [ ] The `/api/proxy` route is either removed or protected if you do not actually use a local AI server.
+<!-- /api/proxy route was removed in favor of direct Gemini API calls. -->
 - [ ] Your hosting provider's privacy policy, your cookie banner config and the in-app legal pages reflect your real setup.
 
 ---
@@ -578,8 +562,10 @@ Open the browser console. `sync.ts` logs every backend error prefixed with
 or a stale RLS policy.
 
 **MFA QR code does not render**
-Ensure `src/app/login/layout.tsx` is loading the QRCode.js script and that
-your CSP allows the CDN it loads from.
+The QR code is rendered in `src/app/login/page.tsx` using the global
+`QRCode` library loaded from the CDN allowed by the CSP in `src/proxy.ts`.
+If the library fails to load it falls back to a plain "Open in
+authenticator" link - make sure your CSP allows that CDN.
 
 **AI Detection does nothing**
 The feature is disabled by default. Enable it in *Settings → AI Detection*,

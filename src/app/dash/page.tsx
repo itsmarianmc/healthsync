@@ -29,7 +29,9 @@ function DashboardPageContent() {
             nfl={nfl.current}
             onOpenSettings={openSettings}
             onOpenUpdateCenter={openUpdateCenter}
-            onOpenCalSync={() => router.push('/food?openModal=true')}
+            onOpenCalSync={() => {
+                router.push('/food?openAiMethod=true');
+            }}
             onOpenDropSync={() => router.push('/drinks?openModal=true')}
         />
     );

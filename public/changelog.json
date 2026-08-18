@@ -1,4 +1,97 @@
 {
+    "4.0.0": {
+        "Delete your account": [
+            "You can now permanently delete your HealthSync account from Settings. This removes all your cloud data — meals, hydration, workouts, and settings — and your login credentials, all in one step."
+        ],
+        "Clearer sign-out": [
+            "Signing out now asks you to confirm and lets you choose to wipe every local entry on this device as part of the sign-out."
+        ],
+        "Smarter AI Detection": [
+            "The AI buttons (Describe Food, Import Food, Capture Food, AI Detection) are now only enabled when your Gemini API key is configured and verified, so the menu never opens a broken flow.",
+            "AI options in the Quick Add menu and CalSync are visibly disabled when your API key is missing or invalid.",
+            "Invalid API keys are now rejected with a clear message instead of being saved silently."
+        ],
+        "Updated legal pages": [
+            "The privacy policy has been refreshed (18 August 2026) with new sections covering the weather provider, reverse-geocoding service, support API, automated decisions, the supervisory authority, and a cookie inventory.",
+            "The cookie policy has been updated to match the simplified cookie preferences."
+        ],
+        "Simpler cookie preferences": [
+            "The previous \"Marketing\" category has been removed. Analytics and ad-related data are denied by default, and only the Preferences and Third-Party categories now control what is shared."
+        ],
+        "Direct weather data": [
+            "The dashboard weather widget now requests data from Open-Meteo directly, so the latest conditions load without going through any intermediary."
+        ],
+        "More reliable settings sync": [
+            "Your macros and water goal are now correctly saved to the cloud — empty or invalid numbers no longer overwrite your existing values."
+        ],
+        "Drink history clear-all now syncs": [
+            "Using \"Clear all\" on the hydration history now removes entries from both your local device and the cloud."
+        ],
+        "Better keyboard and screen-reader support": [
+            "Charts, progress bars, dialogs, and toggle switches now expose proper labels so screen readers announce them correctly.",
+            "The drink picker is fully keyboard-navigable with the arrow keys.",
+            "Bottom sheets can now be closed with the Escape key."
+        ],
+        "Improved focus and contrast": [
+            "Dim text on the dark theme is now easier to read, and form fields show a visible outline when focused with the keyboard."
+        ],
+        "Better error screens": [
+            "If something goes wrong, you now see a clear message with a \"Try again\" button instead of a blank page."
+        ],
+        "Stronger account protection": [
+            "Two-factor authentication is now always required when you sign in - it can no longer be skipped on a device.",
+            "Your synced data is now verified on the server before it is read or saved, ensuring only you can access it."
+        ],
+        "Pending food drafts": [
+            "AI-detected foods now appear as pending drafts in your history with a clear indicator, so you can review and confirm them before they're saved."
+        ],
+        "AI detections are never lost": [
+            "If you close the app while an AI food detection is still showing, your result is automatically saved and restored the next time you open CalSync — nothing gets lost.",
+            "Logging or dismissing the detection removes the saved result, so it never lingers behind the scenes."
+        ],
+        "Legal pages redesign": [
+            "Privacy, Terms, Cookies, and AI Guidelines pages have been completely redesigned with better readability and colors that match your theme."
+        ],
+        "Updated supplements design": [
+            "The supplements page has been redesigned for better usability and aesthetics, and visual issues have been removed."
+        ],
+        "Quick Add opens AI Detection": [
+            "The \"+\" button on the dashboard now opens the AI Detection menu (photo, camera, or text description) instead of directly opening the food log."
+        ],
+        "Improved onboarding tour": [
+            "The onboarding tour now highlights the AI Detection feature in the Quick Add menu."
+        ],
+        "Fixed AI tip display": [
+            "Dashboard tips now show their icons correctly instead of raw text."
+        ],
+        "Faster sign-in": [
+            "Signing in now takes you straight to your dashboard without extra page reloads."
+        ],
+        "Improved 2FA code entry": [
+            "Entering your six-digit authenticator code is now more reliable, especially on mobile."
+        ],
+        "Fixed duplicate food entries from AI detection": [
+            "Fixed a bug where logging a food item via AI detection could create two identical entries instead of one."
+        ],
+        "Fixed deleting pending AI drafts": [
+            "Fixed a bug where removing a pending AI detection draft would incorrectly remove other pending drafts that weren't selected."
+        ],
+        "Support page readability": [
+            "Increased font size on the support page for better readability."
+        ],
+        "Updated weather provider": [
+            "Weather information now comes from Open-Meteo for improved reliability."
+        ],
+        "AI text detection cleanup": [
+            "Closing the \"Describe Food\" text input without analyzing now properly closes the modal instead of leaving \"Analyzing...\" visible."
+        ],
+        "Barcode scanner camera release": [
+            "The camera now properly stops when closing the barcode scanner modal or switching away from the camera tab."
+        ],
+        "Barcode scanner console fix": [
+            "Fixed continuous error messages in the background when the scanner is idle."
+        ]
+    },
     "3.1.2": {
         "Updated changelog": [
             "The changelog has been updated to use a local JSON file for easier maintenance and to avoid issues with the Supabase backend."

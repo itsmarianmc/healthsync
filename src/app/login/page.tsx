@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../_lib/supabase';
 import './styles.css';
 
@@ -41,7 +42,7 @@ function OtpInput({ id, onComplete }: { id: string; onComplete?: (code: string) 
     return (
         <div className="otp-wrap" id={id}>
             {refs.map((ref, i) => (
-                <input key={i} ref={ref} type="number" maxLength={1} min={0} max={9}
+                <input key={i} ref={ref} type="text" inputMode="numeric" maxLength={1} pattern="[0-9]*"
                 autoComplete={i === 0 ? 'one-time-code' : undefined}
                 onInput={() => handleInput(i)}
                 onKeyDown={e => handleKeyDown(i, e)}
@@ -58,6 +59,7 @@ function Alert({ alert }: { alert: AlertState }) {
 }
 
 export default function LoginPage() {
+    const router = useRouter();
     const [view, setView] = useState<View>('login');
     const [loading, setLoading] = useState(false);
     const [loginAlert, setLoginAlert] = useState<AlertState>(EMPTY_ALERT);
@@ -73,7 +75,6 @@ export default function LoginPage() {
     const [showLoginPw, setShowLoginPw] = useState(false);
     const [showRegPw, setShowRegPw] = useState(false);
     const [showRegConfirmPw, setShowRegConfirmPw] = useState(false);
-    const [mfaRemember, setMfaRemember] = useState(false);
     const [qrUri, setQrUri] = useState<string | null>(null);
     const [totpSecret, setTotpSecret] = useState('');
     const [setup2FAMode, setSetup2FAMode] = useState<'setup' | 'test'>('setup');
@@ -109,16 +110,6 @@ export default function LoginPage() {
         });
     }, []);
 
-    const getMfaTrustedEmails = () => {
-        try { return JSON.parse(localStorage.getItem('mfa_trusted_emails') || '[]'); } catch { return []; }
-    };
-    const isMfaTrusted = (email: string) => getMfaTrustedEmails().includes(email.toLowerCase());
-    const setMfaTrusted = (email: string) => {
-        const list = getMfaTrustedEmails();
-        const key = email.toLowerCase();
-        if (!list.includes(key)) { list.push(key); localStorage.setItem('mfa_trusted_emails', JSON.stringify(list)); }
-    };
-
     const handleLoggedIn = useCallback(async (user: { id?: string; email?: string; user_metadata?: Record<string, string> } | null) => {
         const name = user?.user_metadata?.display_name || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
         setLoggedInUser(name);
@@ -135,8 +126,8 @@ export default function LoginPage() {
         const params = new URLSearchParams(window.location.search);
         if (params.get('keep_login_page') === 'true') return;
 
-        setTimeout(() => { window.location.href = '/dash?reload=true'; }, 2200);
-    }, []);
+        setTimeout(() => { router.push('/dash'); }, 2200);
+    }, [router]);
 
     const doLogin = async () => {
         setLoginAlert(EMPTY_ALERT);
@@ -150,7 +141,6 @@ export default function LoginPage() {
 
         const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
         if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
-        if (isMfaTrusted(email)) { setLoading(false); await handleLoggedIn(data.user); return; }
         setLoading(false);
         pendingEmailRef.current = email;
         await startMFAChallenge();
@@ -179,7 +169,6 @@ export default function LoginPage() {
         });
         setLoading(false);
         if (error) return setMfaAlert({ msg: error.message, type: 'error' });
-        if (mfaRemember && pendingEmailRef.current) setMfaTrusted(pendingEmailRef.current);
         const { data: { user } } = await supabase.auth.getUser();
         await handleLoggedIn(user);
     };
@@ -356,7 +345,7 @@ export default function LoginPage() {
         }
     }, [qrUri]);
 
-    const goToApp = () => { window.location.href = '/dash?reload=true'; };
+    const goToApp = () => { router.push('/dash'); };
     const logoutUser = async () => { await supabase.auth.signOut(); setView('login'); setActiveTab('login'); };
 
     const eyeIcon = (
@@ -485,10 +474,6 @@ export default function LoginPage() {
                 <div className="view-subtitle">Enter the 6-digit code from your authenticator app.</div>
                 <Alert alert={mfaAlert} />
                 <OtpInput id="otpWrap" onComplete={doMFAVerify} />
-                <label className="remember-me-row">
-                    <input type="checkbox" id="mfaRememberMe" checked={mfaRemember} onChange={e => setMfaRemember(e.target.checked)} />
-                    <span>Don&apos;t ask again on this device</span>
-                </label>
                 <button className={`btn--primary${loading ? ' loading' : ''}`} id="mfaBtn" onClick={() => {
                     const inputs = document.querySelectorAll<HTMLInputElement>('#otpWrap input');
                     doMFAVerify([...inputs].map(i => i.value).join(''));
