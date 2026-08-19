@@ -6,8 +6,10 @@ import './cookiebanner.css'
 import { AuthProvider } from './_context/AuthContext';
 import { AppShellProvider } from './_context/AppShellContext';
 import CookieBanner from '@/app/_components/shared/CookieBanner'
+import AnalyticsTracker from '@/app/_components/shared/AnalyticsTracker'
 import AppShell from './_components/AppShell';
 import Tooltip from './_components/onboarding/Tooltip';
+import { GA_MEASUREMENT_ID } from './_lib/analytics';
 
 const dmSans = DM_Sans({
     subsets: ['latin'],
@@ -53,11 +55,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <link rel="apple-touch-icon" href="/favicon.png" sizes="192x192" />
                 <link rel="apple-touch-icon" href="/favicon.png" sizes="512x512" />
                 <Script
-                    src="https://www.googletagmanager.com/gtag/js?id=G-EHN4P1ET7W"
-                    strategy="lazyOnload"
-                />
-                <Script id="google-analytics" strategy="lazyOnload">
-                    {`
+                    id="google-analytics-consent"
+                    strategy="beforeInteractive"
+                    dangerouslySetInnerHTML={{
+                        __html: `
                         window.dataLayer = window.dataLayer || [];
                         function gtag(){dataLayer.push(arguments);}
                         gtag('js', new Date());
@@ -70,8 +71,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                             'personalization_storage': 'denied',
                             'security_storage': 'granted'
                         });
-                    `}
-                </Script>
+                        `,
+                    }}
+                />
+                <Script
+                    src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+                    strategy="afterInteractive"
+                />
             </head>
             <body suppressHydrationWarning>
                 <Script
@@ -163,6 +169,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 </AuthProvider>
                 <Tooltip />
                 <CookieBanner />
+                <AnalyticsTracker />
                 <script
                     src="https://unpkg.com/@zxing/browser@0.2.1"
                     integrity="sha384-HRtzk9lZgkbSgvUyQrnfC/GxiXZgwaNyD7hC9wcXlsBpDhkS80ISl73juef2FRuf"

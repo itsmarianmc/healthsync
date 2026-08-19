@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-### [4.0.0] - 2026-08-19 [BETA 1]
+### [4.0.0] - 2026-08-19 [BETA 2]
 
 ### Added
 - **Better error screens**: If something goes wrong, you now see a clear message with a "Try again" button instead of a blank page.
@@ -13,7 +13,8 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 - **AI detection survives app reloads**: New `usePendingFoodDraft()` hook (`src/app/_hooks/usePendingFoodDraft.ts`) persists the active AI detection as a single-slot draft under the `calsync_active_draft` localStorage key (7-day TTL) as soon as the result completes while the CalSync modal is open. On next mount, `CalSync.tsx` restores the draft into the modal (prefill + auto-open) with a "Restored pending AI detection" toast, and clears it in `handleModalClose` so logging or dismissing removes it. A shared `resultToFoodSearchResult()` helper dedupes the food-mapping logic between `handleDetectionResolved` and the auto-save path.
 - **Legal pages redesign**: Privacy, Terms, Cookies, and AI Guidelines pages have been completely redesigned with better readability, per-theme accent colors, and a scroll-linked table of contents.
 - **Account deletion**: Settings now has a "Delete Account" button backed by a new `POST /api/account/delete` route (in `src/app/api/account/delete/route.ts`). The route verifies the requesting user via the anon client with their `accessToken`, then uses the Supabase service-role key to purge `calsync_entries`, `dropsync_entries`, `user_settings`, and `workout_sessions` for the user before deleting the auth account.
-- **Sign-out confirmation**: `AuthContext.logout()` now accepts an optional `clearData: boolean` flag and a new `.logout-modal` sheet (`SettingsModal.tsx`) drives the flow. A checkbox lets the user clear every HealthSync localStorage key (25 keys total) on the device as part of signing out.
+- **Sign-out confirmation**: `AuthContext.logout()` now accepts an optional `clearData: boolean` flag and a new `.logout-modal` sheet (`SettingsModal.tsx`) drives the flow. A checkbox lets the user clear every HealthSync localStorage key (25 keys total) on - **SPA page view tracking**: New `AnalyticsTracker.tsx` (mounted in `layout.tsx` next to `CookieBanner`) fires `gtag('event', 'page_view', { page_path })` on every client-side route change, so in-app navigation is visible in GA4 again. It skips the first mount to avoid double-firing the consent-time `page_view` that `gtag('config', …)` already sends.
+the device as part of signing out.
 - **AI Detection gating**: New `AiDetectionProvider` (`src/app/_context/AiDetectionContext.tsx`) exposes an `isAiDetectionUsable` flag derived from `calsync_ai_enabled` plus the presence of `calsync_ai_api_key`. When the key is missing or invalid, AI entry points are visually disabled with `aria-disabled` in:
   - the dashboard Quick Add grid (Describe Food / Import Food / Capture Food) in `AppShell.tsx`,
   - the CalSync AI button in `CalSync.tsx`,
@@ -57,6 +58,8 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 - **Barcode scanner console spam**: Fixed continuous "No MultiFormat Readers" error messages in the console when the scanner is idle.
 - **Weather data source**: Updated to use Open-Meteo for weather information.
 - **Drink "Clear all" now syncs to cloud**: `src/app/_components/dropsync/DropSync.tsx:handleClearAll` now `await`s `deleteDrinkFromCloud(e.id, user.id)` for every cleared entry. Previously only local state was cleared and the cloud kept the deleted entries.
+- **GA4 measurement ID mismatch**: The gtag loader requested `G-EHN4P1ET7W` while the consent-time `gtag('config', …)` call targeted `G-2E9SPPVJFL`, silently sending analytics data to the wrong property. Both now share a single `GA_MEASUREMENT_ID` constant in `src/app/_lib/analytics.ts` (overridable via `NEXT_PUBLIC_GA_ID`, default `G-EHN4P1ET7W`).
+- **Consent Mode `security_storage` override**: `CookieBanner.tsx` re-issued `gtag('consent', 'default', …)` with `security_storage: 'denied'`, overriding the `granted` default from `layout.tsx`. The redundant default calls were removed so the default now lives only in `layout.tsx` and fires `beforeInteractive` (the gtag loader moved to `afterInteractive`).
 - **Charts and progress bars are screen-reader-friendly**: `WeekChart.tsx` chart container gets `role="img"` + summary `aria-label`; each bar gets its own `role="img"` and `aria-label`. `MetricGrid.tsx` calorie/water bars and `MacroGrid.tsx` protein/carbs/fat bars now expose `role="progressbar"` + `aria-valuenow`/`min`/`max` + `aria-label`. `ScoreRing.tsx` SVG gets `role="img"` + `aria-label="Daily progress: X%"`.
 - **Settings toggles behave like switches**: All `app-toggle-switch` buttons in `SettingsModal.tsx` (`AI Detection`, `Weather`, `Delete warning`, `Splash screen`, `Open menus expanded`, `Track supplements`, `Display name on start`) now use `role="switch"` with `aria-checked` and a per-control `aria-label`.
 - **Modals are real `role="dialog"` overlays**: `WorkoutModal.tsx`, `WorkoutHistoryModal.tsx`, `ActivityStatus.tsx`, `UpdateCenter.tsx`, and `SettingsModal.tsx`'s new logout + delete-account sheets now declare `aria-modal="true"` with a meaningful `aria-label`. Decorative icons/SVGs across these components get `aria-hidden="true"`.

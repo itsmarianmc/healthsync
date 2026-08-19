@@ -24,6 +24,10 @@
         "More reliable settings sync": [
             "Your macros and water goal are now correctly saved to the cloud — empty or invalid numbers no longer overwrite your existing values."
         ],
+        "More accurate analytics": [
+            "When you allow statistics cookies, your page views are now recorded correctly as you navigate the app — nothing is missed and no page is counted twice.",
+            "Security-related cookies always stay enabled regardless of your other cookie choices, so the app's core functions keep working reliably."
+        ],
         "Drink history clear-all now syncs": [
             "Using \"Clear all\" on the hydration history now removes entries from both your local device and the cloud."
         ],

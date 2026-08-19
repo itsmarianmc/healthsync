@@ -2,10 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useCookieConsent } from '../../_lib/useCookieConsent'
-
-declare global {
-    interface Window { gtag: (...args: any[]) => void }
-}
+import { GA_MEASUREMENT_ID } from '../../_lib/analytics'
 
 export default function CookieBanner() {
     const { settings, updateSettings } = useCookieConsent();
@@ -28,16 +25,6 @@ export default function CookieBanner() {
         setThirdparty(settings.thirdparty)
     }, [settings])
 
-    const defaultConsent = {
-        ad_storage: 'denied',
-        ad_user_data: 'denied',
-        ad_personalization: 'denied',
-        analytics_storage: 'denied',
-        functionality_storage: 'denied',
-        personalization_storage: 'denied',
-        security_storage: 'denied'
-    }
-
     const applyConsent = (settings: {
         analytics: boolean
         preferences: boolean
@@ -54,9 +41,7 @@ export default function CookieBanner() {
                 security_storage: 'granted'
             })
             if (settings.analytics) {
-                window.gtag('config', 'G-2E9SPPVJFL', {
-                    page_path: window.location.pathname
-                })
+                window.gtag('config', GA_MEASUREMENT_ID)
             }
         }
     }
@@ -115,10 +100,6 @@ export default function CookieBanner() {
     }
 
     useEffect(() => {
-        if (typeof window.gtag !== 'undefined') {
-            window.gtag('consent', 'default', defaultConsent)
-        }
-
         const bannerAccepted = localStorage.getItem('bannerAccepted') === 'true'
 
         if (bannerAccepted) {
@@ -132,9 +113,6 @@ export default function CookieBanner() {
         setAnalytics(false)
         setPreferences(false)
         setThirdparty(false)
-        if (typeof window.gtag !== 'undefined') {
-            window.gtag('consent', 'default', defaultConsent)
-        }
         setBannerVisible(true)
         setBannerClosing(false)
     }, [])
