@@ -1,5 +1,24 @@
 {
     "4.0.0": {
+        "Clear AI Detection message": [
+            "When AI Detection is switched off or your API key is missing, the AI menu now clearly says so and gives you a direct \"Open Settings\" button — so you can turn it on without hunting through menus."
+        ],
+        "No more overlapping windows": [
+            "Opening the AI Detection menu no longer leaves the Settings window visible behind it — the two now open and close cleanly, one after the other.",
+            "Notifications stay visible even when the AI Detection menu is open."
+        ],
+        "Report a bug from Settings": [
+            "You can now report a bug directly from Settings — a form opens pre-filled with your app version and current page, so you don't have to describe where things went wrong."
+        ],
+        "Settings stays open behind new windows": [
+            "Opening \"About & Licenses\" or \"Report a Bug\" from Settings no longer closes the Settings sheet — it stays visible behind the new window."
+        ],
+        "Collapsible About & Licenses sections": [
+            "The sections in About & Licenses are now collapsible and expand back with a smooth animation, so long license texts no longer dominate the screen."
+        ],
+        "Fixed overlap on notched phones": [
+            "On phones with a notch, rounded corners, or a home indicator, the cookie banner, modals, toasts, and text are no longer cut off or pushed into the edges of the screen."
+        ],
         "Delete your account": [
             "You can now permanently delete your HealthSync account from Settings. This removes all your cloud data — meals, hydration, workouts, and settings — and your login credentials, all in one step."
         ],

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
 interface NotesModalProps {
@@ -10,6 +10,39 @@ interface NotesModalProps {
 
 export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
     const sheet = useDraggableSheet({ onClose });
+
+    const handleLicenseToggle = (e: React.MouseEvent<HTMLDivElement>) => {
+        const target = (e.target as HTMLElement).closest<HTMLElement>('.license-section-title');
+        if (!target) return;
+        const section = target.closest<HTMLElement>('.license-section');
+        if (!section) return;
+        const body = section.querySelector<HTMLElement>('.license-section-body');
+        if (!body) return;
+
+        const willCollapse = !section.classList.contains('collapsed');
+        section.classList.toggle('collapsed', willCollapse);
+
+        const releaseHeight = () => {
+            if (!section.classList.contains('collapsed')) {
+                body.style.maxHeight = 'none';
+            }
+        };
+
+        body.style.maxHeight = `${body.scrollHeight}px`;
+        void body.offsetHeight;
+        body.style.maxHeight = willCollapse ? '0px' : `${body.scrollHeight}px`;
+
+        if (!willCollapse) {
+            const onHeightEnd = (ev: TransitionEvent) => {
+                if (ev.propertyName === 'max-height') {
+                    body.removeEventListener('transitionend', onHeightEnd);
+                    releaseHeight();
+                }
+            };
+            body.addEventListener('transitionend', onHeightEnd);
+            window.setTimeout(releaseHeight, 400);
+        }
+    };
 
     useEffect(() => {
         if (isOpen) sheet.open();
@@ -25,10 +58,11 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                 <div className="modal-header">
                     <div className="modal-title">About &amp; Licenses</div>
                 </div>
-                <div className="modal-body" id="notesModalBody" style={{ paddingBottom: '1em' }}>
+                <div className="modal-body" id="notesModalBody" style={{ paddingBottom: '1em' }} onClick={handleLicenseToggle}>
                 <div className="license-section">
                     <div className="license-section-title">
                         <i className="fas fa-file-contract"></i> About HealthSync & Data Sources
+                        <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
                     </div>
                     <div className="license-section-body">
                         <p><strong>Data Sourcing & Transparency</strong></p>
@@ -75,7 +109,7 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                     </div>
                 </div>
                     <div className="license-section">
-                        <div className="license-section-title"><i className="fas fa-file-contract"></i> Open Food Facts</div>
+                        <div className="license-section-title"><i className="fas fa-file-contract"></i> Open Food Facts<i className="fas fa-chevron-right license-arrow" aria-hidden="true" /></div>
                         <div className="license-section-body">
                             <p><strong>ODC Open Database License (ODbL)</strong></p>
                             <br />
@@ -220,6 +254,7 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                         <div className="license-section-title">
                             <i className="fas fa-file-contract"></i>
                             Font Awesome
+                            <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
                         </div>
                         <div className="license-section-body">
                             <p><strong>Font License</strong></p>
@@ -249,6 +284,7 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                         <div className="license-section-title">
                             <i className="fas fa-file-contract"></i>
                             Supabase
+                            <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
                         </div>
                         <div className="license-section-body">
                             <p>Apache License<br />Version 2.0, January 2004<br /><a href="https://creativecommons.org/licenses/by/3.0/" target="_blank">https://creativecommons.org/licenses/by/3.0/</a></p>
@@ -293,6 +329,7 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                         <div className="license-section-title">
                             <i className="fas fa-file-contract"></i>
                             ZXing Browser
+                            <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
                         </div>
                         <div className="license-section-body">
                             <p>Copyright (c) 2018 ZXing for JS</p>
@@ -315,6 +352,7 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                         <div className="license-section-title">
                             <i className="fas fa-file-contract"></i>
                             Google Fonts (DM Sans)
+                            <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
                         </div>
                         <div className="license-section-body">
                             <p><strong>Font: DM Sans</strong></p>
@@ -347,6 +385,7 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                         <div className="license-section-title">
                             <i className="fas fa-file-contract"></i>
                             Google Material Icons
+                            <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
                         </div>
                         <div className="license-section-body">
                             <p><strong>Material Symbols and Icons</strong></p>
@@ -374,6 +413,7 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                         <div className="license-section-title">
                             <i className="fas fa-file-contract"></i>
                             About Your Hydration Goal
+                            <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
                         </div>
                         <div className="license-section-body">
                             <p>Please note: The displayed values are for informational purposes only and are calculated based on standardized algorithms and general health guidelines. These calculations serve as approximate guidelines and should not be considered as definitive medical advice.</p>
@@ -386,6 +426,7 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                         <div className="license-section-title">
                             <i className="fas fa-file-contract"></i>
                             About Location Data and Reverse Geocoding
+                            <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
                         </div>
                         <div className="license-section-body">
                             <p>The location data used in this application is obtained through reverse geocoding services, which convert geographic coordinates (latitude and longitude) into human-readable addresses. The accuracy of the location information may vary based on the quality of the underlying data sources and the algorithms used for geocoding.</p>
@@ -399,6 +440,7 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                         <div className="license-section-title">
                             <i className="fas fa-file-contract"></i>
                             About Exercises and Workouts
+                            <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
                         </div>
                         <div className="license-section-body">
                             <p>The instructional content and step-by-step guides for the supported exercises were sourced from the comprehensive <a href="https://github.com/hasaneyldrm/exercises-dataset" target="_blank" rel="noopener noreferrer">Exercises Dataset on GitHub</a>.</p>

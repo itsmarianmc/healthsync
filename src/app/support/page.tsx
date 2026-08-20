@@ -99,10 +99,16 @@ export default function SupportPage() {
     return (
         <div
             className="app-view active"
-            style={{ maxWidth: '420px', margin: '0 auto', padding: '20px 24px 100px' }}
+            style={{
+                maxWidth: '420px',
+                margin: '0 auto',
+                padding: '20px 24px 100px', /* fallback */
+                paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))',
+                paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))',
+            }}
             id='dashboard-view'
         >
-            <div className="header" style={{ padding: '0 0 20px 0' }}>
+            <div className="header" style={{ paddingBottom: '20px' }}>
                 <div className="header-title-row">
                     <HeaderTitle />
                     <button

@@ -12,6 +12,7 @@ import { validateApiKey } from '../../_lib/gemini';
 import { APP_VERSION } from '../../_lib/release';
 import { writeLocalLastSeen, writePendingReloadAfterUpdate } from '../../_lib/changelog';
 import { Serwist } from '@serwist/window';
+import ReportBugModal from './ReportBugModal';
 
 type SerwistWindow = Window & {
     serwist?: Serwist;
@@ -133,6 +134,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     const [logoutChecked, setLogoutChecked] = useState(false);
     const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
     const [deleteAccountChecked, setDeleteAccountChecked] = useState(false);
+    const [reportOpen, setReportOpen] = useState(false);
 
     useEffect(() => {
         if (!canUsePreferences) {
@@ -244,6 +246,25 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         if (isOpen) sheet.open();
         else if (sheet.stateRef.current !== 'closed') sheet.close();
     }, [isOpen]);
+
+    useEffect(() => {
+        const overlay = sheet.overlayRef.current;
+        const modal = sheet.modalRef.current;
+        if (!overlay || !modal) return;
+
+        const update = () => {
+            const anotherVisible = Array.from(document.querySelectorAll('.app-overlay'))
+                .some(o => o !== overlay && o.classList.contains('visible'));
+            modal.style.transition = 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), scale 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
+            void modal.offsetHeight;
+            overlay.classList.toggle('has-sub-modal', anotherVisible);
+        };
+
+        update();
+        const observer = new MutationObserver(update);
+        observer.observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
+        return () => observer.disconnect();
+    }, [sheet.overlayRef, sheet.modalRef]);
 
     const deleteAccountSheet = useDraggableSheet({
         onClose: () => { setDeleteAccountConfirm(false); setDeleteAccountChecked(false); },
@@ -936,6 +957,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                         System
                     </div>
                     <div className="settings-section-body" style={{ gap: 8, display: 'flex', flexDirection: 'column' }}>
+                        <button className="data-btn" id="openReportBugBtn" onClick={() => setReportOpen(true)} style={{ marginBottom: 8 }}>
+                            <i className="fa-solid fa-bug" style={{ marginRight: 6 }} />
+                            Report a Bug
+                        </button>
                         {updateAvailable ? (
                             <button className="data-btn" id="updateNowBtn" onClick={applyUpdate} style={{ color: '#30D158', fontWeight: 600 }}>
                                 <i className="fa-solid fa-arrow-up-from-bracket"></i>
@@ -1159,6 +1184,8 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                 </div>
             </div>
         )}
+
+        <ReportBugModal isOpen={reportOpen} onClose={() => setReportOpen(false)} />
         </>
     );
 }

@@ -185,9 +185,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }, [closeSettings]);
 
     const handleOpenNotesFromSettings = useCallback(() => {
-        closeSettings();
         openNotes();
-    }, [closeSettings, openNotes]);
+    }, [openNotes]);
     if (!KNOWN_ROUTES.has(pathname)) {
         return <>{children}</>;
     }

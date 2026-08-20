@@ -62,6 +62,7 @@ export default function CalSync({
     const { barcodeSearchOpen } = useAppShell();
     const { user, showToast } = useAuth();
     const {
+        isAiDetectionUsable,
         detections,
         pendingAutoOpenId,
         runDetection,
@@ -420,7 +421,7 @@ export default function CalSync({
                 onDiscardDraft={handleDiscardDraft}
             />
             <CalHistoryModal entries={entries} isOpen={historyOpen} onClose={() => setHistoryOpen(false)} />
-            <AiMethodModal isOpen={aiMethodOpen} onClose={() => setAiMethodOpen(false)} onSelect={handleAiMethodSelect} />
+            <AiMethodModal isOpen={aiMethodOpen} onClose={() => setAiMethodOpen(false)} onSelect={handleAiMethodSelect} isAiDetectionUsable={isAiDetectionUsable} onOpenSettings={onOpenSettings} />
             <CalSyncModal
                 isOpen={modalOpen}
                 onClose={handleModalClose}

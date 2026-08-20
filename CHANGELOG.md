@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-### [4.0.0] - 2026-08-19 [BETA 2]
+### [4.0.0] - 2026-08-20 [BETA 3]
 
 ### Added
 - **Better error screens**: If something goes wrong, you now see a clear message with a "Try again" button instead of a blank page.
@@ -24,6 +24,7 @@ the device as part of signing out.
 - **`AiMethodModal.tsx` + `BarcodeSearchPopup.tsx`**: New components. `AiMethodModal` centralizes the photo / camera / text-description picker previously scattered across the CalSync modal; `BarcodeSearchPopup` replaces the old `BarcodeScanModal` + `ExtraScanner` pair (both deleted) and supports both free-text search and live camera scan. A new custom event `extra:openBarcodeSearch` (`{ mode: 'search' | 'camera' }`) drives the popup from anywhere in the app shell.
 - **`AiDetectionIndicator.tsx`**: A small floating pill at the bottom of the screen that surfaces any active AI detection so the user can tap it to open the result. Mounted from `AppShell.tsx`.
 - **`POST /api/account/delete`** infrastructure (see Account deletion above).
+- **Report a Bug from Settings**: New `ReportBugModal.tsx` plus a "Report a Bug" button in the System section of `SettingsModal.tsx`. The modal embeds `https://itsmarian.dev/report` in an `<iframe>`, pre-filled via query params (`cnt_src=healthsync`, `user_id`, `app_version` from `APP_VERSION`, current path as `ref`, plus `hide_header`/`hide_footer`) and auto-expands via `sheet.snapToExpanded()`.
 
 ### Changed
 - **Stronger account protection**: Two-factor authentication is now always required when you sign in - it can no longer be skipped on a device. Your synced data is also verified on the server before it is read or saved, ensuring only you can access it.
@@ -44,8 +45,13 @@ the device as part of signing out.
 - **Middleware CSP allows Open-Meteo**: `src/proxy.ts` (Next.js 16 Turbopack middleware, the `proxy` named export) adds `https://api.open-meteo.com` to the `connect-src` allow-list and continues to set `Content-Security-Policy`, `Referrer-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, and `Permissions-Policy` on every response.
 - **Settings shows the running version**: the `App is up to date` line in `SettingsModal.tsx` now reads `App is up to date (v{APP_VERSION})`.
 - **Tour copy update**: `DEFAULT_TOUR_STEPS` in `src/app/_lib/tour.ts` describes the Quick Add button as opening the "AI Detection menu". Tour steps whose target element is missing now log `[tour] step N element 'X' not found — skipping` and continue instead of silently aborting.
+- **Settings stays open behind sub-windows**: `AppShell.tsx`'s `handleOpenNotesFromSettings` no longer calls `closeSettings()` before `openNotes()`, so "About & Licenses" opens on top of Settings instead of closing it. `SettingsModal.tsx` adds a `MutationObserver` that toggles `has-sub-modal` on the settings overlay whenever another `.app-overlay` becomes visible, and the new `.app-overlay.has-sub-modal .modal` rule in `styles.css` scales the sheet down (`scale: 0.92; translate: 0 10px`) behind the modal above it.
+- **Collapsible About & Licenses sections**: `NotesModal.tsx` license-section titles are now clickable — `handleLicenseToggle` toggles a `.collapsed` class and animates the section body smoothly via `max-height` (measured with `body.scrollHeight`, released to `none` after expand) over `0.35s var(--ease)`; a chevron icon (`.license-arrow`) rotates over `0.15s` to reflect the collapsed state. `.license-section-title` gets `cursor: pointer; user-select: none`.
 
 ### Fixed
+- **AI Detection disabled notice now actually displays**: `isAiDetectionUsable` was never passed to `AiMethodModal` (the prop defaulted to `true`), so the disabled message never rendered. `CalSync.tsx` now forwards the flag from `useAiDetection()`, and the notice (`#aiMethodDisabledNote`) was moved into the option grid with a dedicated "Open Settings" button (`#aiMethodOpenSettingsBtn`).
+- **Settings no longer overlaps the AI Detection modal**: `AppShell.closeSettings` is now invoked when `AiMethodModal` opens (a `wasOpen` ref guards the transition so it only fires on closed→open), and explicit z-index layering was added in `styles.css` (`#settingsOverlay` `10001` → `#aiMethodOverlay` `10002`). The "Open Settings" button defers opening via a `pendingOpenSettings` ref inside the sheet's `onClose`, so the two overlays never coexist on screen.
+- **Toasts stay above the AI Detection modal**: `.toast` z-index raised from `10001` to `10003`.
 - **AI tip icons**: Dashboard tips now show their icons correctly instead of raw text.
 - **Faster sign-in**: Signing in now takes you straight to your dashboard without extra page reloads.
 - **Improved 2FA code entry**: Entering your six-digit authenticator code is now more reliable, especially on mobile.
@@ -74,6 +80,7 @@ the device as part of signing out.
 - **AI Detection entry buttons no longer open a broken Gemini flow silently**: the Quick Add grid + CalSync AI button are now visibly disabled (with a tooltip-style explanation in `AiMethodModal`) when the API key is missing or invalid, instead of routing the user into a flow that would fail.
 - **Invalid Gemini keys are no longer saved**: `SettingsModal.handleSaveApiKey` is now `async`, runs `validateApiKey()`, and returns early on validation failure.
 - **Build & lint**: project still builds cleanly (`npm run build`, `tsc --noEmit`); lint baseline lifted from 229 → 236 by the seven `aria-*` attribute hooks introduced for the new `role="switch"` widgets (zero errors introduced).
+- **Safe-area insets on notched devices**: Fixed UI now respects `env(safe-area-inset-*)` so nothing is hidden behind the notch, rounded corners, or home indicator on phones with a display cutout. Touched: cookie banner (`cookiebanner.css`), legal pages (`legal/legal.css` — `main` padding + back-to-top button), login screen (`login/styles.css`), app views, app-shell header, `.modal`/`.modal-footer` bottom padding, toast top, onboarding header (`styles.css`), and the support page inline padding (`src/app/support/page.tsx`). Each rule keeps a fallback value so browsers without `env()` support render as before.
 
 ## [3.1.2] - 2026-08-06
 

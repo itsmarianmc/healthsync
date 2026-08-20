@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
+import { useAppShell } from '../../_context/AppShellContext';
 
 export type AiMethod = 'describe' | 'import' | 'capture';
 
@@ -10,15 +11,36 @@ interface AiMethodModalProps {
     onClose: () => void;
     onSelect: (mode: AiMethod) => void;
     isAiDetectionUsable?: boolean;
+    onOpenSettings?: () => void;
 }
 
-export default function AiMethodModal({ isOpen, onClose, onSelect, isAiDetectionUsable = true }: AiMethodModalProps) {
-    const sheet = useDraggableSheet({ onClose });
+export default function AiMethodModal({ isOpen, onClose, onSelect, isAiDetectionUsable = true, onOpenSettings }: AiMethodModalProps) {
+    const pendingOpenSettings = useRef(false);
+    const sheet = useDraggableSheet({
+        onClose: () => {
+            if (pendingOpenSettings.current) {
+                pendingOpenSettings.current = false;
+                onClose();
+                onOpenSettings?.();
+            } else {
+                onClose();
+            }
+        },
+    });
+    const { closeSettings } = useAppShell();
+    const wasOpen = useRef(false);
 
     useEffect(() => {
-        if (isOpen) sheet.open();
-        else if (sheet.stateRef.current !== 'closed') sheet.close();
-    }, [isOpen]);
+        if (isOpen) {
+            if (!wasOpen.current) closeSettings();
+            wasOpen.current = true;
+            sheet.open();
+        }
+        else {
+            wasOpen.current = false;
+            if (sheet.stateRef.current !== 'closed') sheet.close();
+        }
+    }, [isOpen, closeSettings]);
 
     const pick = (mode: AiMethod) => {
         if (!isAiDetectionUsable) return;
@@ -46,12 +68,29 @@ export default function AiMethodModal({ isOpen, onClose, onSelect, isAiDetection
                     <div className="modal-title">AI Detection</div>
                 </div>
                 <div className="modal-body" id="aiMethodModalBody">
-                    {!isAiDetectionUsable && (
-                        <div style={{ textAlign: 'center', opacity: 0.6, padding: '8px 0 16px', fontSize: '0.9em' }}>
-                            Enable AI in Settings and add a Gemini API key to use this feature.
-                        </div>
-                    )}
                     <div className="ai-method-grid">
+                        {!isAiDetectionUsable && (
+                            <div className="ai-method-disabled-note" id="aiMethodDisabledNote">
+                                <div className="ai-method-disabled-text">
+                                    <i className="fa-solid fa-triangle-exclamation" />
+                                    <div>
+                                        <strong>AI Detection is disabled</strong>
+                                        <span>Enable it in Settings and add your Gemini API key to use photo, camera and text detection.</span>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="ai-method-settings-link"
+                                    id="aiMethodOpenSettingsBtn"
+                                    onClick={() => {
+                                        pendingOpenSettings.current = true;
+                                        sheet.close();
+                                    }}
+                                >
+                                    <i className="fa-solid fa-gear" />Open Settings
+                                </button>
+                            </div>
+                        )}
                         <div
                             className={`ai-method-card${isAiDetectionUsable ? '' : ' disabled'}`}
                             id="aiMethodSelectImage"
