@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-### [4.0.0] - 2026-08-20 [BETA 3]
+### [4.0.0] - 2026-08-22 [BETA 4]
 
 ### Added
 - **Better error screens**: If something goes wrong, you now see a clear message with a "Try again" button instead of a blank page.
@@ -47,8 +47,14 @@ the device as part of signing out.
 - **Tour copy update**: `DEFAULT_TOUR_STEPS` in `src/app/_lib/tour.ts` describes the Quick Add button as opening the "AI Detection menu". Tour steps whose target element is missing now log `[tour] step N element 'X' not found — skipping` and continue instead of silently aborting.
 - **Settings stays open behind sub-windows**: `AppShell.tsx`'s `handleOpenNotesFromSettings` no longer calls `closeSettings()` before `openNotes()`, so "About & Licenses" opens on top of Settings instead of closing it. `SettingsModal.tsx` adds a `MutationObserver` that toggles `has-sub-modal` on the settings overlay whenever another `.app-overlay` becomes visible, and the new `.app-overlay.has-sub-modal .modal` rule in `styles.css` scales the sheet down (`scale: 0.92; translate: 0 10px`) behind the modal above it.
 - **Collapsible About & Licenses sections**: `NotesModal.tsx` license-section titles are now clickable — `handleLicenseToggle` toggles a `.collapsed` class and animates the section body smoothly via `max-height` (measured with `body.scrollHeight`, released to `none` after expand) over `0.35s var(--ease)`; a chevron icon (`.license-arrow`) rotates over `0.15s` to reflect the collapsed state. `.license-section-title` gets `cursor: pointer; user-select: none`.
+- **Lockfile housekeeping**: resolved duplicate `@swc/helpers` entry under `@serwist/turbopack` and marked `fsevents` as an optional dev dependency in `package-lock.json` (no runtime effect).
 
 ### Fixed
+- **Expanded sheets stop below the notch**: `CalSyncModal.tsx`, `DropSyncModal.tsx`, `HistoryModal.tsx`, and `useDraggableSheet.ts` share a new `getSafeAreaTop()` helper (reads the `--sat` custom property, falling back to `env(safe-area-inset-top)`). Expanded sheet height is now `window.innerHeight - SHEET_TOP_MARGIN - safeAreaTop`, so fully-expanded sheets no longer push their content underneath the status bar / camera cutout.
+- **Inset-aware modal layout in `styles.css`**: `.modal` max-height switches to `100dvh - env(safe-area-inset-top)`; `.sheet-handle` grows by the top inset (`height: calc(30px + env(...))` + matching `padding-top`); sheet header and `.modal-header` offset their padding/`top` by the inset; `.modal-body` gets `overflow-y: auto` plus `padding-top: calc(70px + env(safe-area-inset-top))`, so long content scrolls instead of clipping under the floating header; `.modal-footer` pins to the bottom via `margin-top: auto` with `padding-bottom: max(16px, env(safe-area-inset-bottom))`.
+- **`.extra-modal .modal-body` spacing**: now a flex column with a 16px gap and inset-aware top padding; the AI-method option grid compensates by dropping its own top padding (24px → 0).
+- **`.license-section` overflow containment**: `overflow: hidden` moved off the shared rule onto `.license-section` only, so collapsible license bodies clip correctly during the expand animation.
+- **Install banner hidden on `/login` and `/onboarding`**: `AppShell.tsx` gates the PWA install banner behind a new `showInstallBanner` flag, so it no longer covers the sign-in and onboarding screens.
 - **AI Detection disabled notice now actually displays**: `isAiDetectionUsable` was never passed to `AiMethodModal` (the prop defaulted to `true`), so the disabled message never rendered. `CalSync.tsx` now forwards the flag from `useAiDetection()`, and the notice (`#aiMethodDisabledNote`) was moved into the option grid with a dedicated "Open Settings" button (`#aiMethodOpenSettingsBtn`).
 - **Settings no longer overlaps the AI Detection modal**: `AppShell.closeSettings` is now invoked when `AiMethodModal` opens (a `wasOpen` ref guards the transition so it only fires on closed→open), and explicit z-index layering was added in `styles.css` (`#settingsOverlay` `10001` → `#aiMethodOverlay` `10002`). The "Open Settings" button defers opening via a `pendingOpenSettings` ref inside the sheet's `onClose`, so the two overlays never coexist on screen.
 - **Toasts stay above the AI Detection modal**: `.toast` z-index raised from `10001` to `10003`.

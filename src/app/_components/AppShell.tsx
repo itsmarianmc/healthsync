@@ -192,6 +192,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
 
     const showFooter = pathname !== '/login';
+    const showInstallBanner = deferredPrompt && pathname !== '/onboarding' && pathname !== '/login';
 
     return (
         <>
@@ -293,7 +294,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
                 <Toast />
 
-                {deferredPrompt && (
+                {showInstallBanner && (
                     <div className="install-banner" role="status" aria-label="Install HealthSync">
                         <div className="install-banner-icon">
                             <img src="/favicon.png" alt="" />

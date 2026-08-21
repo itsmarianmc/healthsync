@@ -11,6 +11,14 @@ const FAVS_KEY   = 'calsync_favourites';
 const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
 const SHEET_TOP_MARGIN = 24;
 
+function getSafeAreaTop(): number {
+  if (typeof window === 'undefined') return 0;
+  const style = getComputedStyle(document.documentElement);
+  const val = style.getPropertyValue('--sat') || style.getPropertyValue('env(safe-area-inset-top)');
+  const px = parseFloat(val);
+  return isNaN(px) ? 0 : px;
+}
+
 function loadFavs(): FoodSearchResult[] {
     try { return JSON.parse(localStorage.getItem(FAVS_KEY) || '[]'); } catch { return []; }
 }
@@ -118,7 +126,7 @@ export default function CalSyncModal({
     const skipStepTransitionRef = useRef(false);
     useEffect(() => { stepRef.current = step; }, [step]);
 
-    const expandedH = () => window.innerHeight - SHEET_TOP_MARGIN;
+    const expandedH = () => window.innerHeight - SHEET_TOP_MARGIN - getSafeAreaTop();
     const setNoTrans = () => { if (modalRef.current) modalRef.current.style.transition = 'none'; };
     const setTrans = (props: string[]) => { if (modalRef.current) modalRef.current.style.transition = props.map(p => `${p} 0.42s ${EASE}`).join(', '); };
 

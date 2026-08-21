@@ -1,5 +1,12 @@
 {
     "4.0.0": {
+        "Even better on notched phones": [
+            "Fully expanded sheets and windows now end just below your phone's notch or camera cutout — drag handles, titles, and headers are never hidden behind it.",
+            "Long content inside windows now scrolls properly instead of getting cut off, and action buttons keep a safe distance from your home indicator."
+        ],
+        "No interruptions during sign-in": [
+            "The \"Install HealthSync\" banner no longer appears while you're signing in or going through the introduction."
+        ],
         "Clear AI Detection message": [
             "When AI Detection is switched off or your API key is missing, the AI menu now clearly says so and gives you a direct \"Open Settings\" button — so you can turn it on without hunting through menus."
         ],
