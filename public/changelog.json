@@ -26,6 +26,9 @@
         "Fixed overlap on notched phones": [
             "On phones with a notch, rounded corners, or a home indicator, the cookie banner, modals, toasts, and text are no longer cut off or pushed into the edges of the screen."
         ],
+        "Better Settings spacing": [
+            "The Settings window no longer has an unnecessary empty gap above its content."
+        ],
         "Delete your account": [
             "You can now permanently delete your HealthSync account from Settings. This removes all your cloud data — meals, hydration, workouts, and settings — and your login credentials, all in one step."
         ],

@@ -1100,7 +1100,6 @@ a:link:hover {
 	display: flex;
 	flex-shrink: 0;
 	height: calc(30px + env(safe-area-inset-top, 0px));
-	padding-top: env(safe-area-inset-top, 0px);
 	justify-content: center;
 	touch-action: none;
 	user-select: none;
@@ -1130,11 +1129,12 @@ a:link:hover {
 	justify-content: space-between;
 	padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px;
 }
+
 .modal-header {
     flex-shrink: 0;
     align-items: center;
     height: 40px;
-    padding: calc(6px + env(safe-area-inset-top, 0px)) 24px 0;
+    padding: 6px 24px 0;
     display: flex;
     position: absolute;
     width: 100%;
@@ -2114,7 +2114,7 @@ input::-webkit-inner-spin-button {
 	overflow-y: auto;
 	position: relative;
 	transition: all 0.3s var(--ease);
-	padding-top: calc(70px + env(safe-area-inset-top, 0px)) !important;
+	padding-top: calc(70px + env(safe-area-inset-top, 0px));
 }
 
 .modal-body::-webkit-scrollbar, .exercise-category-filters::-webkit-scrollbar {
