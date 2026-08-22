@@ -19,17 +19,13 @@ export function usePendingFoodDraft() {
     const clearActiveDraft = useCallback(() => {
         try {
             localStorage.removeItem(ACTIVE_DRAFT_KEY);
-        } catch {
-            // ignore storage errors
-        }
+        } catch {}
     }, []);
 
     const saveActiveDraft = useCallback((draft: Omit<ActiveFoodDraft, 'status'>) => {
         try {
             localStorage.setItem(ACTIVE_DRAFT_KEY, JSON.stringify({ ...draft, status: 'pending' }));
-        } catch {
-            // ignore quota errors
-        }
+        } catch {}
     }, []);
 
     const loadActiveDraft = useCallback((): ActiveFoodDraft | null => {
