@@ -338,7 +338,7 @@ body {
 
 .app-footer {
 	align-items: center;
-	bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+	bottom: 22px;
 	display: flex;
 	gap: 12px;
 	justify-content: center;
