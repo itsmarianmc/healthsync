@@ -14,14 +14,6 @@ interface DropSyncModalProps {
 const SHEET_TOP_MARGIN = 24;
 const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
 
-function getSafeAreaTop(): number {
-  if (typeof window === 'undefined') return 0;
-  const style = getComputedStyle(document.documentElement);
-  const val = style.getPropertyValue('--sat') || style.getPropertyValue('env(safe-area-inset-top)');
-  const px = parseFloat(val);
-  return isNaN(px) ? 0 : px;
-}
-
 export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncModalProps) {
     const [step, setStep] = useState<1 | 2>(1);
     const [selectedDrink, setSelectedDrink] = useState<DrinkOption | null>(null);
@@ -43,7 +35,7 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
     const dragLastYRef = useRef(0);
     const isCapturingRef = useRef(false);
 
-    const expandedHeight = () => window.innerHeight - SHEET_TOP_MARGIN - getSafeAreaTop();
+    const expandedHeight = () => window.innerHeight - SHEET_TOP_MARGIN;
 
     const setNoTransition = () => { if (modalRef.current) modalRef.current.style.transition = 'none'; };
     const setTransition = (props: string[]) => {

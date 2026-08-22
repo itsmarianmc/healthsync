@@ -793,7 +793,7 @@ a:link:hover {
 	margin: 0 auto;
 	max-width: 420px;
 	padding-bottom: 100px; /* fallback */
-	padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+	padding-bottom: 100px;
 	width: 100%;
 }
 
@@ -802,9 +802,9 @@ a:link:hover {
 	flex-direction: column;
 	max-width: 420px;
 	padding: 12px 24px 0; /* fallback for browsers without env() */
-	padding-top: calc(12px + env(safe-area-inset-top, 0px));
-	padding-left: calc(24px + env(safe-area-inset-left, 0px));
-	padding-right: calc(24px + env(safe-area-inset-right, 0px));
+	padding-top: 12px;
+	padding-left: 24px;
+	padding-right: 24px;
 	width: 100%;
 }
 
@@ -1063,8 +1063,8 @@ a:link:hover {
 	display: flex;
 	flex-direction: column;
 	margin: 0 auto;
-	max-height: calc(100vh - env(safe-area-inset-top, 0px) - 24px);
-	max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 24px);
+	max-height: calc(100vh - 24px);
+	max-height: calc(100dvh - 24px);
 	max-width: 420px;
 	overflow: hidden;
 	transform: translateY(100%);
@@ -1099,7 +1099,7 @@ a:link:hover {
 	cursor: grab;
 	display: flex;
 	flex-shrink: 0;
-	height: calc(30px + env(safe-area-inset-top, 0px));
+	height: 30px;
 	justify-content: center;
 	touch-action: none;
 	user-select: none;
@@ -1127,18 +1127,17 @@ a:link:hover {
 	align-items: center;
 	display: flex;
 	justify-content: space-between;
-	padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px;
+	padding: 8px 16px;
 }
-
 .modal-header {
     flex-shrink: 0;
     align-items: center;
     height: 40px;
-    padding: 6px 24px 0;
+	padding: 6px 24px 0;
     display: flex;
     position: absolute;
     width: 100%;
-    top: calc(30px + env(safe-area-inset-top, 0px));
+	top: 30px;
 	background: linear-gradient(0deg, rgba(28, 28, 30, 0) 0%, rgba(28, 28, 30, 0.67) 50%, rgba(28, 28, 30, 1) 100%);
 	z-index: 1;
     margin-top: -1px;
@@ -2099,7 +2098,7 @@ input::-webkit-inner-spin-button {
 }
 
 .extra-modal .modal-body {
-	padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 20px;
+	padding: 12px 16px 20px;
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
@@ -2114,7 +2113,7 @@ input::-webkit-inner-spin-button {
 	overflow-y: auto;
 	position: relative;
 	transition: all 0.3s var(--ease);
-	padding-top: calc(70px + env(safe-area-inset-top, 0px));
+	padding-top: 70px;
 }
 
 .modal-body::-webkit-scrollbar, .exercise-category-filters::-webkit-scrollbar {
@@ -3487,7 +3486,8 @@ input::-webkit-inner-spin-button {
 .modal-footer {
 	flex-shrink: 0;
 	padding: 16px 24px; /* fallback */
-	padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+	padding-bottom: 16px;
+	margin-bottom: env(safe-area-inset-bottom, 0px);
 	margin-top: auto;
 }
 
@@ -4349,9 +4349,9 @@ input::-webkit-inner-spin-button {
 	justify-content: space-between;
 	min-height: 64px;
 	padding: 20px 24px 0; /* fallback */
-	padding-top: calc(20px + env(safe-area-inset-top, 0px));
-	padding-left: calc(24px + env(safe-area-inset-left, 0px));
-	padding-right: calc(24px + env(safe-area-inset-right, 0px));
+	padding-top: 20px;
+	padding-left: 24px;
+	padding-right: 24px;
 }
 
 .onboarding-header-left {
@@ -4640,7 +4640,8 @@ input::-webkit-inner-spin-button {
 	flex-shrink: 0;
 	gap: 12px;
 	justify-content: space-between;
-	padding: 16px 24px max(24px, env(safe-area-inset-bottom));
+	margin-bottom: env(safe-area-inset-bottom, 0px);
+	padding: 16px 24px 24px;
 }
 
 .onboarding-back-btn {

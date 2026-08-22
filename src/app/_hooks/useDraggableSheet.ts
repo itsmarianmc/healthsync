@@ -15,13 +15,6 @@ type SheetState = 'closed' | 'open' | 'expanded';
 const SHEET_TOP_MARGIN = 24;
 const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
 
-function getSafeAreaTop(): number {
-  if (typeof window === 'undefined') return 0;
-  const style = getComputedStyle(document.documentElement);
-  const val = style.getPropertyValue('--sat') || style.getPropertyValue('env(safe-area-inset-top)');
-  const px = parseFloat(val);
-  return isNaN(px) ? 0 : px;
-}
 const CLOSE_EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 const FLING_CLOSE_VEL = 1500;
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -65,7 +58,7 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const expandedHeight = useCallback(
-    () => getExpandedHeight?.() ?? window.innerHeight - SHEET_TOP_MARGIN - getSafeAreaTop(),
+    () => getExpandedHeight?.() ?? window.innerHeight - SHEET_TOP_MARGIN,
     [getExpandedHeight],
   );
 

@@ -10,7 +10,7 @@
 
 [data-theme="light"]  .legal-page { --accent-rgb: 255, 149, 0; }
 
-.legal-page main { max-width: 820px; margin: 0 auto; padding: 88px 22px 120px; padding-top: calc(88px + env(safe-area-inset-top, 0px)); padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); position: relative; z-index: 1; }
+.legal-page main { max-width: 820px; margin: 0 auto; padding: 88px 22px 120px; position: relative; z-index: 1; }
 .legal-page footer { max-width: 820px; }
 
 .legal-page .section { margin-bottom: 14px; scroll-margin-top: 96px; }
@@ -226,5 +226,5 @@
 .legal-page .btt-text { font-family: var(--legal-mono); font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; user-select: none; }
 
 @media (max-width: 640px) {
-    .legal-page main { padding: 72px 18px 100px; padding-top: calc(72px + env(safe-area-inset-top, 0px)); padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+    .legal-page main { padding: 72px 18px 100px; }
 }

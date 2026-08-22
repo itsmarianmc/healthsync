@@ -103,8 +103,8 @@ export default function SupportPage() {
                 maxWidth: '420px',
                 margin: '0 auto',
                 padding: '20px 24px 100px', /* fallback */
-                paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))',
-                paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))',
+                paddingTop: '20px',
+                paddingBottom: '100px',
             }}
             id='dashboard-view'
         >

@@ -123,6 +123,10 @@
         ],
         "Barcode scanner console fix": [
             "Fixed continuous error messages in the background when the scanner is idle."
+        ],
+        "Fixed gaps on notched phones": [
+            "The extra gaps added by the previous notch fix are now gone — content near your phone's cutout is no longer pushed to the edge or doubled up.",
+            "Footer buttons keep a safe margin from the home indicator, so your thumbs always hit the right spot."
         ]
     },
     "3.1.2": {

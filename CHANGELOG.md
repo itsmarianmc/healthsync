@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-### [4.0.0] - 2026-08-22 [BETA 4]
+### [4.0.0] - 2026-08-22 [BETA 5]
 
 ### Added
 - **Better error screens**: If something goes wrong, you now see a clear message with a "Try again" button instead of a blank page.
@@ -50,6 +50,7 @@ the device as part of signing out.
 - **Lockfile housekeeping**: resolved duplicate `@swc/helpers` entry under `@serwist/turbopack` and marked `fsevents` as an optional dev dependency in `package-lock.json` (no runtime effect).
 
 ### Fixed
+- **Safer safe-area gaps on notched phones**: The previous beta added `env(safe-area-inset-*)` padding to fix notch/cutout clipping, but it was applied inconsistently—some places used `padding: calc(X + env(...))` (double-gap with already-padded parents) and the custom `getSafeAreaTop()` helper in `CalSyncModal.tsx`, `DropSyncModal.tsx`, `HistoryModal.tsx`, and `useDraggableSheet.ts` was removed in favor of relying on the CSS-only approach. Safe-area clearance now uses `margin-bottom: env(safe-area-inset-bottom, 0px)` only on `.modal-footer` and the onboarding footer (where it correctly sits *outside* the element), and remaining `calc(…) + env(safe-area-inset-*)` rules that duplicated existing padding have been reverted. Affected files: `public/offline.html`, `src/app/_components/calsync/CalSyncModal.tsx`, `src/app/_components/dropsync/DropSyncModal.tsx`, `src/app/_components/dropsync/HistoryModal.tsx`, `src/app/_hooks/useDraggableSheet.ts`, `src/app/legal/legal.css`, `src/app/login/styles.css`, `src/app/styles.css`, `src/app/support/page.tsx`.
 - **Settings modal spacing**: Removed the forced generic `.modal-body` top padding so `.extra-modal` can use its intended inset-aware spacing without an additional empty gap.
 - **Expanded sheets stop below the notch**: `CalSyncModal.tsx`, `DropSyncModal.tsx`, `HistoryModal.tsx`, and `useDraggableSheet.ts` share a new `getSafeAreaTop()` helper (reads the `--sat` custom property, falling back to `env(safe-area-inset-top)`). Expanded sheet height is now `window.innerHeight - SHEET_TOP_MARGIN - safeAreaTop`, so fully-expanded sheets no longer push their content underneath the status bar / camera cutout.
 - **Inset-aware modal layout in `styles.css`**: `.modal` max-height switches to `100dvh - env(safe-area-inset-top)`; `.sheet-handle` grows by the top inset (`height: calc(30px + env(...))` + matching `padding-top`); sheet header and `.modal-header` offset their padding/`top` by the inset; `.modal-body` gets `overflow-y: auto` plus `padding-top: calc(70px + env(safe-area-inset-top))`, so long content scrolls instead of clipping under the floating header; `.modal-footer` pins to the bottom via `margin-top: auto` with `padding-bottom: max(16px, env(safe-area-inset-bottom))`.

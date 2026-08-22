@@ -12,14 +12,6 @@ interface HistoryModalProps {
 const SHEET_TOP_MARGIN = 24;
 const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
 
-function getSafeAreaTop(): number {
-  if (typeof window === 'undefined') return 0;
-  const style = getComputedStyle(document.documentElement);
-  const val = style.getPropertyValue('--sat') || style.getPropertyValue('env(safe-area-inset-top)');
-  const px = parseFloat(val);
-  return isNaN(px) ? 0 : px;
-}
-
 function fmtTime(ts: number) {
     const d = new Date(ts);
     return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
@@ -49,7 +41,7 @@ export default function HistoryModal({ entries, isOpen, onClose }: HistoryModalP
     const isCapturingRef = useRef(false);
     const [modalState, setModalState] = useState<'closed' | 'open' | 'expanded'>('closed');
 
-    const expandedHeight = () => window.innerHeight - SHEET_TOP_MARGIN - getSafeAreaTop();
+    const expandedHeight = () => window.innerHeight - SHEET_TOP_MARGIN;
     const setNoTransition = () => { if (modalRef.current) modalRef.current.style.transition = 'none'; };
 
     useLayoutEffect(() => {
