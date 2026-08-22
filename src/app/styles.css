@@ -1063,8 +1063,8 @@ a:link:hover {
 	display: flex;
 	flex-direction: column;
 	margin: 0 auto;
-	max-height: calc(100vh - 24px);
-	max-height: calc(100dvh - 24px);
+	max-height: calc(100vh - env(safe-area-inset-top, 0px) - 24px);
+	max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 24px);
 	max-width: 420px;
 	overflow: hidden;
 	transform: translateY(100%);
