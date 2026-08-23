@@ -210,10 +210,6 @@ body {
 	font-size: 10px;
 }
 
-.header-title span {
-	color: var(--accent);
-}
-
 .dashboard-score-inner span {
 	font-size: 31px;
 	letter-spacing: 0;
@@ -823,6 +819,25 @@ a:link:hover {
 	font-size: 28px;
 	font-weight: 600;
 	letter-spacing: -0.5px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+#calsync-view .header-title,
+#dropsync-view .header-title {
+	max-width: calc(100% - 158px);
+}
+
+#dashboard-view .header-title {
+	max-width: calc(100% - 108px);
+
+}
+
+.header-title span {
+	color: var(--accent);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .button-box {
@@ -3385,7 +3400,6 @@ input::-webkit-inner-spin-button {
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
-	padding: 0px 24px 0;
 }
 
 @keyframes searchPopupFadeIn {
@@ -4797,8 +4811,7 @@ input::-webkit-inner-spin-button {
 	background: var(--surface);
 	border: 1px solid var(--border);
 	border-radius: var(--radius-sm);
-	margin-bottom: 1rem;
-	margin-top: 24px;
+	margin: 0 0 24px;
 	padding: 60px 20px;
 	text-align: center;
 }
