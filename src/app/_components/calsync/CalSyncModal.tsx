@@ -714,7 +714,7 @@ export default function CalSyncModal({
                                         </div>
                                         <div className="context-text-input-wrapper">
                                             <textarea
-                                                placeholder="e.g. Honey, not cheese"
+                                                placeholder="Add an optional description to improve AI accuracy."
                                                 rows={2}
                                                 value={aiTextValue}
                                                 onChange={e => setAiTextValue(e.target.value)}
