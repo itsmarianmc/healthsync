@@ -701,7 +701,7 @@ function AddExercisesModal({ alreadyAdded, onAdd, onClose }: {
                             </button>
                         </div>
                     </div>
-                    <div className="modal-body" style={{ padding: '0 16px 20px', overflowY: 'auto' }}>
+                    <div className="modal-body" id="workoutModalBodyExercises" style={{ padding: '0 16px 20px', overflowY: 'auto' }}>
                         <div className="form-row">
                             <input type="text" className="form-input" placeholder="Search exercise..."
                                 value={searchQuery} onChange={e => setSearchQuery(e.target.value)} aria-label="Search exercises" />
@@ -1427,7 +1427,7 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
                             </button>
                         </div>
                     </div>
-                    <div className="modal-body" id="workoutModalBody" style={{ padding: '0 16px 20px', overflowY: 'auto' }}>
+                    <div className="modal-body" id="workoutModalBody">
                         {!canUsePreferences && (
                             <div className="supp-disabled-notice" style={{ padding: '16px', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
                                 <i className="fa-solid fa-lock" style={{ color: 'var(--text3)' }} />

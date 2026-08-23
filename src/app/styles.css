@@ -89,6 +89,10 @@ body {
 	overflow-x: hidden;
 }
 
+.no-action {
+	pointer-events: none;
+}
+
 .dashboard-macro-track div {
 	background: var(--macro-color);
 	border-radius: inherit;
@@ -121,7 +125,7 @@ body {
 	left: 0;
 	overflow: hidden;
 	position: relative;
-	top: 0;
+	top: env(safe-area-inset-top, 0px);
 	transition: height 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
 	width: 100%;
 	z-index: 10000;
@@ -728,7 +732,7 @@ a:link:hover {
 	transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
 	visibility: hidden;
 	max-width: 369px;
-	width: calc(100vw - 48px);
+	width: calc(100vw - 36px);
 	z-index: 1000;
 }
 
@@ -792,7 +796,7 @@ a:link:hover {
 	display: none;
 	margin: env(safe-area-inset-top, 0px) auto 0;
 	max-width: 420px;
-	padding-bottom: 100px; /* fallback */
+	padding-bottom: 100px;
 	padding-bottom: 100px;
 	width: 100%;
 }
@@ -801,7 +805,7 @@ a:link:hover {
 	display: flex;
 	flex-direction: column;
 	max-width: 420px;
-	padding: 12px 24px 0; /* fallback for browsers without env() */
+	padding: 12px 24px 0; 
 	padding-top: 12px;
 	padding-left: 24px;
 	padding-right: 24px;
@@ -811,6 +815,7 @@ a:link:hover {
 .header-title-row {
 	align-items: center;
 	display: flex;
+	gap: 8px;
 	justify-content: space-between;
 }
 
@@ -1074,6 +1079,10 @@ a:link:hover {
 }
 
 .app-overlay.has-sub-modal .modal {
+	scale: 1;
+}
+
+.app-overlay.has-sub-modal.visible .modal {
 	scale: 0.92;
 	translate: 0 10px;
 }
@@ -1186,11 +1195,10 @@ a:link:hover {
 
 .activity-status-modal-body {
 	display: flex;
-	flex: 1;
 	flex-direction: column;
 	gap: 12px;
+	margin-bottom: 1rem;
 	overflow-y: auto;
-	padding: 12px 20px 12px;
 }
 
 .activity-status-option-list,
@@ -2086,15 +2094,18 @@ input::-webkit-inner-spin-button {
 
 #historyModalBody,
 #ds-historyModal .modal-body,
-#goalModal,
 #dsGoalModalBody,
 #aiTextModalBody,
 #workoutHistoryModalBody,
 #supplementsModalBody,
 #historyModal .modal-body,
 #logoutModalBody,
-#deleteAccountModalBody {
-	padding: 0 16px;
+#deleteAccountModalBody,
+#goalModalBody,
+#workoutModalBody,
+#workoutCreateModalBody,
+#workoutModalBodyExercises {
+	padding: 75px 16px 0 !important;
 }
 
 .extra-modal .modal-body {
@@ -2113,7 +2124,7 @@ input::-webkit-inner-spin-button {
 	overflow-y: auto;
 	position: relative;
 	transition: all 0.3s var(--ease);
-	padding-top: 70px;
+	padding: 75px 16px 0 !important;
 }
 
 .modal-body::-webkit-scrollbar, .exercise-category-filters::-webkit-scrollbar {
@@ -2126,7 +2137,7 @@ input::-webkit-inner-spin-button {
 	flex-direction: column;
 	gap: 12px;
 	overflow-y: auto;
-	padding: 16px 24px;
+	padding: 70px 24px 0;
 }
 
 .whats-new-list {
@@ -2421,11 +2432,15 @@ input::-webkit-inner-spin-button {
 	background: var(--surface2);
 	border: 1px solid var(--border);
 	border-radius: var(--radius);
-	margin: 24px;
+	margin: 22px 0;
 }
 
 .license-section {
 	overflow: hidden;
+}
+
+.license-section.collapsed .license-section-title {
+	border: 0px solid transparent !important;
 }
 
 .settings-section:first-child,
@@ -2964,7 +2979,8 @@ input::-webkit-inner-spin-button {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 10px;
-	justify-content: space-between;
+	justify-content: center;
+	margin-bottom: 8px;
 }
 
 .goal-display-val {
@@ -3485,7 +3501,7 @@ input::-webkit-inner-spin-button {
 
 .modal-footer {
 	flex-shrink: 0;
-	padding: 16px 24px; /* fallback */
+	padding: 16px 24px;
 	padding-bottom: 16px;
 	margin-bottom: env(safe-area-inset-bottom, 0px);
 	margin-top: auto;
@@ -3537,7 +3553,7 @@ input::-webkit-inner-spin-button {
 	padding: 8px 16px;
 	pointer-events: none;
 	position: fixed;
-	top: 30px; /* fallback */
+	top: 30px;
 	top: calc(30px + env(safe-area-inset-top, 0px));
 	transform: translateX(-50%) translateY(-40px) scale(0.9);
 	transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -4349,7 +4365,7 @@ input::-webkit-inner-spin-button {
 	justify-content: space-between;
 	margin-top: env(safe-area-inset-top, 0px);
 	min-height: 64px;
-	padding: 20px 24px 0; /* fallback */
+	padding: 20px 24px 0;
 	padding-top: 20px;
 	padding-left: 24px;
 	padding-right: 24px;
@@ -5640,6 +5656,7 @@ input::-webkit-inner-spin-button {
 	font-family: "DM Sans", sans-serif;
 	font-size: 16px;
 	margin: 0.75rem 0;
+	min-height: 80px;
 	padding: 14px;
 	resize: vertical;
 	width: 100%;

@@ -26,7 +26,7 @@ export default function HeaderTitle() {
     if (enabled && name) {
         return (
             <div className="header-title">
-                Hi, <span>{name}</span>
+                Hi,&nbsp;<span>{name}</span>
             </div>
         );
     }

@@ -102,7 +102,7 @@ export default function SupportPage() {
             style={{
                 maxWidth: '420px',
                 margin: '0 auto',
-                padding: '20px 24px 100px', /* fallback */
+                padding: '20px 24px 100px',
                 paddingTop: '20px',
                 paddingBottom: '100px',
             }}

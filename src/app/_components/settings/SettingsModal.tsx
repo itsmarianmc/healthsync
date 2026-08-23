@@ -697,7 +697,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                             </div>
                                             <p className="form-helper"><i className="fa-solid fa-lightbulb" />Get your free API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a></p>
                                             </div>
-                                            <button className="option-btn active" id="saveApiKeyBtn" style={{ width:'100%',borderRadius:'var(--radius-sm)',padding:'13px 16px',marginTop:'8px' }} onClick={handleSaveApiKey}><i className="fa-solid fa-floppy-disk" />Save API Key</button>
+                                            <button className="option-btn active" id="saveApiKeyBtn" style={{ width:'100%',borderRadius:'var(--radius-sm)',padding:'13px 16px',marginTop:'8px' }} onClick={handleSaveApiKey}><i className="fa-solid fa-floppy-disk" />&nbsp;Save API Key</button>
                                             {aiApiKey && <div className="ai-status-box" id="aiStatusBox"><i className="fa-solid fa-circle-check" /><span>AI Detection is active</span></div>}
                                         </div>
                                     )}
@@ -765,7 +765,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                                 localStorage.setItem('healthsync_weather_lat', String(lat));
                                                 localStorage.setItem('healthsync_weather_lon', String(lon));
                                                 localStorage.setItem('healthsync_weather_name', name);
-                                                showToast(`Location filled · ${name || 'no name'}`);
+                                                showToast(`Location saved`);
                                             } catch (err) {
                                                 console.warn('Use Location (settings) failed', err);
                                                 showToast('Unable to get location');
@@ -773,7 +773,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                         }}
                                         disabled={!hasWeatherConsent}
                                     >
-                                        <i className="fa-solid fa-location-crosshairs" style={{ marginRight: 8 }} /> Use Location
+                                        <i className="fa-solid fa-location-crosshairs" style={{ marginRight: 8 }} />Use Location
                                     </button>
                                     <button className="option-btn" style={{ flex: 1, borderRadius: 'var(--radius-sm)', padding: '10px 12px' }} onClick={handleSaveWeather} disabled={!hasWeatherConsent}> <i className="fa-solid fa-floppy-disk" /> Save</button>
                                 </div>
@@ -787,10 +787,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                             Calorie/Hydration Goal/s
                         </div>
                         <div className="settings-section-body">
-                            <div className="goal-display-row" style={{ justifyContent: 'center', marginBottom: 4 }}>
+                            <div className="goal-display-row">
                                 <span className="goal-display-val" id="currentGoalDisplay">{calGoal} kcal</span>
                             </div>
-                            <div className="goal-display-row" style={{ justifyContent: 'center', marginBottom: 4 }}>
+                            <div className="goal-display-row">
                                 <span className="goal-display-val" id="ds-currentGoalDisplay">
                                     {parseInt(waterGoal) >= 1000 ? (parseInt(waterGoal)/1000).toFixed(1).replace('.',',') + 'L' : waterGoal + ' ml'}
                                 </span>
@@ -957,7 +957,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                         System
                     </div>
                     <div className="settings-section-body" style={{ gap: 8, display: 'flex', flexDirection: 'column' }}>
-                        <button className="data-btn" id="openReportBugBtn" onClick={() => setReportOpen(true)} style={{ marginBottom: 8 }}>
+                        <button className="data-btn" id="openReportBugBtn" onClick={() => setReportOpen(true)}>
                             <i className="fa-solid fa-bug" style={{ marginRight: 6 }} />
                             Report a Bug
                         </button>
@@ -967,10 +967,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                 Update Now
                             </button>
                         ) : (
-                            <div style={{ padding: '12px 14px', textAlign: 'center', color: 'var(--text2)', fontSize: 14 }}>
+                            <button className='data-btn no-action' style={{ padding: '12px 14px', textAlign: 'center', color: 'var(--text2)', fontSize: 14 }}>
                                 <i className="fa-solid fa-check" style={{ marginRight: 6, color: '#30D158' }} />
                                 App is up to date (v{APP_VERSION})
-                            </div>
+                            </button>
                         )}
                     </div>
                 </div>
