@@ -365,10 +365,9 @@ export default function UpdateCenter() {
                                             {isNewVersionGroup && <div className="whats-new-divider" />}
                                             <article className="whats-new-entry">
                                                 <div className="whats-new-entry-meta">
-                                                    <span className="whats-new-entry-category">{entry.category}</span>
+                                                    <p className="whats-new-entry-title">{entry.title}</p>
                                                     <span className="whats-new-entry-version">v{entry.version}</span>
                                                 </div>
-                                                <h3 className="whats-new-entry-title">{entry.title}</h3>
                                                 <p className="whats-new-entry-description">{entry.description}</p>
                                             </article>
                                         </Fragment>

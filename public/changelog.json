@@ -1,67 +1,67 @@
 {
     "4.0.0": {
-        "Even better on notched phones": [
-            "Fully expanded sheets and windows now end just below your phone's notch or camera cutout — drag handles, titles, and headers are never hidden behind it.",
+        "Notched phone layout fixes": [
+            "Fully expanded sheets and windows now end just below your phone's notch or camera cutout, so drag handles, titles, and headers are never hidden behind it.",
             "Long content inside windows now scrolls properly instead of getting cut off, and action buttons keep a safe distance from your home indicator."
         ],
-        "No interruptions during sign-in": [
+        "Cleaner sign-in flow": [
             "The \"Install HealthSync\" banner no longer appears while you're signing in or going through the introduction."
         ],
-        "Clear AI Detection message": [
-            "When AI Detection is switched off or your API key is missing, the AI menu now clearly says so and gives you a direct \"Open Settings\" button — so you can turn it on without hunting through menus."
+        "Clearer AI Detection status": [
+            "When AI Detection is off or your API key is missing, the AI menu now clearly says so and includes a direct \"Open Settings\" button to enable it."
         ],
-        "No more overlapping windows": [
-            "Opening the AI Detection menu no longer leaves the Settings window visible behind it — the two now open and close cleanly, one after the other.",
+        "Fixed overlapping menus": [
+            "Opening the AI Detection menu no longer leaves the Settings window visible behind it. The two now open and close in the correct order.",
             "Notifications stay visible even when the AI Detection menu is open."
         ],
         "Report a bug from Settings": [
-            "You can now report a bug directly from Settings — a form opens pre-filled with your app version and current page, so you don't have to describe where things went wrong."
+            "You can now report a bug directly from Settings. The form opens pre-filled with your app version and current page."
         ],
         "Settings stays open behind new windows": [
-            "Opening \"About & Licenses\" or \"Report a Bug\" from Settings no longer closes the Settings sheet — it stays visible behind the new window."
+            "Opening \"About & Licenses\" or \"Report a Bug\" from Settings no longer closes the Settings sheet; it stays visible behind the new window."
         ],
         "Collapsible About & Licenses sections": [
-            "The sections in About & Licenses are now collapsible and expand back with a smooth animation, so long license texts no longer dominate the screen."
+            "The sections in About & Licenses are now collapsible and expand with a smooth animation, so long license texts take up less space."
         ],
-        "Fixed overlap on notched phones": [
+        "Fixed layout overlap on notched phones": [
             "On phones with a notch, rounded corners, or a home indicator, the cookie banner, modals, toasts, and text are no longer cut off or pushed into the edges of the screen."
         ],
         "Better Settings spacing": [
-            "The Settings window no longer has an unnecessary empty gap above its content."
+            "The Settings window no longer has an unnecessary gap above its content."
         ],
         "Delete your account": [
-            "You can now permanently delete your HealthSync account from Settings. This removes all your cloud data — meals, hydration, workouts, and settings — and your login credentials, all in one step."
+            "You can now permanently delete your HealthSync account from Settings. This removes all your cloud data, including meals, hydration, workouts, and settings, along with your login credentials."
         ],
         "Clearer sign-out": [
-            "Signing out now asks you to confirm and lets you choose to wipe every local entry on this device as part of the sign-out."
+            "Signing out now asks you to confirm, and lets you choose to also wipe local entries on this device."
         ],
-        "Smarter AI Detection": [
-            "The AI buttons (Describe Food, Import Food, Capture Food, AI Detection) are now only enabled when your Gemini API key is configured and verified, so the menu never opens a broken flow.",
-            "AI options in the Quick Add menu and CalSync are visibly disabled when your API key is missing or invalid.",
+        "AI Detection availability checks": [
+            "The AI buttons (Describe Food, Import Food, Capture Food, AI Detection) are now only enabled once your Gemini API key is configured and verified.",
+            "AI options in the Quick Add menu and CalSync are shown as disabled when your API key is missing or invalid.",
             "Invalid API keys are now rejected with a clear message instead of being saved silently."
         ],
         "Updated legal pages": [
-            "The privacy policy has been refreshed (18 August 2026) with new sections covering the weather provider, reverse-geocoding service, support API, automated decisions, the supervisory authority, and a cookie inventory.",
-            "The cookie policy has been updated to match the simplified cookie preferences."
+            "The privacy policy was updated on 18 August 2026, with new sections covering the weather provider, reverse-geocoding service, support API, automated decisions, the supervisory authority, and a cookie inventory.",
+            "The cookie policy was updated to match the simplified cookie preferences."
         ],
         "Simpler cookie preferences": [
             "The previous \"Marketing\" category has been removed. Analytics and ad-related data are denied by default, and only the Preferences and Third-Party categories now control what is shared."
         ],
         "Direct weather data": [
-            "The dashboard weather widget now requests data from Open-Meteo directly, so the latest conditions load without going through any intermediary."
+            "The dashboard weather widget now requests data from Open-Meteo directly, without going through an intermediary service."
         ],
         "More reliable settings sync": [
-            "Your macros and water goal are now correctly saved to the cloud — empty or invalid numbers no longer overwrite your existing values."
+            "Your macros and water goal are now saved correctly to the cloud. Empty or invalid values no longer overwrite your existing settings."
         ],
         "More accurate analytics": [
-            "When you allow statistics cookies, your page views are now recorded correctly as you navigate the app — nothing is missed and no page is counted twice.",
-            "Security-related cookies always stay enabled regardless of your other cookie choices, so the app's core functions keep working reliably."
+            "When you allow statistics cookies, your page views are now recorded correctly as you navigate the app, without gaps or duplicates.",
+            "Security-related cookies remain enabled regardless of your other cookie choices, so the app's core functions continue to work."
         ],
         "Drink history clear-all now syncs": [
             "Using \"Clear all\" on the hydration history now removes entries from both your local device and the cloud."
         ],
         "Better keyboard and screen-reader support": [
-            "Charts, progress bars, dialogs, and toggle switches now expose proper labels so screen readers announce them correctly.",
+            "Charts, progress bars, dialogs, and toggle switches now expose proper labels for screen readers.",
             "The drink picker is fully keyboard-navigable with the arrow keys.",
             "Bottom sheets can now be closed with the Escape key."
         ],
@@ -72,24 +72,24 @@
             "If something goes wrong, you now see a clear message with a \"Try again\" button instead of a blank page."
         ],
         "Stronger account protection": [
-            "Two-factor authentication is now always required when you sign in - it can no longer be skipped on a device.",
-            "Your synced data is now verified on the server before it is read or saved, ensuring only you can access it."
+            "Two-factor authentication is now required at every sign-in and can no longer be skipped on a device.",
+            "Synced data is now verified on the server before it is read or saved, adding an extra layer of protection for your account."
         ],
         "Pending food drafts": [
             "AI-detected foods now appear as pending drafts in your history with a clear indicator, so you can review and confirm them before they're saved."
         ],
-        "AI detections are never lost": [
-            "If you close the app while an AI food detection is still showing, your result is automatically saved and restored the next time you open CalSync — nothing gets lost.",
-            "Logging or dismissing the detection removes the saved result, so it never lingers behind the scenes."
+        "AI detection results saved automatically": [
+            "If you close the app while an AI food detection is still showing, the result is saved automatically and restored the next time you open CalSync.",
+            "Logging or dismissing the detection removes the saved result."
         ],
         "Legal pages redesign": [
-            "Privacy, Terms, Cookies, and AI Guidelines pages have been completely redesigned with better readability and colors that match your theme."
+            "Privacy, Terms, Cookies, and AI Guidelines pages have been redesigned for better readability, with colors that match your theme."
         ],
         "Updated supplements design": [
-            "The supplements page has been redesigned for better usability and aesthetics, and visual issues have been removed."
+            "The supplements page has been redesigned for better usability, and several visual issues have been fixed."
         ],
         "Quick Add opens AI Detection": [
-            "The \"+\" button on the dashboard now opens the AI Detection menu (photo, camera, or text description) instead of directly opening the food log."
+            "The \"+\" button on the dashboard now opens the AI Detection menu (photo, camera, or text description) instead of the food log directly."
         ],
         "Improved onboarding tour": [
             "The onboarding tour now highlights the AI Detection feature in the Quick Add menu."
@@ -98,16 +98,16 @@
             "Dashboard tips now show their icons correctly instead of raw text."
         ],
         "Faster sign-in": [
-            "Signing in now takes you straight to your dashboard without extra page reloads."
+            "Signing in now takes you directly to your dashboard without extra page reloads."
         ],
         "Improved 2FA code entry": [
-            "Entering your six-digit authenticator code is now more reliable, especially on mobile."
+            "Entering your six-digit authenticator code is now more reliable, particularly on mobile."
         ],
         "Fixed duplicate food entries from AI detection": [
             "Fixed a bug where logging a food item via AI detection could create two identical entries instead of one."
         ],
         "Fixed deleting pending AI drafts": [
-            "Fixed a bug where removing a pending AI detection draft would incorrectly remove other pending drafts that weren't selected."
+            "Fixed a bug where removing a pending AI detection draft could also remove other, unselected drafts."
         ],
         "Support page readability": [
             "Increased font size on the support page for better readability."
@@ -116,17 +116,17 @@
             "Weather information now comes from Open-Meteo for improved reliability."
         ],
         "AI text detection cleanup": [
-            "Closing the \"Describe Food\" text input without analyzing now properly closes the modal instead of leaving \"Analyzing...\" visible."
+            "Closing the \"Describe Food\" text input without running an analysis now properly closes the modal instead of leaving \"Analyzing...\" visible."
         ],
         "Barcode scanner camera release": [
-            "The camera now properly stops when closing the barcode scanner modal or switching away from the camera tab."
+            "The camera now stops correctly when you close the barcode scanner modal or switch away from the camera tab."
         ],
         "Barcode scanner console fix": [
-            "Fixed continuous error messages in the background when the scanner is idle."
+            "Fixed repeated error messages appearing in the background when the scanner is idle."
         ],
         "Fixed gaps on notched phones": [
-            "The extra gaps added by the previous notch fix are now gone — content near your phone's cutout is no longer pushed to the edge or doubled up.",
-            "Footer buttons keep a safe margin from the home indicator, so your thumbs always hit the right spot."
+            "The extra gaps introduced by the previous notch fix have been removed. Content near your phone's cutout is no longer pushed to the edge or duplicated.",
+            "Footer buttons keep a safe margin from the home indicator to prevent accidental taps."
         ]
     },
     "3.1.2": {

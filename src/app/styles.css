@@ -2164,10 +2164,11 @@ input::-webkit-inner-spin-button {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
+	justify-content: space-between;
 	margin-bottom: 8px;
 }
 
-.whats-new-entry-category {
+.whats-new-entry-version {
 	background: rgba(228, 132, 15, 0.18);
 	border-radius: 999px;
 	color: #ffbe66;
@@ -2177,17 +2178,12 @@ input::-webkit-inner-spin-button {
 	text-transform: uppercase;
 }
 
-.whats-new-entry-version {
-	color: var(--text2);
-	font-size: 12px;
-	font-weight: 600;
-}
-
 .whats-new-entry-title {
 	color: #fff;
 	font-size: 16px;
 	font-weight: 700;
 	line-height: 1.25;
+	width: calc(100% - 60px);
 }
 
 .onboarding-slide .onboarding-slide-icon,
