@@ -104,6 +104,7 @@ export function AiDetectionProvider({ children }: { children: React.ReactNode })
                     input.mode === 'describe' ? (input.text || '') : (input.file as File),
                     apiKey,
                     geminiMode,
+                    input.mode === 'describe' ? undefined : input.text,
                 );
                 setDetection(id, { status: 'completed', result, finishedAt: Date.now() });
                 tryClaimAutoOpen(id);

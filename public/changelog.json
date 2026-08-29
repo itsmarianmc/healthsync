@@ -1,4 +1,17 @@
 {
+    "4.0.1": {
+        "More reliable AI food detection": [
+            "AI food detection is now more robust. If the AI returns a slightly malformed or incomplete result, HealthSync cleans it up and still shows a valid food entry instead of failing or leaving blank values.",
+            "Foods detected without a name now appear as \"Unknown\" instead of an empty label, and missing portion sizes default to 100 g/ml."
+        ],
+        "Better photo and camera detection": [
+            "When you add a written description to a photo or camera scan, it is now sent to the AI as extra context, so you can note things like \"half portion\" or \"grilled\" to get a more accurate result.",
+            "Any text you add is treated strictly as notes, so it can no longer accidentally change how the AI behaves."
+        ],
+        "Better screen-reader support": [
+            "The hidden camera and file picker controls in the AI Detection window are no longer announced by screen readers, reducing confusing extra elements."
+        ]
+    },
     "4.0.0": {
         "Notched phone layout fixes": [
             "Fully expanded sheets and windows now end just below your phone's notch or camera cutout, so drag handles, titles, and headers are never hidden behind it.",

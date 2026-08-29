@@ -18,25 +18,18 @@ import { removeHeaderBtn, addHeaderBtn } from '../../_lib/headerBtns';
 import { generateDraftId } from '../../_lib/ids';
 import HeaderTitle from '../shared/HeaderTitle';
 import { logger } from '@/lib/logger';
+import { toGeminiFoodSearchResult } from '../../_lib/gemini';
+
 
 const PENDING_KEY = 'calsync_pending';
 const PENDING_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function resultToFoodSearchResult(result: GeminiAnalysis): FoodSearchResult {
-    return {
-        name: result.name,
-        brand: result.brand || 'AI Detection',
-        kcalPer100: result.amount > 0 ? Math.round(result.calories / result.amount * 100 * 10) / 10 : 0,
-        protPer100: result.amount > 0 ? Math.round(result.protein / result.amount * 100 * 10) / 10 : 0,
-        carbPer100: result.amount > 0 ? Math.round(result.carbs   / result.amount * 100 * 10) / 10 : 0,
-        fatPer100:  result.amount > 0 ? Math.round(result.fat     / result.amount * 100 * 10) / 10 : 0,
+    return toGeminiFoodSearchResult(result, {
+        name: 'Unknown',
         emoji: 'fa-solid fa-utensils',
         color: 'var(--accent)',
-        defaultUnit: (result.unit as 'g' | 'ml') || 'g',
-        servingSize: result.amount,
-        isManual: false,
-        isBarcode: false,
-    };
+    }) as FoodSearchResult;
 }
 
 interface CalSyncProps {

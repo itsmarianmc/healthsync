@@ -6,6 +6,7 @@ import { useCookieConsent } from '../../_lib/useCookieConsent';
 import type { Detection, DetectionMode } from '../../_context/AiDetectionContext';
 import { generateEntryId } from '../../_lib/ids';
 import { logger } from '@/lib/logger';
+import { toGeminiFoodSearchResult } from '../../_lib/gemini';
 
 const FAVS_KEY   = 'calsync_favourites';
 const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
@@ -173,21 +174,11 @@ export default function CalSyncModal({
     };
 
     const resultToFoodSearchResult = (result: NonNullable<Detection['result']>, cat: Category): FoodSearchResult => {
-        const amt = result.amount || 100;
-        return {
-            name: result.name || cat.category,
-            brand: result.brand || 'AI Detection',
-            kcalPer100: amt > 0 ? Math.round(result.calories / amt * 100 * 10) / 10 : 0,
-            protPer100: amt > 0 ? Math.round(result.protein / amt * 100 * 10) / 10 : 0,
-            carbPer100: amt > 0 ? Math.round(result.carbs   / amt * 100 * 10) / 10 : 0,
-            fatPer100:  amt > 0 ? Math.round(result.fat     / amt * 100 * 10) / 10 : 0,
+        return toGeminiFoodSearchResult(result, {
+            name: cat.category,
             emoji: cat.emoji,
             color: cat.color,
-            defaultUnit: (result.unit as 'g' | 'ml') || 'g',
-            servingSize: amt,
-            isManual: false,
-            isBarcode: false,
-        };
+        }) as FoodSearchResult;
     };
 
     const snapToClosed = useCallback(() => {
@@ -654,10 +645,10 @@ export default function CalSyncModal({
         const t = setTimeout(() => {
             if (dispatchedForRef.current === openWithAi) return;
             dispatchedForRef.current = openWithAi;
+            revealModal();
             if (openWithAi === 'describe') { setAiTextOpen(true); }
             else if (openWithAi === 'import') { aiImageInputRef.current?.click(); addFocusReveal(); }
             else if (openWithAi === 'capture') { aiCameraInputRef.current?.click(); addFocusReveal(); }
-            revealModal();
         }, 100);
         return () => { clearTimeout(t); focusCleanup?.(); };
     }, [openWithAi, modalState, revealModal]);
@@ -693,9 +684,11 @@ export default function CalSyncModal({
                         <div style={{ display: 'flex', width: '400%', alignItems: 'flex-start', transform: `translateX(-${step * 25}%)`, transition: skipStepTransitionRef.current ? 'none' : 'transform 0.38s cubic-bezier(0.4, 0, 0.2, 1)' }}>
                             <div className="modal-step" id="cs-step-processing" ref={processingRef} style={{ display: 'block', width: '25%', flexShrink: 0 }}>
                                 <div className="search-step-inner">
-                                    <input ref={aiImageInputRef} type="file" accept="image/*" style={{ display: 'none' }}
+                                    <input ref={aiImageInputRef} type="file" accept="image/*" tabIndex={-1} aria-hidden="true"
+                                    style={{ position: 'absolute', left: 0, top: 0, width: 1, height: 1, opacity: 0, overflow: 'hidden', pointerEvents: 'none' }}
                                     onChange={e => { const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = ''; }} />
-                                    <input ref={aiCameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                                    <input ref={aiCameraInputRef} type="file" accept="image/*" capture="environment" tabIndex={-1} aria-hidden="true"
+                                    style={{ position: 'absolute', left: 0, top: 0, width: 1, height: 1, opacity: 0, overflow: 'hidden', pointerEvents: 'none' }}
                                     onChange={e => { const f = e.target.files?.[0]; if (f) handleCameraFile(f); e.target.value = ''; }} />
                                     <div className="ai-processing" id="aiProcessing" style={{ display: 'block' }}>
                                         <div className="processing-spinner">
