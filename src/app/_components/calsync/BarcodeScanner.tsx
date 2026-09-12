@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
-import { resolveBackCameraConstraints, upgradeToPreferredBackCamera, friendlyCameraLabel } from '../../_lib/camera';
+import { applyBarcodeFocus, barcodeCameraConstraints, describeCameraError, friendlyCameraLabel } from '../../_lib/camera';
 
 interface BarcodeScannerProps {
     isOpen: boolean;
@@ -11,227 +11,153 @@ interface BarcodeScannerProps {
     embedded?: boolean;
     selectedDeviceId?: string;
     onCamerasChange?: (cameras: MediaDeviceInfo[], activeDeviceId?: string) => void;
+    onStatusChange?: (status: string) => void;
 }
 
-export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded, selectedDeviceId, onCamerasChange }: BarcodeScannerProps) {
+type Reader = {
+    decodeFromStream: (stream: MediaStream, video: HTMLVideoElement, callback: (result: { getText: () => string } | null, error: Error | null) => void) => void;
+    reset?: () => void;
+    stop?: () => void;
+};
+
+export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded, selectedDeviceId, onCamerasChange, onStatusChange }: BarcodeScannerProps) {
     const sheet = useDraggableSheet({ onClose });
+    const openSheet = sheet.open;
     const videoRef = useRef<HTMLVideoElement>(null);
-    const [status, setStatus] = useState('Looking for barcode...');
     const streamRef = useRef<MediaStream | null>(null);
-    const readerRef = useRef<unknown>(null);
-    const activeRef = useRef(false);
-    const deviceIdRef = useRef<string | undefined>(undefined);
-    const mountedRef = useRef(true);
+    const readerRef = useRef<Reader | null>(null);
     const startTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const activeRef = useRef(false);
+    const mountedRef = useRef(true);
     const startEpochRef = useRef(0);
-
-    const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
-    const [activeDeviceId, setActiveDeviceId] = useState<string | undefined>(undefined);
-
+    const deviceIdRef = useRef<string | undefined>(undefined);
+    const scannedRef = useRef(false);
+    const onScannedRef = useRef(onScanned);
+    const onStatusChangeRef = useRef(onStatusChange);
     const onCamerasChangeRef = useRef(onCamerasChange);
-    useEffect(() => { onCamerasChangeRef.current = onCamerasChange; }, [onCamerasChange]);
+    const [status, setStatus] = useState('Preparing camera...');
+    const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+    const [activeDeviceId, setActiveDeviceId] = useState<string>();
 
-    const stopCamera = () => {
+    useEffect(() => { onScannedRef.current = onScanned; }, [onScanned]);
+    useEffect(() => { onStatusChangeRef.current = onStatusChange; }, [onStatusChange]);
+    useEffect(() => { onCamerasChangeRef.current = onCamerasChange; }, [onCamerasChange]);
+    const updateStatus = useCallback((message: string) => { setStatus(message); onStatusChangeRef.current?.(message); }, []);
+
+    const stopCamera = useCallback(() => {
         startEpochRef.current += 1;
         activeRef.current = false;
-        if (readerRef.current) {
-            try {
-                const reader = readerRef.current as { reset: () => void; stop: () => void };
-                if (typeof reader.stop === 'function') {
-                    reader.stop();
-                } else {
-                    reader.reset();
-                }
-            } catch {}
-            readerRef.current = null;
-        }
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach(t => t.stop());
-            streamRef.current = null;
-        }
+        try { readerRef.current?.stop?.(); readerRef.current?.reset?.(); } catch {}
+        readerRef.current = null;
+        streamRef.current?.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
         if (videoRef.current) videoRef.current.srcObject = null;
-    };
+    }, []);
 
-    const refreshCameraList = async (activeId: string | undefined) => {
+    const refreshCameraList = useCallback(async (activeId?: string) => {
+        if (!navigator.mediaDevices?.enumerateDevices) return;
         try {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const cams = devices.filter(d => d.kind === 'videoinput');
+            const cams = (await navigator.mediaDevices.enumerateDevices()).filter(device => device.kind === 'videoinput');
+            if (!mountedRef.current) return;
             setCameras(cams);
             onCamerasChangeRef.current?.(cams, activeId);
-        } catch {}
-    };
+        } catch { /* The scanner remains usable when camera enumeration is unavailable. */ }
+    }, []);
 
-    const startCamera = async (deviceId?: string) => {
-        const ZXing = (window as unknown as Record<string, unknown>)['ZXingBrowser'] as {
-            BrowserMultiFormatReader: new () => {
-                decodeFromStream: (
-                    stream: MediaStream,
-                    video: HTMLVideoElement,
-                    cb: (result: { getText: () => string } | null, err: Error | null) => void
-                ) => void;
-                reset: () => void;
-            };
-        };
-        if (!ZXing) { setStatus('Barcode library not loaded.'); return; }
+    const startCamera = useCallback(async (requestedDeviceId?: string) => {
+        if (!navigator.mediaDevices?.getUserMedia) { updateStatus('Camera scanning is not supported by this browser. Enter the barcode manually.'); return; }
+        const ZXing = (window as unknown as { ZXingBrowser?: { BrowserMultiFormatReader: new () => Reader } }).ZXingBrowser;
+        if (!ZXing) { updateStatus('Barcode scanner is still loading. Try again in a moment.'); return; }
         const epoch = startEpochRef.current;
-            const constraints: MediaStreamConstraints = await resolveBackCameraConstraints(deviceId);
-        if (epoch !== startEpochRef.current) return;
-        try {
-            if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
-            let stream = await navigator.mediaDevices.getUserMedia(constraints);
-            if (epoch !== startEpochRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
-            if (!deviceId) {
-                stream = await upgradeToPreferredBackCamera(stream);
-                if (epoch !== startEpochRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
-            }
-            streamRef.current = stream;
-            const settingsDeviceId = stream.getVideoTracks()[0]?.getSettings().deviceId;
-            deviceIdRef.current = settingsDeviceId;
-            setActiveDeviceId(settingsDeviceId);
-            refreshCameraList(settingsDeviceId);
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-                await videoRef.current.play();
-            }
-            if (epoch !== startEpochRef.current) return;
-            const reader = new ZXing.BrowserMultiFormatReader();
-            readerRef.current = reader;
-            activeRef.current = true;
-            setStatus('Looking for barcode...');
-            reader.decodeFromStream(stream, videoRef.current!, (result, err) => {
-                if (!mountedRef.current || !activeRef.current) return;
-                if (result) {
-                const code = result.getText();
-                setStatus(`Scanned: ${code}`);
-                stopCamera();
-                onScanned(code);
-                if (!embedded) onClose();
-                } else if (err) {
-                if ((err as Error & { name: string }).name !== 'NotFoundException') {
-                    console.warn('Scan error:', err);
-                }
-                if (mountedRef.current && activeRef.current) setStatus('Scanning...');
-                }
-            });
-        } catch {
-        setStatus('Cannot access camera. Please allow permissions.');
+        scannedRef.current = false;
+        updateStatus('Starting camera...');
+        let lastError: unknown;
+        let stream: MediaStream | undefined;
+        for (const constraints of barcodeCameraConstraints(requestedDeviceId)) {
+            try { stream = await navigator.mediaDevices.getUserMedia(constraints); break; } catch (error) { lastError = error; }
         }
-    };
+        if (!stream) { if (epoch === startEpochRef.current) updateStatus(describeCameraError(lastError)); return; }
+        if (epoch !== startEpochRef.current || !mountedRef.current) { stream.getTracks().forEach(track => track.stop()); return; }
+        streamRef.current = stream;
+        const track = stream.getVideoTracks()[0];
+        if (!track) { stopCamera(); updateStatus('The selected camera has no video track. Try another camera.'); return; }
+        await applyBarcodeFocus(track);
+        const actualDeviceId = track.getSettings().deviceId;
+        deviceIdRef.current = actualDeviceId;
+        setActiveDeviceId(actualDeviceId);
+        void refreshCameraList(actualDeviceId);
+        const video = videoRef.current;
+        if (!video) { stopCamera(); return; }
+        video.srcObject = stream;
+        try { await video.play(); } catch (error) { stopCamera(); updateStatus(describeCameraError(error)); return; }
+        if (epoch !== startEpochRef.current) return;
+        const reader = new ZXing.BrowserMultiFormatReader();
+        readerRef.current = reader;
+        activeRef.current = true;
+        updateStatus('Point the camera at a barcode...');
+        reader.decodeFromStream(stream, video, (result, error) => {
+            if (!mountedRef.current || !activeRef.current || scannedRef.current) return;
+            if (result?.getText()) {
+                scannedRef.current = true;
+                const code = result.getText();
+                updateStatus(`Scanned: ${code}`);
+                stopCamera();
+                onScannedRef.current(code);
+                if (!embedded) onClose();
+                return;
+            }
+            const name = (error as Error | null)?.name;
+            if (name && !['NotFoundException', 'FormatException', 'ChecksumException'].includes(name)) {
+                updateStatus('Having trouble reading this code. Hold it steady, improve the light, or try another camera.');
+            }
+        });
+    }, [embedded, onClose, refreshCameraList, stopCamera, updateStatus]);
 
-    const scheduleStart = (deviceId?: string, delay = 300) => {
+    const scheduleStart = useCallback((deviceId?: string, delay = 250) => {
         if (startTimerRef.current) clearTimeout(startTimerRef.current);
-        startTimerRef.current = setTimeout(() => {
-            startTimerRef.current = null;
-            if (!mountedRef.current) return;
-            startCamera(deviceId);
-        }, delay);
-    };
+        startTimerRef.current = setTimeout(() => { startTimerRef.current = null; if (mountedRef.current) void startCamera(deviceId); }, delay);
+    }, [startCamera]);
 
     useEffect(() => {
-        if (!selectedDeviceId || selectedDeviceId === deviceIdRef.current) return;
+        if (!isOpen) return;
+        const handleDeviceChange = () => void refreshCameraList(deviceIdRef.current);
+        navigator.mediaDevices?.addEventListener?.('devicechange', handleDeviceChange);
+        return () => navigator.mediaDevices?.removeEventListener?.('devicechange', handleDeviceChange);
+    }, [isOpen, refreshCameraList]);
+
+    useEffect(() => {
+        if (!isOpen || !selectedDeviceId || selectedDeviceId === deviceIdRef.current) return;
         stopCamera();
-        startCamera(selectedDeviceId);
-    }, [selectedDeviceId]);
+        scheduleStart(selectedDeviceId, 50);
+    }, [isOpen, scheduleStart, selectedDeviceId, stopCamera]);
 
     useEffect(() => {
         mountedRef.current = true;
-        if (isOpen && !embedded) {
-            sheet.open();
+        if (isOpen) {
+            if (!embedded) openSheet();
             stopCamera();
-            scheduleStart(deviceIdRef.current, 300);
-        } else if (isOpen && embedded) {
-            stopCamera();
-            scheduleStart(deviceIdRef.current, 300);
-        } else {
-            stopCamera();
-        }
+            scheduleStart(selectedDeviceId ?? deviceIdRef.current);
+        } else stopCamera();
         return () => {
             mountedRef.current = false;
-            if (startTimerRef.current) { clearTimeout(startTimerRef.current); startTimerRef.current = null; }
+            if (startTimerRef.current) clearTimeout(startTimerRef.current);
             stopCamera();
         };
-    }, [isOpen, embedded]);
+    }, [embedded, isOpen, openSheet, scheduleStart, selectedDeviceId, stopCamera]);
 
     if (!isOpen) return null;
+    const video = <video ref={videoRef} id="cameraVideo" autoPlay playsInline muted style={{ width: '100%', height: embedded ? '100%' : undefined, objectFit: 'cover', display: 'block' }} />;
+    if (embedded) return video;
 
-    if (embedded) {
-        return (
-            <video
-                ref={videoRef}
-                id="cameraVideo"
-                autoPlay
-                playsInline
-                muted
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            />
-        );
-    }
-
-    return (
-        <div
-            className="app-overlay"
-            id="cameraOverlay"
-            ref={sheet.overlayRef}
-            onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); }}
-            >
-            <div className="modal" id="cameraModal" ref={sheet.modalRef} style={{ transform: 'translateY(100%)' }}>
-                <div className="modal-handle-zone" id="cameraHandleZone" {...sheet.handleProps}>
-                    <div className="modal-handle" />
-                </div>
-                <div className="modal-header">
-                    <div className="modal-title">Scan Barcode</div>
-                    <div className="modal-btn--right">
-                        <button
-                            id="closeCameraBtn"
-                            className="back-btn"
-                            style={{ background: 'var(--surface3)' }}
-                            onClick={sheet.close}
-                            >
-                            <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
-                                <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                <div className="modal-body" style={{ padding: 16 }}>
-                    <div style={{ position: 'relative' }}>
-                        <video
-                            ref={videoRef}
-                            id="cameraVideo"
-                            autoPlay
-                            playsInline
-                            muted
-                            style={{ width: '100%', borderRadius: 'var(--radius-sm)', background: '#000' }}
-                        />
-                        <div className="camera-frame-overlay">
-                            <div className="scan-frame" />
-                        </div>
-                    </div>
-                    {cameras.length > 1 && (
-                        <select
-                            className="form-input camera-select"
-                            value={activeDeviceId}
-                            onChange={e => { stopCamera(); startCamera(e.target.value); }}
-                            style={{ marginTop: 12 }}
-                        >
-                            {cameras.map((cam, i) => (
-                                <option key={cam.deviceId || i} value={cam.deviceId}>{friendlyCameraLabel(cam, i)}</option>
-                            ))}
-                        </select>
-                    )}
-                    <div id="cameraStatus" className="search-status" style={{ marginTop: 12 }}>{status}</div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                        <button
-                            id="restartCameraBtn"
-                            className="option-btn"
-                            style={{ flex: 1 }}
-                            onClick={() => { stopCamera(); scheduleStart(deviceIdRef.current, 100); }}
-                            >
-                            Restart Camera
-                        </button>
-                    </div>
-                </div>
+    return <div className="app-overlay" id="cameraOverlay" ref={sheet.overlayRef} onClick={event => { if (event.target === sheet.overlayRef.current) sheet.close(); }}>
+        <div className="modal" id="cameraModal" ref={sheet.modalRef} style={{ transform: 'translateY(100%)' }}>
+            <div className="modal-handle-zone" id="cameraHandleZone" {...sheet.handleProps}><div className="modal-handle" /></div>
+            <div className="modal-header"><div className="modal-title">Scan Barcode</div><div className="modal-btn--right"><button id="closeCameraBtn" className="back-btn" style={{ background: 'var(--surface3)' }} onClick={sheet.close} aria-label="Close scanner">×</button></div></div>
+            <div className="modal-body" style={{ padding: 16 }}><div style={{ position: 'relative' }}>{video}<div className="camera-frame-overlay"><div className="scan-frame" /></div></div>
+                {cameras.length > 1 && <select className="form-input camera-select" value={activeDeviceId} onChange={event => { stopCamera(); scheduleStart(event.target.value, 50); }} style={{ marginTop: 12 }}>{cameras.map((cam, index) => <option key={cam.deviceId || index} value={cam.deviceId}>{friendlyCameraLabel(cam, index)}</option>)}</select>}
+                <div id="cameraStatus" className="search-status" style={{ marginTop: 12 }}>{status}</div>
+                <button id="restartCameraBtn" className="option-btn" style={{ width: '100%', marginTop: 12 }} onClick={() => { stopCamera(); scheduleStart(deviceIdRef.current, 50); }}>Restart Camera</button>
             </div>
         </div>
-    );
+    </div>;
 }

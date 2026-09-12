@@ -6,7 +6,12 @@
         ],
         "Better photo and camera detection": [
             "When you add a written description to a photo or camera scan, it is now sent to the AI as extra context, so you can note things like \"half portion\" or \"grilled\" to get a more accurate result.",
-            "Any text you add is treated strictly as notes, so it can no longer accidentally change how the AI behaves."
+            "Any text you add is treated strictly as notes, so it can no longer accidentally change how the AI behaves.",
+            "Large food photos are now resized before analysis, so photo and camera detection can upload and respond faster while keeping enough detail for a nutrition estimate."
+        ],
+        "More reliable barcode scanning": [
+            "Barcode scanning now recovers more gracefully when a camera is unavailable or reconnects, and shows clear guidance if it needs permission or another camera.",
+            "When your device supports it, the scanner now keeps the camera focused continuously to make close-up barcodes easier to read."
         ],
         "Better screen-reader support": [
             "The hidden camera and file picker controls in the AI Detection window are no longer announced by screen readers, reducing confusing extra elements."

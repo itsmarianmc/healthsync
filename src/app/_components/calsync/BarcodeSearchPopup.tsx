@@ -340,6 +340,7 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
                                             embedded={true}
                                             selectedDeviceId={activeCameraId}
                                             onCamerasChange={(cams, active) => { setCameraList(cams); setActiveCameraId(active); }}
+                                            onStatusChange={setCameraStatus}
                                         />
                                         <div className="camera-overlay-frame" />
                                     </div>
@@ -354,6 +355,7 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
                                             ))}
                                         </select>
                                     )}
+                                    <div className="search-status" aria-live="polite">{cameraStatus}</div>
                                     <div className="camera-controls">
                                         <button className="option-btn" onClick={() => { setCameraStatus('Scanning...'); setCameraKey(k => k + 1); }}>
                                             <i className="fa-solid fa-rotate" /> Restart

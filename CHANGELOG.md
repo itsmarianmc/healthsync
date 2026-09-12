@@ -5,7 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-### [4.0.0] - 2026-08-29 [BETA 8]
+### [4.0.1] - 2026-09-12
+
+### Changed
+- **Photo and camera AI detection optimisation**: `gemini.ts` now downscales large food images to a maximum 1280 px edge before upload and uses a JPEG quality of 0.82, reducing upload and analysis time without changing small images. Gemini requests now use a constrained nutrition response schema, lower temperature, and a smaller output budget for consistently structured results.
+
+### Fixed
+- **Barcode scanner recovery and lifecycle**: `BarcodeScanner.tsx` now progressively falls back from a selected device to the rear camera, generic video, and front camera when hardware IDs are stale or unsupported. It stops streams and decoder instances reliably, ignores duplicate scan callbacks, and refreshes the device list when cameras change.
+- **Barcode scan feedback and focus**: barcode scans request continuous focus where the browser supports it, and the embedded search popup now exposes live, actionable camera status messages including permission, availability, and in-use errors.
+
+### [4.0.0] - 2026-08-29
 
 ### Added
 - **Text notes now inform photo/camera AI detection**: `AiDetectionContext.runDetection` forwards `input.text` as `textContext` to `analyzeWithGemini` for `import`/`capture` modes, so the description you type in the AI modal is now included as context when scanning a photo (previously only `describe` mode used it). `CalSyncModal.tsx`'s `handleNextClick` already passes `aiTextValue` alongside the file, and `handleCameraFile` routes capture through the same description step, so the note reaches Gemini for both flows.

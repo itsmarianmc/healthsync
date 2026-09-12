@@ -19,31 +19,35 @@ export async function findPreferredBackCameraDeviceId(): Promise<string | undefi
     }
 }
 
-export async function resolveBackCameraConstraints(deviceId?: string): Promise<MediaStreamConstraints> {
-    if (deviceId) {
-        return { video: { deviceId: { exact: deviceId } } };
-    }
-    const preferredId = await findPreferredBackCameraDeviceId();
-    if (preferredId) {
-        return { video: { deviceId: { exact: preferredId } } };
-    }
-    return { video: { facingMode: 'environment' } };
+export function barcodeCameraConstraints(deviceId?: string): MediaStreamConstraints[] {
+    const quality: MediaTrackConstraints = {
+        width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 },
+    };
+    // A device ID can become stale when hardware is reconnected. Fall back
+    // progressively instead of leaving the scanner in a broken state.
+    return deviceId
+        ? [{ video: { ...quality, deviceId: { exact: deviceId } } }, { video: { ...quality, deviceId: { ideal: deviceId } } }, { video: { ...quality, facingMode: { ideal: 'environment' } } }]
+        : [{ video: { ...quality, facingMode: { ideal: 'environment' } } }, { video: quality }, { video: { facingMode: { ideal: 'user' } } }];
 }
 
-export async function upgradeToPreferredBackCamera(stream: MediaStream): Promise<MediaStream> {
-    const preferredId = await findPreferredBackCameraDeviceId();
-    const activeTrack = stream.getVideoTracks()[0];
-    const activeId = activeTrack?.getSettings().deviceId;
-    if (!preferredId || preferredId === activeId) return stream;
+export async function applyBarcodeFocus(track: MediaStreamTrack): Promise<void> {
+    const capabilities = track.getCapabilities?.() as MediaTrackCapabilities & { focusMode?: string[] };
+    if (!capabilities?.focusMode?.includes('continuous')) return;
     try {
-        const upgraded = await navigator.mediaDevices.getUserMedia({
-            video: { deviceId: { exact: preferredId } },
-        });
-        stream.getTracks().forEach((track) => track.stop());
-        return upgraded;
+        await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] });
     } catch {
-        return stream;
+        // Some browsers advertise this capability but reject the setting.
     }
+}
+
+export function describeCameraError(error: unknown): string {
+    const name = (error as DOMException | undefined)?.name;
+    if (name === 'NotAllowedError' || name === 'SecurityError') return 'Camera permission was denied. Allow camera access in your browser settings.';
+    if (name === 'NotFoundError') return 'No camera was found. Connect a camera or enter the barcode manually.';
+    if (name === 'NotReadableError' || name === 'TrackStartError') return 'Camera is already in use by another app. Close it and try again.';
+    if (name === 'OverconstrainedError') return 'This camera does not support the requested scan settings. Try another camera.';
+    if (name === 'AbortError') return 'Camera startup was interrupted. Try again.';
+    return 'Cannot access the camera. Check browser permissions and try again.';
 }
 
 export function friendlyCameraLabel(cam: MediaDeviceInfo, index: number): string {
