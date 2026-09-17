@@ -2,7 +2,7 @@
 
 **HealthSync** is a mobile-first Progressive Web App (PWA) for personal health tracking. The app combines calorie counting (CalSync), hydration tracking (DropSync), and workout logging under a unified interface and is available at `healthsync.itsmarian.dev`.
 
-The project originated as an independent evolution from two separate projects — CalSync and DropSync — which were merged into a single platform. HealthSync is a personal project by Marian and is actively maintained.
+The project originated as an independent evolution from two separate projects - CalSync and DropSync - which were merged into a single platform. HealthSync is a personal project by Marian and is actively maintained.
 
 ---
 
@@ -99,7 +99,7 @@ healthsync/
 
 ## App Structure: The Three Main Sections
 
-The app is a single-page application. There are no Next.js routes for the three sections — view switching happens via React state in `page.tsx`. The bottom navigation switches between `'dashboard'`, `'calsync'`, and `'dropsync'`.
+The app is a single-page application. There are no Next.js routes for the three sections - view switching happens via React state in `page.tsx`. The bottom navigation switches between `'dashboard'`, `'calsync'`, and `'dropsync'`.
 
 ### Dashboard
 
@@ -107,23 +107,23 @@ The home page of the app. Shows a daily overview.
 
 **Components and their functions:**
 
-- **ScoreRing** — SVG ring chart with a total score of 0–100. The score is calculated with weights: calories (40%), water (35%), macros (25%). If no macro goals are set, only calories (50%) + water (50%) are weighted. `id="dashboardScoreRing"` on the `<circle>`, radius 48, `strokeDasharray = 2 * Math.PI * 48`.
+- **ScoreRing** - SVG ring chart with a total score of 0–100. The score is calculated with weights: calories (40%), water (35%), macros (25%). If no macro goals are set, only calories (50%) + water (50%) are weighted. `id="dashboardScoreRing"` on the `<circle>`, radius 48, `strokeDasharray = 2 * Math.PI * 48`.
 
-- **MetricGrid** — Two progress bars for calories and water. Shows total amount, goal amount, and remaining amount ("X kcal left" / "X ml over"). IDs: `dashboardCalProgress`, `dashboardWaterProgress`, `dashboardCalories`, `dashboardWater`, `dashboardCalGoal`, `dashboardWaterGoal`, `dashboardCalLeft`, `dashboardWaterLeft`.
+- **MetricGrid** - Two progress bars for calories and water. Shows total amount, goal amount, and remaining amount ("X kcal left" / "X ml over"). IDs: `dashboardCalProgress`, `dashboardWaterProgress`, `dashboardCalories`, `dashboardWater`, `dashboardCalGoal`, `dashboardWaterGoal`, `dashboardCalLeft`, `dashboardWaterLeft`.
 
-- **MacroGrid** — Three progress bars for protein, carbs, fat. Only active if macro goals are set in settings. Shows "X / Y g". IDs follow the pattern `dashboardProtein`, `dashboardProteinGoal`, `dashboardProteinProgress` etc.
+- **MacroGrid** - Three progress bars for protein, carbs, fat. Only active if macro goals are set in settings. Shows "X / Y g". IDs follow the pattern `dashboardProtein`, `dashboardProteinGoal`, `dashboardProteinProgress` etc.
 
-- **WeekChart** — 7-day bar chart without external chart library. Flex container with one `div.dashboard-week-day` per day. Each day has two bars (`.dashboard-week-bar.calories`, `.dashboard-week-bar.water`) whose `height` is set inline as a percentage. The current day gets the class `.today`.
+- **WeekChart** - 7-day bar chart without external chart library. Flex container with one `div.dashboard-week-day` per day. Each day has two bars (`.dashboard-week-bar.calories`, `.dashboard-week-bar.water`) whose `height` is set inline as a percentage. The current day gets the class `.today`.
 
-- **RecentList** — List of the last 5 entries of the day (food + drinks combined, sorted by timestamp). Empty state shows "Nothing logged yet."
+- **RecentList** - List of the last 5 entries of the day (food + drinks combined, sorted by timestamp). Empty state shows "Nothing logged yet."
 
-- **NextWidget** — Rule-based tip widget. Shows a recommendation based on daily progress: focus on hydration if water < 55%, boost protein if protein < 55%, calories if < 65%, or "Goals complete" if both ≥ 100%.
+- **NextWidget** - Rule-based tip widget. Shows a recommendation based on daily progress: focus on hydration if water < 55%, boost protein if protein < 55%, calories if < 65%, or "Goals complete" if both ≥ 100%.
 
-- **AiTips** — Widget with `id="AiBox"`, `id="aiTipTitle"`, `id="aiTipText"`. Only displayed when `calsync_ai_enabled === 'true'`. Otherwise shows a skeleton loader. Refreshes every 5 minutes (`REFRESH_INTERVAL`) or when the stats hash changes (`totalCal|totalWater|totalProtein|entryCount|calGoal|waterGoal|proteinGoal`). Listens to `viewChanged` event: starts on dashboard tab, stops on other tabs. Listens to `requestAITipUpdate` custom event. Messages are fully rule-based (no API call) with time-dependent variants (morning/afternoon/evening/night). `window.refreshAITip` for external refresh.
+- **AiTips** - Widget with `id="AiBox"`, `id="aiTipTitle"`, `id="aiTipText"`. Only displayed when `calsync_ai_enabled === 'true'`. Otherwise shows a skeleton loader. Refreshes every 5 minutes (`REFRESH_INTERVAL`) or when the stats hash changes (`totalCal|totalWater|totalProtein|entryCount|calGoal|waterGoal|proteinGoal`). Listens to `viewChanged` event: starts on dashboard tab, stops on other tabs. Listens to `requestAITipUpdate` custom event. Messages are fully rule-based (no API call) with time-dependent variants (morning/afternoon/evening/night). `window.refreshAITip` for external refresh.
 
-- **WeatherWidget** — Weather widget that displays current weather for the user's location. Uses the Open-Meteo API via a proxy endpoint. Shows temperature, weather conditions, and location. Can be enabled/disabled in settings and uses cached location data.
+- **WeatherWidget** - Weather widget that displays current weather for the user's location. Uses the Open-Meteo API via a proxy endpoint. Shows temperature, weather conditions, and location. Can be enabled/disabled in settings and uses cached location data.
 
-- **ActivityStatus** — Activity status widget that shows the user's current training status (active, sick, injured, or on a break). Allows users to set their current status and specify a duration (until changed, until tomorrow, 7 days, 14 days, or custom date). The status is displayed on the dashboard and can be managed in settings.
+- **ActivityStatus** - Activity status widget that shows the user's current training status (active, sick, injured, or on a break). Allows users to set their current status and specify a duration (until changed, until tomorrow, 7 days, 14 days, or custom date). The status is displayed on the dashboard and can be managed in settings.
 
 **Data source:** Exclusively localStorage. No Supabase call in the dashboard. Reacts on `storage` events, `focus` events, `viewChanged` events, and every 30 seconds via `setInterval`.
 
@@ -135,11 +135,11 @@ The home page of the app. Shows a daily overview.
 
 CalSync is the food logging section. The tab name in the original was "CalSync", the section ID is `calsync-view`.
 
-**CalSyncModal** — The main modal for adding entries. Opens as a bottom-sheet. Has three input modes:
+**CalSyncModal** - The main modal for adding entries. Opens as a bottom-sheet. Has three input modes:
 
-1. **Search** — Free-text search in a local food database
-2. **Barcode Scanner** — ZXing-based camera scanner. Scans EAN barcodes and looks up the product in Open Food Facts or a custom database. Button ID: `cs-openModalBtn`
-3. **Manual** — Form with fields for name, calories, protein, carbs, fat, weight. IDs: `manualKcal`, `manualProtein`, `manualCarbs`, `manualFat` (these are needed for the calorie preview calculation — `updateCaloriePreview()` is called on `input` events).
+1. **Search** - Free-text search in a local food database
+2. **Barcode Scanner** - ZXing-based camera scanner. Scans EAN barcodes and looks up the product in Open Food Facts or a custom database. Button ID: `cs-openModalBtn`
+3. **Manual** - Form with fields for name, calories, protein, carbs, fat, weight. IDs: `manualKcal`, `manualProtein`, `manualCarbs`, `manualFat` (these are needed for the calorie preview calculation - `updateCaloriePreview()` is called on `input` events).
 
 **Entry data structure:**
 ```typescript
@@ -161,9 +161,9 @@ interface FoodEntry {
 
 **Storage:** localStorage key `calsync_v1` (array). Cloud sync to Supabase table `food_entries`.
 
-**MacroRings** — SVG ring charts for protein, carbs, fat. Shows daily progress relative to goals. If no goal is set, the ring is displayed in neutral color.
+**MacroRings** - SVG ring charts for protein, carbs, fat. Shows daily progress relative to goals. If no goal is set, the ring is displayed in neutral color.
 
-**FoodList** — List of all today's entries. Each entry has a swipe-to-delete or tap-to-delete button. When deleting, the entry is removed from localStorage and deleted via `deleteFoodFromCloud()` from Supabase.
+**FoodList** - List of all today's entries. Each entry has a swipe-to-delete or tap-to-delete button. When deleting, the entry is removed from localStorage and deleted via `deleteFoodFromCloud()` from Supabase.
 
 ---
 
@@ -171,14 +171,14 @@ interface FoodEntry {
 
 DropSync is the most complex section of the app. The section ID is `dropsync-view`.
 
-**Ring display** — SVG circle with `id="ringProgress"`. Radius 95. Circumference = `2 * Math.PI * 95`. `strokeDashoffset = circumference * (1 - totalToday / GOAL_DS)`. Beside it: `ringAmount` (text display of total amount, switches unit at ≥ 1000ml to "x,x L"), `statPct` (percentage display), `statCount` (number of entries), `statLast` (last entry "x min ago").
+**Ring display** - SVG circle with `id="ringProgress"`. Radius 95. Circumference = `2 * Math.PI * 95`. `strokeDashoffset = circumference * (1 - totalToday / GOAL_DS)`. Beside it: `ringAmount` (text display of total amount, switches unit at ≥ 1000ml to "x,x L"), `statPct` (percentage display), `statCount` (number of entries), `statLast` (last entry "x min ago").
 
-**DropSyncModal** — Bottom-sheet modal with two steps and its own drag system.
+**DropSyncModal** - Bottom-sheet modal with two steps and its own drag system.
 
 *Sheet states:*
-- `'closed'` — modal invisible
-- `'open'` — modal at natural height (auto), fades in from bottom
-- `'expanded'` — modal fills almost the entire screen (`window.innerHeight - 24px`)
+- `'closed'` - modal invisible
+- `'open'` - modal at natural height (auto), fades in from bottom
+- `'expanded'` - modal fills almost the entire screen (`window.innerHeight - 24px`)
 
 Transitions via CSS transition on `height` and `transform translateY`. During drag: `transition: none`. After release: transition re-enabled, snap to next position.
 
@@ -206,9 +206,9 @@ interface DrinkEntry {
 
 **Storage:** localStorage key `dropsync_v3`. Cloud sync to Supabase table `dropsync_entries`.
 
-**HistoryModal** — Second drag sheet. Shows all entries grouped by date (with `formatDateLabel`: "Today", "Yesterday", or full date). Same drag system as the main modal. Button ID: `ds-openHistoryBtn`.
+**HistoryModal** - Second drag sheet. Shows all entries grouped by date (with `formatDateLabel`: "Today", "Yesterday", or full date). Same drag system as the main modal. Button ID: `ds-openHistoryBtn`.
 
-**DrinkLog** — Daily log within the modal (`ds-logList`). New entries are inserted at the top without re-rendering the entire list (Set `renderedIds` prevents duplicate rendering). On delete: optimistic UI update, then cloud delete.
+**DrinkLog** - Daily log within the modal (`ds-logList`). New entries are inserted at the top without re-rendering the entire list (Set `renderedIds` prevents duplicate rendering). On delete: optimistic UI update, then cloud delete.
 
 ---
 
@@ -228,7 +228,7 @@ Accessible via button `db-openSettingsBtn` on the dashboard and `ds-openSettings
 - If logged in: avatar (initials or profile picture), name, "Synced" badge, logout button, "Manage Account" link → `/login?keep_login_page=true`
 - If logged out: login button → `/login?signinginto=healthsync`
 - Avatar initials: first letter of `full_name` or `name` from `user_metadata`, fallback `email.split('@')[0]`
-- `removeHeaderBtn(id)` / `addHeaderBtn(id)` — helper functions that hide/show settings buttons in view headers when opening/closing
+- `removeHeaderBtn(id)` / `addHeaderBtn(id)` - helper functions that hide/show settings buttons in view headers when opening/closing
 
 **AI Detection Section:**
 - Toggle `calsync_ai_enabled` (localStorage)
@@ -258,7 +258,7 @@ After completion: **tooltip tour** (8 steps) is optional. Each step shows a tool
 
 ## Notes Modal
 
-Accessible via button `openNotes` in the app. Opens as a bottom-sheet above the settings modal (settings gets the `.small` class in the process). Same drag-sheet system as settings and DropSync. `notes.js` is not an IIFE — variables are global, no `DOMContentLoaded` guard. When closing, `.small` is removed from settings after 100ms.
+Accessible via button `openNotes` in the app. Opens as a bottom-sheet above the settings modal (settings gets the `.small` class in the process). Same drag-sheet system as settings and DropSync. `notes.js` is not an IIFE - variables are global, no `DOMContentLoaded` guard. When closing, `.small` is removed from settings after 100ms.
 
 ---
 ## Update Center
@@ -332,7 +332,7 @@ On push (new entry): save locally immediately (optimistic), then `upsert` to Sup
 
 **Settings:** `upsert` with `onConflict: 'user_id'`. On pull: sync values to localStorage and call UI refresh functions.
 
-**Workouts:** Timestamp-based merge strategy. `_updated_at` is compared — newer version wins.
+**Workouts:** Timestamp-based merge strategy. `_updated_at` is compared - newer version wins.
 
 ### MFA (TOTP)
 
@@ -430,14 +430,14 @@ RLS: user can only read/write their own entries (`user_id = auth.uid()`).
 The login page is a standalone route within the Next.js project. It is also used for account management (via `?keep_login_page=true`).
 
 **Views (as React state):**
-- `'login'` — email + password, forgot password link
-- `'register'` — name, email, password (with strength indicator), confirm password
-- `'mfa'` — 6-digit OTP input
-- `'setup2fa'` — QR code (QRCode.js), secret key, OTP verification, optional disable
-- `'reset'` — email input for reset link
-- `'resetMfa'` — MFA verification before password reset
-- `'confirm'` — confirmation hint after registration
-- `'loggedIn'` — success view with redirect timer and optional 2FA setup
+- `'login'` - email + password, forgot password link
+- `'register'` - name, email, password (with strength indicator), confirm password
+- `'mfa'` - 6-digit OTP input
+- `'setup2fa'` - QR code (QRCode.js), secret key, OTP verification, optional disable
+- `'reset'` - email input for reset link
+- `'resetMfa'` - MFA verification before password reset
+- `'confirm'` - confirmation hint after registration
+- `'loggedIn'` - success view with redirect timer and optional 2FA setup
 
 **Password strength:** 3 bars (`#bar1`, `#bar2`, `#bar3`). Classes: `weak` (1 bar), `medium` (2 bars), `strong` (3 bars). Rules: min. 8 characters, min. 1 uppercase letter, min. 1 number.
 
@@ -465,7 +465,7 @@ This function is registered on the manual input fields in `onboarding.js` within
 In `dropsync-integration.js` there is a local `updateUI` function. In `dashboard.js` there is also an `updateUI` function. These are completely independent and must not refer to the same name in React.
 
 ### `window.reload` trick after login
-After successful login, users are redirected to `/?reload=true`. `page.tsx` checks this parameter on mount and performs `window.location.replace('/')` after a short delay (2200ms from `auth.js`) — this ensures auth state and localStorage are cleanly initialized without keeping the parameter in the URL.
+After successful login, users are redirected to `/?reload=true`. `page.tsx` checks this parameter on mount and performs `window.location.replace('/')` after a short delay (2200ms from `auth.js`) - this ensures auth state and localStorage are cleanly initialized without keeping the parameter in the URL.
 
 ### `removeHeaderBtn` / `addHeaderBtn`
 `settings.js` hides the settings buttons in the view headers when opening the settings modal. In React: `settingsOpen` boolean state that gives the buttons conditional `display: none`.
@@ -477,7 +477,7 @@ Defined in `settings.js` (not in `auth.js`). Called after every goal change. Int
 Called in `initAuth` after auth success and after login change. Checks if macro goals are missing and shows a toast if needed. In Next.js: call after `fetchSettings` in the `AuthContext`.
 
 ### Double `updateUI` (AI Tips)
-`ai-tips.js` has an internal `updateUI(title, text)`. `script.js` has a global `updateUI()`. `dropsync-integration.js` has its own. In React, no problem — they all live in separate components.
+`ai-tips.js` has an internal `updateUI(title, text)`. `script.js` has a global `updateUI()`. `dropsync-integration.js` has its own. In React, no problem - they all live in separate components.
 
 ### `escapeHTML`
 In `menu.js` as `window.escapeHTML` for workout routine names in innerHTML. Irrelevant in React (JSX escapes automatically).

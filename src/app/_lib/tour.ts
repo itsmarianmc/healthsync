@@ -30,7 +30,7 @@ export function startTooltipTour(steps: TourStep[], opts?: { skippedPaths?: stri
         const s = steps[idx];
         const el = document.getElementById(s.elementId);
         if (!el) {
-            console.warn(`[tour] step ${idx} element '${s.elementId}' not found — skipping`);
+            console.warn(`[tour] step ${idx} element '${s.elementId}' not found - skipping`);
             skippedPaths.push(`${idx}>>${s.elementId}`);
             show(idx + 1);
             return;
@@ -100,7 +100,7 @@ export function startTourWhenReady(steps: TourStep[] = DEFAULT_TOUR_STEPS, opts:
         retryAttempts++;
         if (elapsed >= timeoutMs || retryAttempts > MAX_STEP_RETRY_ATTEMPTS) {
             hasStarted = true;
-            console.warn(`[tour] step 0 element '${firstId}' not found after ${(timeoutMs / 1000).toFixed(1)} seconds — forcing start anyway.`);
+            console.warn(`[tour] step 0 element '${firstId}' not found after ${(timeoutMs / 1000).toFixed(1)} seconds - forcing start anyway.`);
             if (timerHandle !== null) clearTimeout(timerHandle);
             timerHandle = null;
             console.warn('[tour] starting with timeout skip');

@@ -3567,11 +3567,14 @@ input::-webkit-inner-spin-button {
 	padding: 8px 16px;
 	pointer-events: none;
 	position: fixed;
+	justify-content: center;
 	top: 30px;
 	top: calc(30px + env(safe-area-inset-top, 0px));
 	transform: translateX(-50%) translateY(-40px) scale(0.9);
 	transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
-	white-space: nowrap;
+	max-width: min(480px, calc(100vw - 32px));
+	text-align: center;
+	white-space: pre-line;
 	z-index: 10003;
 }
 

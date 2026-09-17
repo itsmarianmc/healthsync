@@ -52,8 +52,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const syncEnabled = user !== null;
 
     const showToast = useCallback((msg: string, duration = 2500, undo: (() => void) | null = null, cls = '') => {
-        const item: ToastItem = { id: ++toastIdCounter, msg, duration, undo, cls };
-        setToastQueue(q => [...q, item]);
+        setToastQueue(q => {
+            if (q.length === 0) {
+                return [{ id: ++toastIdCounter, msg, duration, undo, cls }];
+            }
+
+            // Keep one visible toast and fold all pending messages into it.
+            // This lets the toast grow naturally instead of stacking bubbles.
+            const first = q[0];
+            return [{
+                ...first,
+                msg: [...q.map(item => item.msg), msg].join('\n'),
+                duration: Math.max(first.duration, duration),
+                cls: first.cls || cls,
+            }];
+        });
     }, []);
 
     const consumeToast = useCallback(() => {

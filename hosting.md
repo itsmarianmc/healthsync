@@ -411,7 +411,7 @@ notice reflects that AI Detection is opt-in and uses the user's own key.
 
 ---
 
-#### Development (added as §7) — `npm run dev`, `npx playwright test` etc
+#### Development (added as §7) - `npm run dev`, `npx playwright test` etc
 
 ```bash
 npm run dev          # next dev (Turbopack)

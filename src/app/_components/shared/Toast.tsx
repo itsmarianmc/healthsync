@@ -27,8 +27,11 @@ export default function Toast() {
         <div id="toast" className="toast" style={{ padding: "0 !important", visibility: "hidden" }} />
     );
 
+    const longestLine = Math.max(...current.msg.split('\n').map(line => line.length));
+    const toastWidth = Math.min(480, Math.max(160, longestLine * 7.2 + 32));
+
     return (
-        <div id="toast" className={`toast${visible ? ' show' : ''}${current.cls ? ' ' + current.cls : ''}`}>
+        <div id="toast" role="status" aria-live="polite" className={`toast${visible ? ' show' : ''}${current.cls ? ' ' + current.cls : ''}`} style={{ width: toastWidth }}>
             {current.msg}
         </div>
     );

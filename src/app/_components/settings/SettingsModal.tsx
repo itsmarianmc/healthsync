@@ -135,6 +135,11 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
     const [deleteAccountChecked, setDeleteAccountChecked] = useState(false);
     const [reportOpen, setReportOpen] = useState(false);
+    const toastTestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => () => {
+        if (toastTestTimeoutRef.current) clearTimeout(toastTestTimeoutRef.current);
+    }, []);
 
     useEffect(() => {
         if (!canUsePreferences) {
@@ -421,6 +426,15 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         localStorage.setItem('healthsync_weather_enabled', String(weatherEnabled));
         window.dispatchEvent(new Event('storage'));
         showToast('Weather settings saved');
+    };
+
+    const testToastMerging = () => {
+        if (toastTestTimeoutRef.current) clearTimeout(toastTestTimeoutRef.current);
+        showToast('First message is visible.', 4000);
+        toastTestTimeoutRef.current = setTimeout(() => {
+            showToast('Second message joined the same toast.', 4000);
+            toastTestTimeoutRef.current = null;
+        }, 1500);
     };
 
     const exportAllData = () => {
@@ -960,6 +974,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                         <button className="data-btn" id="openReportBugBtn" onClick={() => setReportOpen(true)}>
                             <i className="fa-solid fa-bug" style={{ marginRight: 6 }} />
                             Report a Bug
+                        </button>
+                        <button className="data-btn" id="testToastMergingBtn" onClick={testToastMerging}>
+                            <i className="fa-regular fa-message" style={{ marginRight: 6 }} />
+                            Test message merging
                         </button>
                         {updateAvailable ? (
                             <button className="data-btn" id="updateNowBtn" onClick={applyUpdate} style={{ color: '#30D158', fontWeight: 600 }}>

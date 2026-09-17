@@ -1,4 +1,12 @@
 {
+    "4.0.2": {
+        "Clearer notifications": [
+            "When several notifications appear close together, HealthSync now combines them into one readable message instead of stacking multiple bubbles."
+        ],
+        "Better accessibility": [
+            "Status notifications are now announced more clearly by screen readers and stay readable on small or notched screens."
+        ]
+    },
     "4.0.1": {
         "More reliable AI food detection": [
             "AI food detection is now more robust. If the AI returns a slightly malformed or incomplete result, HealthSync cleans it up and still shows a valid food entry instead of failing or leaving blank values.",
