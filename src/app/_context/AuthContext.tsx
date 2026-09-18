@@ -57,8 +57,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return [{ id: ++toastIdCounter, msg, duration, undo, cls }];
             }
 
-            // Keep one visible toast and fold all pending messages into it.
-            // This lets the toast grow naturally instead of stacking bubbles.
             const first = q[0];
             return [{
                 ...first,

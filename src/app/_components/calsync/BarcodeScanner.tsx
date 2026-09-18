@@ -61,7 +61,9 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded, s
             if (!mountedRef.current) return;
             setCameras(cams);
             onCamerasChangeRef.current?.(cams, activeId);
-        } catch { /* The scanner remains usable when camera enumeration is unavailable. */ }
+        } catch {
+            console.warn('Failed to enumerate camera devices.');
+        }
     }, []);
 
     const startCamera = useCallback(async (requestedDeviceId?: string) => {

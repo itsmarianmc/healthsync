@@ -17,9 +17,6 @@ const MAX_IMAGE_EDGE = 1280;
 const JPEG_QUALITY = 0.82;
 
 async function prepareImage(file: File): Promise<{ data: string; mimeType: string }> {
-    // Phone cameras commonly create 4–15 MB images. Gemini does not need the full
-    // sensor resolution for a single food portion, so resize before base64 encoding.
-    // This shortens both the upload and the model's image-processing time.
     if (!file.type.startsWith('image/') || typeof createImageBitmap !== 'function') {
         return { data: await fileToBase64(file), mimeType: file.type || 'image/jpeg' };
     }

@@ -23,8 +23,6 @@ export function barcodeCameraConstraints(deviceId?: string): MediaStreamConstrai
     const quality: MediaTrackConstraints = {
         width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 },
     };
-    // A device ID can become stale when hardware is reconnected. Fall back
-    // progressively instead of leaving the scanner in a broken state.
     return deviceId
         ? [{ video: { ...quality, deviceId: { exact: deviceId } } }, { video: { ...quality, deviceId: { ideal: deviceId } } }, { video: { ...quality, facingMode: { ideal: 'environment' } } }]
         : [{ video: { ...quality, facingMode: { ideal: 'environment' } } }, { video: quality }, { video: { facingMode: { ideal: 'user' } } }];
@@ -36,7 +34,7 @@ export async function applyBarcodeFocus(track: MediaStreamTrack): Promise<void> 
     try {
         await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] });
     } catch {
-        // Some browsers advertise this capability but reject the setting.
+        console.warn('Failed to apply continuous focus mode to camera track.');
     }
 }
 
