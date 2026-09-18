@@ -1,13 +1,11 @@
 {
-    "4.0.2": {
+    "4.0.0": {
         "Clearer notifications": [
             "When several notifications appear close together, HealthSync now combines them into one readable message instead of stacking multiple bubbles."
         ],
         "Better accessibility": [
             "Status notifications are now announced more clearly by screen readers and stay readable on small or notched screens."
-        ]
-    },
-    "4.0.1": {
+        ],
         "More reliable AI food detection": [
             "AI food detection is now more robust. If the AI returns a slightly malformed or incomplete result, HealthSync cleans it up and still shows a valid food entry instead of failing or leaving blank values.",
             "Foods detected without a name now appear as \"Unknown\" instead of an empty label, and missing portion sizes default to 100 g/ml."
@@ -23,9 +21,7 @@
         ],
         "Better screen-reader support": [
             "The hidden camera and file picker controls in the AI Detection window are no longer announced by screen readers, reducing confusing extra elements."
-        ]
-    },
-    "4.0.0": {
+        ],
         "Notched phone layout fixes": [
             "Fully expanded sheets and windows now end just below your phone's notch or camera cutout, so drag handles, titles, and headers are never hidden behind it.",
             "Long content inside windows now scrolls properly instead of getting cut off, and action buttons keep a safe distance from your home indicator."

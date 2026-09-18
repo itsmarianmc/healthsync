@@ -5,28 +5,10 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-## [4.0.2] - 2026-09-17
-
-### Added
-- **Toast merging test control**: Settings now includes a small test action for verifying that consecutive notifications merge correctly, and its delayed callback is cleaned up when the settings view unmounts.
-
-### Changed
-- **Clearer and more accessible notifications**: Rapid toast messages now merge into one readable multiline notification instead of stacking. Toasts expose status semantics for screen readers, adapt their width to the message, wrap cleanly, stay centered, and respect mobile safe-area spacing.
-- **Expanded technical documentation**: Added detailed German and English documentation covering architecture, routing and contracts, data models and storage, feature behavior, operations and testing, agent/rebuild guidance, file inventory, and known gaps.
-- **Dependency metadata cleanup**: Removed a duplicate nested `@swc/helpers` lockfile entry and corrected the `fsevents` metadata.
-
-## [4.0.1] - 2026-09-12
-
-### Changed
-- **Photo and camera AI detection optimisation**: `gemini.ts` now downscales large food images to a maximum 1280 px edge before upload and uses a JPEG quality of 0.82, reducing upload and analysis time without changing small images. Gemini requests now use a constrained nutrition response schema, lower temperature, and a smaller output budget for consistently structured results.
-
-### Fixed
-- **Barcode scanner recovery and lifecycle**: `BarcodeScanner.tsx` now progressively falls back from a selected device to the rear camera, generic video, and front camera when hardware IDs are stale or unsupported. It stops streams and decoder instances reliably, ignores duplicate scan callbacks, and refreshes the device list when cameras change.
-- **Barcode scan feedback and focus**: barcode scans request continuous focus where the browser supports it, and the embedded search popup now exposes live, actionable camera status messages including permission, availability, and in-use errors.
-
 ## [4.0.0] - 2026-08-29
 
 ### Added
+- **Toast merging test control**: Settings now includes a small test action for verifying that consecutive notifications merge correctly, and its delayed callback is cleaned up when the settings view unmounts.
 - **Text notes now inform photo/camera AI detection**: `AiDetectionContext.runDetection` forwards `input.text` as `textContext` to `analyzeWithGemini` for `import`/`capture` modes, so the description you type in the AI modal is now included as context when scanning a photo (previously only `describe` mode used it). `CalSyncModal.tsx`'s `handleNextClick` already passes `aiTextValue` alongside the file, and `handleCameraFile` routes capture through the same description step, so the note reaches Gemini for both flows.
 - **Prompt-injection guard for user notes**: `analyzeWithGemini` wraps `textContext` in a `===USER_NOTES===` block instructing the model to treat it as plain text only and ignore any embedded instructions, formatting, or overrides.
 - **Better error screens**: If something goes wrong, you now see a clear message with a "Try again" button instead of a blank page.
@@ -48,6 +30,10 @@ the device as part of signing out.
 - **Report a Bug from Settings**: New `ReportBugModal.tsx` plus a "Report a Bug" button in the System section of `SettingsModal.tsx`. The modal embeds `https://itsmarian.dev/report` in an `<iframe>`, pre-filled via query params (`cnt_src=healthsync`, `user_id`, `app_version` from `APP_VERSION`, current path as `ref`, plus `hide_header`/`hide_footer`) and auto-expands via `sheet.snapToExpanded()`.
 
 ### Changed
+- **Photo and camera AI detection optimisation**: `gemini.ts` now downscales large food images to a maximum 1280 px edge before upload and uses a JPEG quality of 0.82, reducing upload and analysis time without changing small images. Gemini requests now use a constrained nutrition response schema, lower temperature, and a smaller output budget for consistently structured results.
+- **Clearer and more accessible notifications**: Rapid toast messages now merge into one readable multiline notification instead of stacking. Toasts expose status semantics for screen readers, adapt their width to the message, wrap cleanly, stay centered, and respect mobile safe-area spacing.
+- **Expanded technical documentation**: Added detailed German and English documentation covering architecture, routing and contracts, data models and storage, feature behavior, operations and testing, agent/rebuild guidance, file inventory, and known gaps.
+- **Dependency metadata cleanup**: Removed a duplicate nested `@swc/helpers` lockfile entry and corrected the `fsevents` metadata.
 - **Hardened Gemini response handling**: `gemini.ts` now runs every response through `sanitizeGeminiResponse()` - coerces numeric fields with `toFiniteNumber()` (drops negatives/NaN, defaults to `0`), trims/sanitizes strings with `toSafeString()`, and normalizes `unit` to `g`/`ml`. `extractFirstJson()` strips code fences and extracts the first `{…}` (or `[…]`) object, replacing the previous brittle regex grab. Malformed/garbage output now yields a cleaned result instead of throwing `no_json`.
 - **Unified food-mapping helper**: `resultToFoodSearchResult` logic duplicated across `CalSync.tsx` and `CalSyncModal.tsx` is extracted into a single `toGeminiFoodSearchResult(result, fallback)` export in `gemini.ts`. Per-100 values now use a shared `safePer100()` (guards non-finite/`<=0` amounts); missing `name` falls back to `fallback.name` (`'Unknown'` in `CalSync.tsx`, the category name in `CalSyncModal.tsx`) and `servingSize`/`amount` defaults to `100` when missing or `0` instead of producing a `0` serving.
 - **Stronger account protection**: Two-factor authentication is now always required when you sign in - it can no longer be skipped on a device. Your synced data is also verified on the server before it is read or saved, ensuring only you can access it.
@@ -73,6 +59,8 @@ the device as part of signing out.
 - **Lockfile housekeeping**: resolved duplicate `@swc/helpers` entry under `@serwist/turbopack` and marked `fsevents` as an optional dev dependency in `package-lock.json` (no runtime effect).
 
 ### Fixed
+- **Barcode scanner recovery and lifecycle**: `BarcodeScanner.tsx` now progressively falls back from a selected device to the rear camera, generic video, and front camera when hardware IDs are stale or unsupported. It stops streams and decoder instances reliably, ignores duplicate scan callbacks, and refreshes the device list when cameras change.
+- **Barcode scan feedback and focus**: barcode scans request continuous focus where the browser supports it, and the embedded search popup now exposes live, actionable camera status messages including permission, availability, and in-use errors.
 - **AI modal reveals immediately**: `revealModal()` in `CalSyncModal.tsx` is now called before branching on the `openWithAi` mode, so the sheet opens without waiting for the per-mode handlers to run first.
 - **Hidden file inputs excluded from a11y tree**: the image/camera `<input type=file>` controls in `CalSyncModal.tsx` are now `tabIndex={-1}` + `aria-hidden="true"` and visually clipped (instead of `display:none`), so screen readers no longer announce dead controls.
 - **Safer safe-area gaps on notched phones**: The previous beta added `env(safe-area-inset-*)` padding to fix notch/cutout clipping, but it was applied inconsistently-some places used `padding: calc(X + env(...))` (double-gap with already-padded parents) and the custom `getSafeAreaTop()` helper in `CalSyncModal.tsx`, `DropSyncModal.tsx`, `HistoryModal.tsx`, and `useDraggableSheet.ts` was removed in favor of relying on the CSS-only approach. Safe-area clearance now uses `margin-bottom: env(safe-area-inset-bottom, 0px)` only on `.modal-footer` and the onboarding footer (where it correctly sits *outside* the element), and remaining `calc(…) + env(safe-area-inset-*)` rules that duplicated existing padding have been reverted. Affected files: `public/offline.html`, `src/app/_components/calsync/CalSyncModal.tsx`, `src/app/_components/dropsync/DropSyncModal.tsx`, `src/app/_components/dropsync/HistoryModal.tsx`, `src/app/_hooks/useDraggableSheet.ts`, `src/app/legal/legal.css`, `src/app/login/styles.css`, `src/app/styles.css`, `src/app/support/page.tsx`.
