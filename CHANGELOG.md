@@ -20,6 +20,11 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 #### Fixed
 - **Update Center opening behavior**: The changelog no longer opens automatically for first-time installs or ordinary visits. After a waiting service worker is installed and the app reloads, the Update Center opens once; users can still open it manually from the dashboard.
+- **Update banner display**: Removed the banner backdrop blur that softened the dashboard header buttons, moved the banner lower, and hid it while any modal is open.
+- **AI photo and camera selection on iOS**: Replaced delayed file-picker clicks with explicit buttons in the AI flow so iOS can open Photos or the camera from a direct tap.
+- **Workout experience**: Kept exercise demonstration videos inline on iOS, outlined the exercise with the active set, and restyled workout history entries to match routine cards.
+- **Workout personal records and finishing**: Marked record sets with a gold trophy frame, held the background through the finish animation, stopped the timer when rating begins, and kept PR notifications visible longer.
+- **Goal calculator spacing**: Removed excess top padding from the calorie goal calculator.
 
 ## [4.0.1] - 2026-10-02
 

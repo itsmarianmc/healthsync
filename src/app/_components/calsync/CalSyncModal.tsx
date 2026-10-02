@@ -87,6 +87,8 @@ export default function CalSyncModal({
     const [, setAiProcessing] = useState(false);
     const aiImageInputRef = useRef<HTMLInputElement>(null);
     const aiCameraInputRef = useRef<HTMLInputElement>(null);
+    const openAiImagePicker = useCallback(() => aiImageInputRef.current?.click(), []);
+    const openAiCameraPicker = useCallback(() => aiCameraInputRef.current?.click(), []);
     const isModalHiddenForAiRef = useRef(false);
     const aiProcessingRef = useRef(false);
     const processingRef = useRef<HTMLDivElement>(null);
@@ -107,7 +109,6 @@ export default function CalSyncModal({
     const isCapturing = useRef(false);
     const prevAiTextOpenRef = useRef(false);
     const closingRef = useRef(false);
-    const dispatchedForRef = useRef<'describe' | 'import' | 'capture' | null>(null);
     const stepRef = useRef(0);
     const currentDetectionIdRef = useRef<string | null>(null);
     const errorMessageRef = useRef<string | null>(null);
@@ -203,7 +204,6 @@ export default function CalSyncModal({
             naturalH.current = 0;
             const detectionId = currentDetectionIdRef.current;
             const errorMessage = errorMessageRef.current;
-            dispatchedForRef.current = null;
             currentDetectionIdRef.current = null;
             errorMessageRef.current = null;
             toastedDetectionIdRef.current = null;
@@ -636,28 +636,10 @@ export default function CalSyncModal({
     }, [snapToClosed]);
 
     useEffect(() => {
-        if (!openWithAi || modalState === 'closed') return;
-        if (dispatchedForRef.current === openWithAi) return;
-        let focusCleanup: (() => void) | null = null;
-        const addFocusReveal = () => {
-            const onFocus = () => {
-                setTimeout(() => {
-                    if (stepRef.current !== 1 && !aiProcessingRef.current) snapToClosedRef.current();
-                }, 400);
-            };
-            window.addEventListener('focus', onFocus, { once: true });
-            focusCleanup = () => window.removeEventListener('focus', onFocus);
-        };
-        const t = setTimeout(() => {
-            if (dispatchedForRef.current === openWithAi) return;
-            dispatchedForRef.current = openWithAi;
-            revealModal();
-            if (openWithAi === 'describe') { setAiTextOpen(true); }
-            else if (openWithAi === 'import') { aiImageInputRef.current?.click(); addFocusReveal(); }
-            else if (openWithAi === 'capture') { aiCameraInputRef.current?.click(); addFocusReveal(); }
-        }, 100);
-        return () => { clearTimeout(t); focusCleanup?.(); };
-    }, [openWithAi, modalState, revealModal]);
+        if (openWithAi !== 'describe' || modalState === 'closed') return;
+        const timer = window.setTimeout(() => setAiTextOpen(true), 100);
+        return () => window.clearTimeout(timer);
+    }, [openWithAi, modalState]);
 
     const titles: Record<number, string> = { 0: 'Upload', 1: 'Context', 2: 'Analyzing', 3: 'Finalize' };
     const isLastStep = step === 3;
@@ -701,6 +683,16 @@ export default function CalSyncModal({
                                             <i className="fa-solid fa-circle-notch fa-spin" />
                                         </div>
                                         <div className="processing-text" id="csProcessingText">{processingLabel}</div>
+                                        {openWithAi === 'import' && (
+                                            <button type="button" className="option-btn ai-file-picker-btn" onClick={openAiImagePicker}>
+                                                Choose Photo
+                                            </button>
+                                        )}
+                                        {openWithAi === 'capture' && (
+                                            <button type="button" className="option-btn ai-file-picker-btn" onClick={openAiCameraPicker}>
+                                                Take Photo
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>

@@ -12,6 +12,21 @@
         ],
         "Update news at the right time": [
             "The What's New window no longer interrupts your first visit or opens during normal use. It appears after you install an app update, and you can still open it whenever you want."
+        ],
+        "Clearer update banner": [
+            "The update notice now sits lower, leaves your dashboard buttons sharp, and disappears while a menu or other window is open."
+        ],
+        "Reliable photo and camera access": [
+            "You can now open your photos or take a picture from the AI food flow on iPhone and other devices."
+        ],
+        "Clearer workout tracking": [
+            "Exercise videos stay in the workout screen on iPhone, your current exercise is highlighted, and workout history is easier to scan."
+        ],
+        "Workout records and finish flow": [
+            "Personal records now stand out with a gold trophy frame, the workout timer stops when you finish, and record notifications stay visible longer."
+        ],
+        "Goal calculator spacing": [
+            "Removed extra space above the calorie goal calculator fields."
         ]
     },
     "4.0.1": {
