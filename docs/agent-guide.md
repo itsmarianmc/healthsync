@@ -59,14 +59,13 @@ Route page + global `AppShell` + feature component + local JSON data + optional 
 
 ## Supabase security rollout status
 
-The maintainer reports that all four local migrations match the remote history
-and supplied a read-only production SQL check for owner/AAL visibility across
-all five app tables. That check also denied the reset RPC for a verified-factor
-account at AAL1 and for `anon`. In a separate follow-up, the maintainer reports
-successful SQL write cases, an allowed reset, the current E2E suite, and a
-production build. The write matrix and E2E count were not included in that
-report. Do not turn this into a claim that every RLS acceptance case is complete; see
-[`security-migration.md`](./security-migration.md).
+This checkout contains only the additive newsletter-preference migration.
+The baseline schema and owner/MFA/reset migrations described in older reports
+are absent, and no remote migration history or current database state was
+queried for this documentation audit. Older maintainer reports are retained as
+historical evidence in [`quality-audit.md`](./quality-audit.md), but do not
+establish the current checkout's migration chain or target-project state. See
+[`security-migration.md`](./security-migration.md) before database work.
 
 Before recording the security work as complete, capture evidence for these
 acceptance cases against disposable users and the isolated project:

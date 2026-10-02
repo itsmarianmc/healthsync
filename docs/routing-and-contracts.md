@@ -9,7 +9,8 @@
 | `/food` | `src/app/food/page.tsx` | client | CalSync; query parameters can open modals |
 | `/drinks` | `src/app/drinks/page.tsx` | client | DropSync; `openModal=true` opens the log sheet |
 | `/onboarding` | `src/app/onboarding/page.tsx` | client | Intro slides; completion stores `calsync_onboarding_done` |
-| `/login` | `src/app/login/page.tsx` | client | Login, registration, MFA, password reset and account management |
+| `/login` | `src/app/login/page.tsx` | client | Login, registration, MFA verification and password reset |
+| `/account` | `src/app/account/page.tsx` | client | Signed-in account overview, password and 2FA management, newsletter preference |
 | `/support` | `src/app/support/page.tsx` | client | Sends support data to an external API |
 | `/legal/privacy` | `src/app/legal/privacy/page.tsx` | server/React | Privacy policy |
 | `/legal/cookies` | `src/app/legal/cookies/page.tsx` | server/React | Cookie/consent information |
@@ -24,7 +25,7 @@ Unknown app routes are handled by Next's `not-found.tsx`. `AppShell` renders chi
 
 ## Navigation
 
-The bottom navigation is defined in [BottomNav.tsx](../../src/app/_components/navigation/BottomNav.tsx):
+The bottom navigation is defined in [BottomNav.tsx](../src/app/_components/navigation/BottomNav.tsx):
 
 ```text
 Home       -> /dash
@@ -72,7 +73,9 @@ These query parameters remain supported for links into `/food`. The global extra
 
 ### `/login`
 
-`keep_login_page=true` is used for account management so the login/account screen remains visible. `signinginto=healthsync` identifies the login context. The exact presentation remains internal to the page state.
+`keep_login_page=true` keeps the signed-in confirmation screen visible. That screen offers only Go back to app, Manage Account (to `/account`), and Logout. `signinginto=healthsync` identifies the login context. The optional `next` parameter currently accepts only the exact internal path `/account`; every other value falls back to `/dash`. A successful login or MFA verification returns to `/account` when that safe destination was requested. Guests retain the regular login/registration flow.
+
+Direct unauthenticated access to `/account` redirects to `/login?next=%2Faccount`. Verified-factor users must complete the existing MFA challenge before returning to the account page. The route does not accept external redirect URLs.
 
 ## Own HTTP API
 
@@ -119,7 +122,7 @@ missing or Auth deletion fails.
 
 ## Supabase client contract
 
-The browser client in [supabase.ts](../../src/app/_lib/supabase.ts) uses `createBrowserClient` from `@supabase/ssr` and expects `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+The browser client in [supabase.ts](../src/app/_lib/supabase.ts) uses `createBrowserClient` from `@supabase/ssr` and expects `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
 Session cookies use `secure`, `sameSite: 'lax'` and a maximum age of 30 days. The database and RLS contract is described in [data-model-and-storage.md](./data-model-and-storage.md).
 
@@ -140,9 +143,9 @@ There is no current server-side Gemini proxy in this repository. AI requests go 
 
 ## Auth and MFA contract
 
-The login client uses Supabase Auth methods including password sign-in, registration, password reset, password update, sign-out and TOTP factor operations (`listFactors`, `challenge`, `verify`, `enroll`, `unenroll`).
+The login client uses Supabase Auth for password sign-in, registration, password reset, sign-out and the TOTP challenge/verify required to authenticate. `/account` uses the same Supabase Auth client and TOTP operations (`listFactors`, `challenge`, `verify`, `enroll`, `unenroll`) to set up, test and remove factors and to change the password.
 
-After password login, the Authenticator Assurance Level is checked. If a verified TOTP factor exists and AAL2 is required, the page switches to the MFA view and expects a six-digit code. 2FA setup uses a TOTP factor, QR display and a subsequent challenge/verify flow.
+After password login, the Authenticator Assurance Level is checked. If a verified TOTP factor exists and AAL2 is required, the page switches to the MFA view and expects a six-digit code. Factor setup and management are available only on `/account`; setup requires scanning a QR code and confirming a code before the factor becomes active.
 
 The six OTP fields form one labelled group, support six-digit paste and authenticator autofill, and block another verification request while one is pending. The former remembered-device checkbox was removed because no server-bound device trust exists. A browser marker never changes `needsMfaVerification`, protected API authorization, `healthsync_mfa_ok()` or RLS. Sync progress and completion toasts appear only on visible main app routes; route changes, tab hiding and account changes invalidate pending completion messages without cancelling data sync.
 

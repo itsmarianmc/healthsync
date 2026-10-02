@@ -10,7 +10,7 @@ It contains valuable domain information but partly describes the former Vanilla-
 
 ### Weather proxy
 
-Older documents mention a weather proxy. The current [WeatherWidget.tsx](../../src/app/_components/dashboard/WeatherWidget.tsx) calls Open-Meteo directly; [location.ts](../../src/app/_lib/location.ts) calls Nominatim directly. There is no matching Next API proxy in this repository.
+Older documents mention a weather proxy. The current [WeatherWidget.tsx](../src/app/_components/dashboard/WeatherWidget.tsx) calls Open-Meteo directly; [location.ts](../src/app/_lib/location.ts) calls Nominatim directly. There is no matching Next API proxy in this repository.
 
 ### Test scripts
 
@@ -18,21 +18,21 @@ Older documents mention a weather proxy. The current [WeatherWidget.tsx](../../s
 
 ## Data and sync risks
 
-### Water goal on first cloud settings insert — fixed
+### Water goal on first cloud settings insert — client behavior corrected; database behavior unverified
 
-The UI, initial cloud insert, and reset RPC now share a 2500 ml default. A numeric zero is preserved as an explicit goal value.
+The UI and client initial settings insert use a 2500 ml default. A numeric zero is preserved as an explicit goal value. The reset RPC implementation/migration is absent from this checkout, so its default behavior cannot be confirmed here.
 
 ### Macro goals with value 0 — fixed
 
 Cloud values of zero are written locally and treated as an explicit disabled goal.
 
-### Drink upsert — fixed
+### Food/drink idempotent upserts — implemented in client; target constraints unverified
 
-Food and drinks both use upserts with `(user_id, entry_id)`; offline writes remain pending until acknowledged.
+Food and drinks use client upserts with `(user_id, entry_id)`; offline writes remain pending until acknowledged. The matching database unique constraints are expected by the client but are not created by the migration present in this checkout.
 
-### Workout history across devices — fixed
+### Workout history across devices — sync implemented; target constraints unverified
 
-Completed sessions upload idempotently and are pulled from `workout_sessions` during normal authenticated sync. The migration adds the unique key needed for safe upserts.
+Completed sessions upload idempotently and are pulled from `workout_sessions` during normal authenticated sync. The client uses `(user_id, session_id)` as its upsert key. The matching database unique constraint is not created by the migration present in this checkout.
 
 ### Types versus UI session objects
 
@@ -50,7 +50,7 @@ The personal Gemini key is stored in `calsync_ai_api_key` and sent directly from
 
 ### Account-delete error handling — improved
 
-The route verifies MFA before using the service-role key, and reports failure when Auth deletion fails. It relies on verified `ON DELETE CASCADE` foreign keys for health data; inspect these constraints using the migration preflight before rollout.
+The route verifies identity and MFA before using the service-role key, and reports failure when Auth deletion fails. It depends on `ON DELETE CASCADE` foreign keys for associated rows. Their presence in a target database must be verified with the migration preflight; this checkout does not establish them.
 
 ### External support API
 
@@ -66,7 +66,26 @@ The active owner's explicit Delete All Data flow clears local food, drinks, work
 
 ## Update/changelog note
 
-`public/changelog.json` is the local source of entries. Parts of `_lib/changelog.ts` contain compatibility functions whose cloud persistence is currently a no-op; `UpdateCenter.tsx` uses local keys for visible state. A rebuild should not assume a Supabase changelog table.
+`public/changelog.json` is the source of changelog entries. Acknowledgements are stored under guest- or user-specific Local Storage keys and synchronized to `profiles.latest_version` for signed-in users. This requires a profile column and grants that are not established by the sole migration in this checkout. There is no Supabase changelog table in the repository contract.
+
+## Migration sources missing from this checkout
+
+The application expects base profile/health tables, unique sync keys, reset
+markers, an MFA-aware RLS setup and `clear_healthsync_data()`. Only the
+newsletter-preference migration is present under `supabase/migrations/`. The
+reference SQL in `hosting.md` does not create the policies or RPC. Until the
+missing schema/security sources or separately reviewed deployment records are
+available, treat the live database shape, grants, policies and reset behavior
+as unverified.
+
+The existing `hosting.md` section 4.2 is titled as if it includes RLS policies,
+but its SQL only enables RLS and defines no policies. Its section 4.4 also
+refers to security and profile-version migrations that are absent from this
+checkout. Its table-of-contents anchors and numbering also do not match several
+section headings. Those portions remain unchanged because this audit was
+restricted to `docs/` and the root `README.md`; treat the referenced migration/
+policy claims as unverified until the source files or direct target-database
+evidence are available.
 
 ## Consequence for agents
 

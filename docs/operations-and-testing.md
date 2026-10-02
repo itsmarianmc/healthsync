@@ -81,13 +81,14 @@ For Vercel, set environment variables in project settings. For a self-managed No
 ## Supabase operations
 
 1. Create or clone the project intended for development/testing.
-2. Run the base schema from `hosting.md` only for a new, isolated project.
+2. Treat the SQL in `hosting.md` as a table-shape reference only. It enables
+   RLS without defining policies and is not a complete setup procedure.
 3. Review the actual schema, policies, grants and constraints using
-   [`security-migration.md`](./security-migration.md).
-4. Apply the ordered migrations to the isolated project and verify the
-   database-level access matrix. The maintainer reports this migration
-   completed without error on the cloned HealthSync development project on
-   2026-09-30; do not assume another project has the same schema or policies.
+   [`security-migration.md`](./security-migration.md). This checkout contains
+   only the additive newsletter preference migration; it does not contain the
+   base schema or security migration chain described in older audit notes.
+4. Do not assume that the historical reports of a clone migration establish
+   the state of another project or the current remote schema.
 5. Verify each app-level acceptance case in `security-migration.md` using
    disposable users, especially cross-account access, AAL1/AAL2, sync after
    reload, Delete All Data and account deletion.
@@ -112,7 +113,7 @@ Offline does not make external features available: Open Food Facts, Gemini, weat
 
 ## Security headers and CSP
 
-[proxy.ts](../../src/proxy.ts) sets Content-Security-Policy, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` and a Permissions Policy for geolocation, camera, microphone and sensors.
+[proxy.ts](../src/proxy.ts) sets Content-Security-Policy, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` and a Permissions Policy for geolocation, camera, microphone and sensors.
 
 When adding an external host, update `connect-src`, `img-src`, `script-src` or `style-src` narrowly. Do not add a global wildcard.
 

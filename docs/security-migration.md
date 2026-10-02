@@ -1,305 +1,148 @@
-# Security and synchronization migration (2026-09-30)
+# Supabase schema and security runbook
 
-This migration is **not applied automatically by the application**. The
-maintainer reports that all four local migrations match the remote migration
-history and supplied a read-only production SQL check of the current policies
-and owner/AAL visibility on all five app tables. Direct INSERT/UPDATE/DELETE
-and an allowed reset were not exercised in that check. In a separate
-2026-10-02 follow-up, the maintainer reports that the SQL write cases and an
-allowed `clear_healthsync_data()` reset passed; the exact operation matrix was
-not supplied, and this report was not independently repeated here. The
-maintainer also reports that the current E2E suite and production build pass;
-the exact E2E count was not supplied. The application code requires its
-`deleted_at`, `data_reset_at`, and `intensity` columns, policies, grants, and
-RPC function. Deploy the migration before the matching application release.
-Do not use a production service-role key in tests.
+## What this checkout establishes
 
-The maintainer also reports passing application tests after an onboarding
-profile-insert/RLS issue was resolved. The six follow-up acceptance cases below
-require explicit evidence for any remaining uncovered owner/MFA or deployment paths.
+The current repository contains only
+[`20261002010000_profile_newsletter_preferences.sql`](../supabase/migrations/20261002010000_profile_newsletter_preferences.sql).
+It alters an already existing `public.profiles` table to add newsletter
+preference and timestamp columns, installs a timestamp trigger, and grants
+authenticated column-level SELECT and UPDATE access. It does **not** create
+`profiles`, the health-data tables, base grants or RLS policies, MFA helpers,
+the `clear_healthsync_data()` RPC, or the foreign keys required for account
+deletion. The SQL setup section in [`hosting.md`](../hosting.md) is a reference
+schema, not an executable migration history or proof of the current remote
+schema.
 
-An earlier 2026-10-01 RLS test returned PostgreSQL `42703` because
-`public.profiles.latest_version` was absent. The maintainer subsequently
-applied the additive profile migration and reconciled the remote migration
-ledger; the later read-only SQL check covered owner/MFA SELECT behavior. Keep
-the earlier error as rollout history, not as the current schema status.
+Older audit notes record maintainer reports about migrations and database tests
+performed against other checkouts/projects. Those files, database query output,
+and project state are not available for independent verification from this
+working tree. The reports are retained as historical context in
+[`quality-audit.md`](./quality-audit.md); do not use them as evidence that a
+current DEV or production database has the expected schema or policies.
 
-The earlier schema query showed the existing
-`profiles.last_seen_changelog_version` text column but no `latest_version`.
-The additive migration copies old per-account values into `latest_version`
-only where the new field is null and grants access to the new field. It leaves
-the old column in place. The later maintainer-supplied checks recorded the
-column/grants, backfill, migration history, and authenticated owner/AAL reads.
-The maintainer separately reports successful SQL writes and an allowed reset
-on 2026-10-02; see the qualification at the top of this runbook.
+Before applying even the available additive migration, inspect the target
+database and its Supabase migration history. Confirm that `public.profiles`
+exists, that its owner/MFA policies are already correct, and that the pending
+migration is intended for that project. The newsletter migration does not
+replace or repair any existing policy. Applying it does not configure an email
+provider or send email.
 
-## Inspect the actual database first
+## Read-only preflight
 
-Save the output and compare it with the expected schema. The repository cannot
-inspect the production database, so the policies supplied in the audit are
-evidence, not a complete catalog.
+Run these queries in the intended Supabase project and retain their output with
+the change record. They inspect the actual target; repository SQL alone cannot
+confirm deployed state.
 
 ```sql
 select table_schema, table_name, column_name, data_type, is_nullable
 from information_schema.columns
-where table_schema='public' and table_name in
-  ('profiles','calsync_entries','dropsync_entries','workout_sessions','user_settings')
+where table_schema = 'public'
+  and table_name in ('profiles', 'calsync_entries', 'dropsync_entries', 'workout_sessions', 'user_settings')
 order by table_name, ordinal_position;
 
 select schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check
-from pg_policies where schemaname='public' and tablename in
-  ('profiles','calsync_entries','dropsync_entries','workout_sessions','user_settings')
+from pg_policies
+where schemaname = 'public'
+  and tablename in ('profiles', 'calsync_entries', 'dropsync_entries', 'workout_sessions', 'user_settings')
 order by tablename, policyname;
 
-select grantor, grantee, table_name, privilege_type
+select grantee, table_name, privilege_type
 from information_schema.role_table_grants
-where table_schema='public' and table_name in
-  ('profiles','calsync_entries','dropsync_entries','workout_sessions','user_settings')
+where table_schema = 'public'
+  and table_name in ('profiles', 'calsync_entries', 'dropsync_entries', 'workout_sessions', 'user_settings')
 order by table_name, grantee, privilege_type;
 
 select grantee, table_name, column_name, privilege_type
 from information_schema.column_privileges
-where table_schema='public' and table_name in
-  ('profiles','calsync_entries','dropsync_entries','workout_sessions','user_settings')
-order by table_name, column_name, grantee;
+where table_schema = 'public'
+  and table_name in ('profiles', 'calsync_entries', 'dropsync_entries', 'workout_sessions', 'user_settings')
+order by table_name, column_name, grantee, privilege_type;
 
 select c.relname as table_name, t.tgname, pg_get_triggerdef(t.oid) as definition
-from pg_trigger t join pg_class c on c.oid=t.tgrelid
-join pg_namespace n on n.oid=c.relnamespace
-where n.nspname='public' and c.relname in
-  ('profiles','calsync_entries','dropsync_entries','workout_sessions','user_settings')
+from pg_trigger t
+join pg_class c on c.oid = t.tgrelid
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public'
+  and c.relname in ('profiles', 'calsync_entries', 'dropsync_entries', 'workout_sessions', 'user_settings')
   and not t.tgisinternal;
 
 select conrelid::regclass as table_name, conname, pg_get_constraintdef(oid) as definition
-from pg_constraint where conrelid in
-  ('public.profiles'::regclass,'public.calsync_entries'::regclass,
-   'public.dropsync_entries'::regclass,'public.workout_sessions'::regclass,
-   'public.user_settings'::regclass);
-
-select conrelid::regclass as referencing_table,
-       confrelid::regclass as referenced_table,
-       conname, pg_get_constraintdef(oid) as definition
 from pg_constraint
-where contype='f'
-  and confrelid in
-    ('auth.users'::regclass,'public.profiles'::regclass,
-     'public.calsync_entries'::regclass,'public.dropsync_entries'::regclass,
-     'public.workout_sessions'::regclass,'public.user_settings'::regclass)
-order by referenced_table, referencing_table, conname;
-
-select 'food' as kind, user_id, entry_id, count(*) from public.calsync_entries
-group by 1,2,3 having count(*)>1
-union all
-select 'drink', user_id, entry_id, count(*) from public.dropsync_entries
-group by 1,2,3 having count(*)>1;
+where conrelid in (
+  'public.profiles'::regclass, 'public.calsync_entries'::regclass,
+  'public.dropsync_entries'::regclass, 'public.workout_sessions'::regclass,
+  'public.user_settings'::regclass
+);
 ```
 
-Also inspect views and `SECURITY DEFINER` functions that reference these tables,
-role memberships, default privileges, and Auth hooks. An extra policy or grant
-can change the effective access. A view owned by a privileged role can bypass
-table RLS. Resolve unexpected results before applying. Check that profile and
-health-table foreign keys to `auth.users` use `ON DELETE CASCADE`; account
-deletion now relies on these constraints and fails visibly if they do not.
-Review every inbound foreign key in the query above: custom tables that
-reference these rows can also block deletion or require an intentional cascade.
-The migration stops before changing policies unless `profiles.id` and
-`user_settings.user_id` already have single-column unique indexes, as required
-by the app's upserts.
+The final query assumes all five tables exist; if any are absent, first use the
+column query to identify that and adapt the constraint inspection. Also inspect
+views, `SECURITY DEFINER` functions, role memberships, default privileges,
+Auth hooks and foreign keys that reference these tables. In particular, account
+deletion in the app relies on `ON DELETE CASCADE` from `auth.users` for profile
+and health rows. A repository declaration or client-side check is not a
+substitute for target-database evidence.
 
-The security migration replaces **all** policies on the five app tables. Review each
-existing policy and any dependent integration before approving that step. Its
-column-grant reset covers `PUBLIC`, `anon`, and `authenticated`; inspect grants
-through other roles separately. `profiles` is intentionally owner-readable
-only. The app needs `id`, `display_name`, `full_name`, and `avatar_url`. A public
-profile directory or privileged profile field requires a separate design.
-An UPDATE policy without `WITH CHECK` was not by itself a flaw: PostgreSQL uses
-the `USING` expression for the new row if no explicit check is provided.
+## Expected application contract
 
-## CLI migrations and rollout order
+The client expects these tables and conflict keys:
 
-The repository contains a baseline schema migration, the owner/MFA sync
-migration, the reset-defaults follow-up, and an additive profile changelog-version
-migration. They are timestamped and applied in that order by the Supabase CLI.
-`supabase db push` applies schema migrations only; it does not copy Auth users,
-health rows, Storage objects, secrets, Auth
-settings or project configuration. Restore database data and configure Auth
-separately when preparing a clone.
+| Table | Expected role | Client key / behavior |
+|---|---|---|
+| `profiles` | Account display fields, changelog acknowledgement and newsletter preference | `id = auth.users.id`; client selects the signed-in user's row |
+| `calsync_entries` | Food entries and deletion state | `(user_id, entry_id)` |
+| `dropsync_entries` | Drink entries and deletion state | `(user_id, entry_id)` |
+| `user_settings` | Goals, supplement/activity settings, routines and reset marker | `user_id` |
+| `workout_sessions` | Completed workout history | `(user_id, session_id)` |
 
-For the current production project reference shared by the maintainer, the
-PowerShell deployment sequence is:
+The exact base columns, constraints, RLS policies, grants and reset RPC must be
+confirmed against the target. The reference table definitions are in
+[`hosting.md`](../hosting.md); sync mappings and local formats are in
+[`data-model-and-storage.md`](./data-model-and-storage.md).
 
-```powershell
-npx supabase login
-npx supabase link --project-ref stuqtqlkantewwxhwitg
-npx supabase migration list --linked
-npx supabase db push --linked --dry-run
-# Review the target and all pending migration versions before proceeding.
-npx supabase db push --linked
-```
+The checked-in newsletter migration adds `newsletter_opt_in boolean not null
+default false`, `newsletter_opt_in_at timestamptz`, and
+`newsletter_opt_out_at timestamptz`. Its trigger records the time of a change
+to the opt-in boolean. Authenticated users receive SELECT on those three
+columns and UPDATE on `newsletter_opt_in`; the migration does not grant table
+access or modify RLS. Confirm the resulting effective permissions and policies
+on the intended target after applying it.
 
-The CLI may ask for the database password while linking. `link` changes only the
-local CLI target. The dry run previews pending migration versions; the final
-command is the operation that changes the linked remote database. If the
-production project reference has changed, replace the reference in `link` and
-confirm it again before pushing. The original SQL-editor application was not
-recorded in CLI migration history, so the first push may execute the baseline,
-security and hotfix migrations again. The baseline uses `IF NOT EXISTS`; the security
-migration deliberately replaces all policies on its five target tables, so
-complete the database preflight and backup before that first push. Do not use
-`migration repair` to mark these files applied unless the actual database has
-been checked against every migration and the history mismatch is understood.
+## Authorization checks to perform in an isolated project
 
-## Order
+Use disposable accounts and the publishable/anon key with their real user JWTs.
+Never put a service-role key in a browser or use it to test RLS. Test direct
+database access as well as the app/API flow, and record project, account
+factor status, JWT assurance level, action, expected result, and observed
+result.
 
-1. Take a verified backup and a schema-only dump of these five tables,
-   policies, grants, functions, and triggers. Save the preflight output.
-2. Restore a backup only when a data clone is required. In a fresh isolated
-   project, link the CLI to that project and run `npx supabase db push
-   --linked --dry-run`, inspect the pending list, then `npx supabase db push
-   --linked`. Resolve duplicate `(user_id, entry_id)` or `(user_id,
-   session_id)` rows deliberately before unique indexes are created. The prior
-   clone run is complete; do not treat successful SQL as proof that all app
-   flows work.
-3. In that project, exercise the matrix below with test users and a verified
-   TOTP factor. Confirm no unexpected policies, triggers, grants, or views
-   permit access. The migration is one transaction and rolls back on error.
-4. Repeat the preflight against the intended target and compare it with the
-   tested copy. Push the pending migrations, then deploy the matching app code. The
-   repository and the test-clone result do not confirm a production database
-   change or deployment.
-
-## Follow-up fix: Delete All Data settings defaults
-
-On 2026-10-01, the maintainer reported that Delete All Data on the cloned DEV
-project first returned PostgreSQL error `23502` because
-`user_settings.supplements_taken` was `NOT NULL`; after that field was fixed,
-the next retry showed the same constraint on `user_settings.status`. The reset
-function now writes an empty JSON object for `supplements_taken` and the app's
-default activity status (`active` / `until_changed`) for `status`. For projects
-where the original migration has already been applied, run the updated
-additive [`20261001000000_fix_data_reset_defaults.sql`](../supabase/migrations/20261001000000_fix_data_reset_defaults.sql)
-in that project's SQL Editor, then retry Delete All Data with a disposable
-test account. Do this on the isolated DEV clone first. Do not consider deletion
-verified until both the RPC succeeds and the health rows/settings have the
-expected reset state. This fix has not been applied to production based on
-repository evidence.
-
-The maintainer also reported an unfinished TOTP enrollment that failed because
-a factor with an empty friendly name already existed. The login page now checks
-factor-list and cleanup errors, removes unverified interrupted enrollments
-before starting another, gives new factors a friendly name, and renders the
-Supabase-provided QR URI locally. Supabase sets `nextLevel` to `aal2` while an
-enrollment is unverified, so the app now requires both a verified factor and a
-session below `aal2` before it blocks access. Leaving setup through the page's
-Back actions removes its unverified factor; setup is only labeled active after
-verification. A pending factor left by closing the browser is not treated as
-enabled and is cleaned up when setup is started again. Test sign-in, sync and
-cancellation after scanning but before confirming on DEV before production
-rollout; code changes alone are not evidence of successful enrollment.
-
-## Required isolation tests
-
-Use the Supabase client with the publishable key and real isolated test JWTs;
-never use the service-role key for these tests. Assert both direct table access
-and the app's sync and delete endpoints.
-
-| State | Expected result |
-| --- | --- |
-| Guest (`anon`) | No rows or RPC access; local tracking works |
-| User A without a verified factor, `aal1` | Own rows and reset RPC work |
-| User B with a verified factor, `aal1` | No SELECT, INSERT, UPDATE, DELETE, profile upsert, or reset RPC |
-| User B after TOTP verification, `aal2` | Own rows and reset RPC work |
-| User A vs user B | Neither account can read or alter the other's rows or profile |
-| Two browsers, one offline | Repeated drink/workout upload is idempotent; a tombstoned food/drink stays hidden |
-| Failed cloud write | Local queue remains; reconnect retries; no success toast for a failed cloud operation |
-| Account switch | Each browser workspace remains separate; guest import requires explicit action |
-| Delete All Data | Cloud rows gone, settings reset, other device discards old queue via `data_reset_at` |
-
-Also capture these explicit end-to-end acceptance results before declaring the
-security/sync validation complete:
-
-| Acceptance case | Evidence to record |
+| State | Expected result to verify |
 |---|---|
-| Guest mode | Can create and reload local health entries without an account; no guest cloud rows |
-| No verified MFA | Own profile and health data can be read and changed at the expected assurance level |
-| Account isolation | Two disposable accounts cannot select or mutate each other's profiles or health rows |
-| Verified MFA | Protected access is denied before TOTP completion and works for the owner's data afterward |
-| Reload sync | Food, drinks and completed workouts still appear after cloud sync and reload |
-| Destructive actions | Delete All Data clears health data; account deletion removes the disposable Auth user and cascaded rows |
+| Guest / `anon` | No profile or health data access; local tracking remains usable |
+| Account without a verified TOTP factor at AAL1 | Access only to its own permitted profile and health data |
+| Account with a verified factor at AAL1 | Protected reads and writes are denied until the MFA challenge completes |
+| Same verified-factor account at AAL2 | Access only to its own permitted profile and health data |
+| Two accounts | Neither can read or change the other's profile or health rows |
+| Sync retry | Failed cloud reads/writes do not discard pending local records or appear as successful empty sync |
+| Delete All Data | Reset RPC removes/reset expected health data and preserves intended profile identity fields |
+| Account deletion | Auth user and dependent rows are removed through verified database cascades |
 
-The maintainer requested these six checks as Notion tasks. The status below
-records the maintainer's reports as reports; it is not independent verification.
-Update the evidence/status when the remaining DEV checks are completed.
+Test SELECT, INSERT, UPDATE and DELETE for each applicable table, plus both
+denied and allowed calls to `clear_healthsync_data()`. Also verify unique
+conflict keys, deletion markers, settings defaults and reload behavior. A
+successful SQL transaction or a passing browser suite alone does not establish
+all of these properties.
 
-| Acceptance case | Current status reported by maintainer |
-|---|---|
-| Guest mode | Pass: local data remains usable. |
-| No verified MFA | Pass: own profile and health data can be read and changed per maintainer; direct A-at-AAL1 SQL test allowed own profile read/update. |
-| Account isolation | Direct SQL reads across all five tables showed only each account's own baseline rows at its permitted AAL; prior no-op UPDATE checks denied foreign profile and one foreign food row. Full cross-account CRUD remains untested. |
-| Verified MFA | B at AAL1 saw no rows on all five tables and the reset RPC returned `42501`; B at AAL2 saw all own baseline rows. A without a verified factor saw own rows at AAL1. Positive health-table writes and reset RPC success are separate app-level reports, not part of this read-only SQL run. |
-| Reload sync | Pass: food, drinks and workouts remain after reload. |
-| Destructive actions | Pass per maintainer: Delete All Data works after the reset-RPC hotfix, and account deletion works with a disposable account. |
+## Historical reports and current verification boundary
 
-For the MFA assertions, verify the Auth JWT `aal` claim and the factor's
-`verified` status. Test a restored `aal1` session by opening a protected URL
-directly. Test `/api/account/delete` only with disposable test users.
+The prior audit log includes maintainer-provided reports of an isolated-clone
+migration, owner/AAL read checks, SQL writes/reset, application tests and a
+production build. It also records an earlier production profile-column
+discrepancy and later reported history repair. These are dated reports, not
+independent evidence for the current checkout or target database. No database
+was queried or changed as part of the October 2, 2026 documentation audit.
 
-### Manually applied profile-version migration (2026-10-01)
-
-The maintainer reports applying
-[`20261001010000_profile_latest_version.sql`](../supabase/migrations/20261001010000_profile_latest_version.sql)
-in the production project's SQL Editor. Follow-up checks found the new column,
-authenticated SELECT/INSERT/UPDATE column privileges, no anonymous SELECT
-privilege, and seven legacy version values copied to `latest_version`.
-The first supplied `supabase_migrations.schema_migrations` result contained only
-versions `20260929000000`, `20260930000000`, and `20261001000000`: the manual
-migration was absent from the ledger. The maintainer subsequently ran Supabase
-CLI `migration repair 20261001010000 --status applied --linked` against the
-linked project reference `stuqtqlkantewwxhwitg`. The CLI reported success, and
-both `migration list --linked` and a SQL history query showed all four versions
-present, with `20261001010000` named `profile_latest_version` in SQL. The
-migration history is aligned for that queried project; the CLI repair recorded
-history and did not rerun migration SQL.
-
-### Read-only production RLS matrix supplied by maintainer (2026-10-01)
-
-The maintainer supplied a single SQL Editor result after simulating the `anon`
-role and two authenticated identities. The `postgres` baseline had A/B row
-counts of profiles 1/1, settings 1/1, food 3/66, drinks 1/18, and workout
-sessions 0/7. At AAL2, B saw exactly B's rows in all five tables and no
-foreign rows. At AAL1, B saw zero rows in all five, `healthsync_mfa_ok()` was
-false, and `clear_healthsync_data()` returned SQLSTATE `42501`. At AAL1, A had
-`healthsync_mfa_ok()` true and saw only A's baseline rows. Anonymous reads on
-all five tables and the reset RPC returned `42501`. RLS, listed policies,
-table grants, and RPC execution grants matched the migration's intended
-structure; profile access uses column grants rather than table-wide grants.
-
-This transaction was read-only. It confirms the stated SELECT isolation and
-denied reset behavior, while direct INSERT/UPDATE/DELETE checks on every
-health table and an allowed reset call remain outside this SQL result. Use
-disposable accounts for any further write/reset acceptance tests.
-
-## Conflict and deletion rule
-
-Each browser stores a separate active workspace for guest and each user ID.
-Old unscoped data is treated as guest data. The Settings action explicitly
-imports guest food, drinks, and workouts into one account and consumes the
-guest copy. Cloud rows are authoritative for an account except locally marked
-pending writes. Individual food and drink deletion sets `deleted_at`; later
-uploads that omit this field cannot clear the tombstone. Undo explicitly clears
-it. This retains the deleted row until Delete All Data or account deletion;
-review retention needs for your privacy policy. Delete All Data physically
-removes health rows and resets app settings. It preserves account identity
-fields in `profiles`; account deletion removes that row through its
-`ON DELETE CASCADE` foreign key. Other devices compare `data_reset_at` before
-uploading queued entries.
-
-## Backout
-
-If the SQL transaction fails, PostgreSQL rolls it back. After commit, stop the
-matching app release and restore the saved schema and data backup to an
-isolated project first. Compare its grants, policies, triggers, and row counts,
-then restore to the target in a maintenance window. A generic `DROP POLICY`
-rollback is unsafe because existing policies and column grants may differ
-from the audit snapshot. Do not reopen the old `profiles USING (true)` policy
-or the `auth.uid()`-only policies as a quick workaround.
+No current production migration/deployment status is established here. Do not
+describe the security rollout as complete until the exact checked-in migration
+set, target history/schema, owner/MFA matrix, reset/deletion behavior, and
+matching deployed application have current, reviewable evidence.

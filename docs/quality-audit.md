@@ -3,6 +3,23 @@
 Status snapshot: 2026-10-01. This is a dated evidence record, not an ongoing CI
 dashboard. Update it when a new run or database verification is completed.
 
+## Checkout boundary observed 2026-10-02
+
+This documentation audit read the current source/configuration and existing
+working-tree changes but did not run unit tests, E2E, lint, TypeScript, or a
+build, and did not query or change a Supabase project. Therefore it adds no
+fresh pass/fail results. The current checkout contains only
+`supabase/migrations/20261002010000_profile_newsletter_preferences.sql`; the
+baseline, owner/MFA security, reset-defaults, and profile-version migration
+files named in older entries below are absent. Those older migration and
+database statements are historical, dated maintainer/audit reports, not
+evidence for this checkout's migration chain or any current remote database.
+
+The worktree already had changes before this documentation audit, including
+application files, a new account route and this set of modified documents.
+Those changes were treated as the source being documented. No application
+file or external system was changed by the audit.
+
 ## Source and app checks
 
 The earlier repository audit recorded the following results for the then-current

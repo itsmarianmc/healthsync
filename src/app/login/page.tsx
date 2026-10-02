@@ -3,80 +3,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '../_lib/supabase';
 import './styles.css';
 import { hasVerifiedMfaFactor, needsMfaVerification } from '../_lib/mfaPolicy';
 import { authErrorMessage } from '../_lib/userFacingErrors';
+import OtpInput from '../_components/shared/OtpInput';
 
-type View = 'login' | 'register' | 'mfa' | 'setup2fa' | 'reset' | 'resetMfa' | 'confirm' | 'loggedIn';
+type View = 'login' | 'register' | 'mfa' | 'reset' | 'resetMfa' | 'confirm' | 'loggedIn';
 
 interface AlertState { msg: string; type: 'error' | 'success' | 'info' | '' }
 const EMPTY_ALERT: AlertState = { msg: '', type: '' };
-
-function OtpInput({ id, onComplete, disabled = false }: { id: string; onComplete?: (code: string) => void; disabled?: boolean }) {
-    const refs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null),
-        useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
-
-    const getCode = () => refs.map(r => r.current?.value || '').join('');
-
-    const distributeCode = (raw: string) => {
-        const digits = raw.replace(/\D/g, '').slice(0, 6);
-        if (!digits) return;
-        refs.forEach((ref, index) => {
-            if (ref.current) ref.current.value = digits[index] || '';
-        });
-        refs[Math.min(digits.length - 1, 5)].current?.focus();
-        if (digits.length === 6 && onComplete) onComplete(digits);
-    };
-
-    const handleInput = (idx: number) => {
-        const input = refs[idx].current!;
-        const digits = input.value.replace(/\D/g, '');
-        if (digits.length > 1) {
-            distributeCode(digits);
-            return;
-        }
-        input.value = digits;
-        if (digits && idx < 5) refs[idx + 1].current?.focus();
-        if (getCode().length === 6 && onComplete) onComplete(getCode());
-    };
-
-    const handleKeyDown = (idx: number, e: React.KeyboardEvent) => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
-            e.preventDefault();
-            refs.forEach(ref => { if (ref.current) ref.current.value = ''; });
-            refs[0].current?.focus();
-            return;
-        }
-        if (e.key === 'Backspace' && !refs[idx].current?.value && idx > 0) refs[idx - 1].current?.focus();
-        if (e.key === 'ArrowLeft' && idx > 0) refs[idx - 1].current?.focus();
-        if (e.key === 'ArrowRight' && idx < 5) refs[idx + 1].current?.focus();
-    };
-
-    const handlePaste = (e: React.ClipboardEvent) => {
-        const text = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-        if (text.length === 6) {
-            e.preventDefault();
-            distributeCode(text);
-        }
-    };
-
-    return (
-        <div className="otp-wrap" id={id} role="group" aria-label="Six-digit authenticator code">
-            {refs.map((ref, i) => (
-                <input key={i} ref={ref} type="text" inputMode="numeric" pattern="[0-9]*"
-                aria-label={`Authenticator code, digit ${i + 1} of 6`}
-                disabled={disabled}
-                autoComplete={i === 0 ? 'one-time-code' : undefined}
-                onInput={() => handleInput(i)}
-                onKeyDown={e => handleKeyDown(i, e)}
-                onPaste={handlePaste}
-                />
-            ))}
-        </div>
-    );
-}
 
 function Alert({ alert }: { alert: AlertState }) {
     if (!alert.msg) return <div className="alert" />;
@@ -90,7 +26,6 @@ export default function LoginPage() {
     const [loginAlert, setLoginAlert] = useState<AlertState>(EMPTY_ALERT);
     const [registerAlert, setRegisterAlert] = useState<AlertState>(EMPTY_ALERT);
     const [mfaAlert, setMfaAlert] = useState<AlertState>(EMPTY_ALERT);
-    const [setup2faAlert, setSetup2faAlert] = useState<AlertState>(EMPTY_ALERT);
     const [resetAlert, setResetAlert] = useState<AlertState>(EMPTY_ALERT);
     const [resetMfaAlert, setResetMfaAlert] = useState<AlertState>(EMPTY_ALERT);
     const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
@@ -100,16 +35,7 @@ export default function LoginPage() {
     const [showLoginPw, setShowLoginPw] = useState(false);
     const [showRegPw, setShowRegPw] = useState(false);
     const [showRegConfirmPw, setShowRegConfirmPw] = useState(false);
-    const [qrUri, setQrUri] = useState<string | null>(null);
-    const [totpSecret, setTotpSecret] = useState('');
-    const [setup2FAMode, setSetup2FAMode] = useState<'setup' | 'test'>('setup');
-    const [setupFactorId, setSetupFactorId] = useState<string | null>(null);
-    const [showDisableModal, setShowDisableModal] = useState(false);
-    const [disableAlert, setDisableAlert] = useState<AlertState>(EMPTY_ALERT);
     const [loggedInUser, setLoggedInUser] = useState<string>('');
-    const [showChangePw, setShowChangePw] = useState(false);
-    const [changePwStep, setChangePwStep] = useState<1 | 2>(1);
-    const [changePwAlert, setChangePwAlert] = useState<AlertState>(EMPTY_ALERT);
 
     const mfaChallengeRef = useRef<string | null>(null);
     const mfaFactorRef = useRef<string | null>(null);
@@ -174,6 +100,13 @@ export default function LoginPage() {
 
         const params = new URLSearchParams(window.location.search);
         if (params.get('keep_login_page') === 'true') return;
+
+        // Only honor the internal account destination. Any other supplied value
+        // falls back to the existing dashboard flow.
+        if (params.get('next') === '/account') {
+            router.replace('/account');
+            return;
+        }
 
         setTimeout(() => { router.push('/dash'); }, 2200);
     }, [router]);
@@ -322,167 +255,6 @@ export default function LoginPage() {
                 setLoading(false);
             }
         });
-    };
-
-    const show2FASetupOffer = async () => {
-        setSetup2faAlert(EMPTY_ALERT);
-        setQrUri(null);
-        setTotpSecret('');
-        setSetupFactorId(null);
-        setView('setup2fa');
-        setLoading(true);
-        try {
-            const { data: existingFactors, error: listError } = await supabase.auth.mfa.listFactors();
-            if (listError) throw listError;
-
-            const existingTotp = existingFactors.totp.find(factor => factor.status === 'verified');
-            if (existingTotp) {
-                setSetupFactorId(existingTotp.id);
-                setSetup2FAMode('test');
-                setSetup2faAlert({ msg: '2FA is already set up. You can test your code here.', type: 'info' });
-                return;
-            }
-
-            // An interrupted enrollment leaves an unverified factor behind.
-            // Check every cleanup result instead of silently trying to enroll
-            // another factor with the same (possibly empty) friendly name.
-            const unverifiedFactors = existingFactors.all.filter(
-                factor => factor.factor_type === 'totp' && factor.status === 'unverified',
-            );
-            for (const factor of unverifiedFactors) {
-                const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id });
-                if (error) throw error;
-            }
-
-            const { data, error } = await supabase.auth.mfa.enroll({
-                factorType: 'totp',
-                issuer: 'HealthSync',
-                friendlyName: 'HealthSync Authenticator',
-            });
-            if (error) throw error;
-
-            setSetupFactorId(data.id);
-            setSetup2FAMode('setup');
-            setTotpSecret(data.totp.secret);
-            setQrUri(data.totp.uri);
-        } catch (error) {
-            const message = authErrorMessage(error, 'Could not load authenticator settings. Check your connection and try again.');
-            setSetup2faAlert({ msg: message, type: 'error' });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const doSetup2FA = async (code: string) => {
-        if (code.length < 6) return setSetup2faAlert({ msg: 'Enter all 6 digits.', type: 'error' });
-        await verifyOnce(async () => {
-            setLoading(true);
-            try {
-                const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: setupFactorId! });
-                if (challengeError) throw challengeError;
-                const { error } = await supabase.auth.mfa.verify({ factorId: setupFactorId!, challengeId: challenge.id, code });
-                if (error) throw error;
-                setSetup2FAMode('test');
-                setQrUri(null);
-                setTotpSecret('');
-                setSetup2faAlert({ msg: setup2FAMode === 'test' ? 'Code correct! 2FA is working.' : '2FA enabled successfully!', type: 'success' });
-            } catch (error) {
-                const message = authErrorMessage(error, 'That verification code could not be confirmed. Check the current code and try again.');
-                setSetup2faAlert({ msg: message, type: 'error' });
-            } finally {
-                setLoading(false);
-            }
-        });
-    };
-
-    const leave2FASetup = async () => {
-        if (loading) return;
-        if (setup2FAMode === 'setup' && setupFactorId) {
-            setLoading(true);
-            try {
-                const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
-                if (listError || !factors) throw listError || new Error('Could not check the setup status.');
-                const factor = factors.all.find((item) => item.id === setupFactorId);
-                if (factor?.status === 'unverified') {
-                    const { error } = await supabase.auth.mfa.unenroll({ factorId: setupFactorId });
-                    if (error) throw error;
-                }
-            } catch (error) {
-                const message = authErrorMessage(error, 'The unfinished authenticator could not be removed. Try again or contact support.');
-                setSetup2faAlert({ msg: `Setup is not active until a code is confirmed. ${message}`, type: 'error' });
-                setLoading(false);
-                return;
-            }
-            setLoading(false);
-        }
-        setQrUri(null);
-        setTotpSecret('');
-        setSetupFactorId(null);
-        setSetup2faAlert(EMPTY_ALERT);
-        setView('loggedIn');
-    };
-
-    const confirmDisable2FA = async (code: string) => {
-        if (!setupFactorId || code.length < 6) return;
-        await verifyOnce(async () => {
-            setLoading(true);
-            try {
-                const { data: challenge, error: ce } = await supabase.auth.mfa.challenge({ factorId: setupFactorId });
-                if (ce) { setDisableAlert({ msg: authErrorMessage(ce, 'Could not start verification. Try again.'), type: 'error' }); return; }
-                const { error: ve } = await supabase.auth.mfa.verify({ factorId: setupFactorId, challengeId: challenge!.id, code });
-                if (ve) { setDisableAlert({ msg: 'Invalid code. Please try again.', type: 'error' }); return; }
-                const { error: ue } = await supabase.auth.mfa.unenroll({ factorId: setupFactorId });
-                if (ue) { setDisableAlert({ msg: authErrorMessage(ue, 'Could not disable 2FA. Try again or contact support.'), type: 'error' }); return; }
-                setSetupFactorId(null);
-                setShowDisableModal(false);
-                setSetup2faAlert({ msg: '2FA has been disabled successfully.', type: 'success' });
-                setTimeout(() => show2FASetupOffer(), 2000);
-            } finally {
-                setLoading(false);
-            }
-        });
-    };
-
-    const doChangePassword = async (code: string) => {
-        if (code.length < 6) return setChangePwAlert({ msg: 'Enter all 6 digits.', type: 'error' });
-        await verifyOnce(async () => {
-            const { data: factors } = await supabase.auth.mfa.listFactors();
-            const totp = factors?.totp?.find(f => f.status === 'verified');
-            if (!totp) { setChangePwStep(2); return; }
-            setLoading(true);
-            try {
-                const { data: challenge, error: ce } = await supabase.auth.mfa.challenge({ factorId: totp.id });
-                if (ce) { setChangePwAlert({ msg: authErrorMessage(ce, 'Could not start verification. Try again.'), type: 'error' }); return; }
-                const { error: ve } = await supabase.auth.mfa.verify({ factorId: totp.id, challengeId: challenge!.id, code });
-                if (ve) { setChangePwAlert({ msg: 'Invalid code.', type: 'error' }); return; }
-                setChangePwStep(2);
-                setChangePwAlert(EMPTY_ALERT);
-            } finally {
-                setLoading(false);
-            }
-        });
-    };
-
-    const doChangePasswordSubmit = async () => {
-        const newPw = (document.getElementById('newPassword') as HTMLInputElement)?.value;
-        const confirmPw = (document.getElementById('confirmNewPassword') as HTMLInputElement)?.value;
-        if (!newPw || newPw.length < 8) return setChangePwAlert({ msg: 'Password must be at least 8 characters.', type: 'error' });
-        if (newPw !== confirmPw) return setChangePwAlert({ msg: 'Passwords do not match.', type: 'error' });
-        setLoading(true);
-        const { error } = await supabase.auth.updateUser({ password: newPw });
-        setLoading(false);
-        if (error) return setChangePwAlert({ msg: authErrorMessage(error, 'Could not change your password. Check the new password and try again.'), type: 'error' });
-        setChangePwAlert({ msg: 'Password changed successfully!', type: 'success' });
-        setTimeout(() => { setShowChangePw(false); setChangePwStep(1); setChangePwAlert(EMPTY_ALERT); }, 2000);
-    };
-
-    const openChangePw = async () => {
-        setChangePwAlert(EMPTY_ALERT);
-        setChangePwStep(1);
-        const { data: factors } = await supabase.auth.mfa.listFactors();
-        const totp = factors?.totp?.find(f => f.status === 'verified');
-        if (!totp) { setChangePwStep(2); }
-        setShowChangePw(true);
     };
 
     const checkPwStrength = (val: string) => {
@@ -635,47 +407,6 @@ export default function LoginPage() {
             </div>
             )}
 
-            {view === 'setup2fa' && (
-            <div className="view active" id="viewSetup2FA">
-                <button className="back-link" onClick={() => void leave2FASetup()} disabled={loading}>{backArrow}Back</button>
-                <div className="view-title">
-                    {setup2FAMode === 'test' ? <>Manage 2FA <span className="mfa-badge">Active</span></> : <>Set up 2FA <span className="mfa-badge">Recommended</span></>}
-                </div>
-                <div className="view-subtitle">
-                    {loading && !setupFactorId
-                        ? 'Checking your authenticator settings…'
-                        : setup2FAMode === 'test'
-                        ? '2FA is already active. Enter your current code to test it, or disable 2FA below.'
-                        : 'Scan the QR code with your authenticator app, then confirm a code. 2FA stays off until confirmation.'}
-                </div>
-                <Alert alert={setup2faAlert} />
-                {qrUri && (
-                    <div id="qrCodeContainer">
-                        <div className="qr-wrapper"><div className="qr-container"><QRCodeSVG id="qrCode" value={qrUri} size={160} level="M" title="Scan to set up HealthSync two-factor authentication" /></div></div>
-                        <div className="secret-key" id="totpSecret" title="Click to copy" onClick={() => navigator.clipboard.writeText(totpSecret)}>{totpSecret}</div>
-                    </div>
-                )}
-                {qrUri && <div style={{ fontSize: '0.85rem', color: 'var(--text2)', textAlign: 'center', marginBottom: '1rem' }}>Then enter the code to confirm:</div>}
-                {setupFactorId && <OtpInput id="otpSetupWrap" onComplete={doSetup2FA} />}
-                {setupFactorId && <button className={`btn--primary${loading ? ' loading' : ''}`} id="setup2faBtn" onClick={() => {
-                    const inputs = document.querySelectorAll<HTMLInputElement>('#otpSetupWrap input');
-                    doSetup2FA([...inputs].map(i => i.value).join(''));
-                    }} disabled={loading}>
-                    <span className="btn-text">{setup2FAMode === 'test' ? 'Test code' : 'Enable 2FA'}</span><div className="btn-loader" />
-                </button>}
-                <button className="btn-ghost" onClick={openChangePw} style={{ marginTop: '0.5rem' }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    Change password
-                </button>
-                {setup2FAMode === 'test' && (
-                <button className="btn-ghost" id="disable2faBtn" onClick={() => setShowDisableModal(true)} style={{ marginTop: '0.5rem' }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                    Disable 2FA
-                </button>
-                )}
-            </div>
-            )}
-
             {view === 'resetMfa' && (
                 <div className="view active" id="viewResetMFA">
                     <button className="back-link" onClick={() => setView('reset')}>{backArrow}Back</button>
@@ -731,8 +462,8 @@ export default function LoginPage() {
                         </div>
                         <button className="btn--primary" onClick={goToApp} style={{ marginTop: '2rem' }}>Go back to app</button>
                         <div className="divider">or</div>
-                        <button className="btn-ghost" onClick={show2FASetupOffer} style={{ marginBottom: '0.5rem' }}>
-                            <i className="fa-solid fa-lock" /> Set up / manage 2FA
+                        <button className="btn-ghost" onClick={() => router.push('/account')} style={{ marginBottom: '0.5rem' }}>
+                            <i className="fa-solid fa-user-gear" /> Manage Account
                         </button>
                         <button className="btn--primary" onClick={logoutUser}>Logout</button>
                     </div>
@@ -740,66 +471,12 @@ export default function LoginPage() {
             )}
         </div>
 
-        <div className="card-footer" id="mainFooter">
-            {view === 'setup2fa'
-                ? <button type="button" onClick={() => void leave2FASetup()} disabled={loading} style={{ color: 'var(--text2)', fontSize: '0.88rem', textDecoration: 'none', background: 'none', border: 0, cursor: loading ? 'default' : 'pointer' }}>Back to app</button>
-                : <Link href="/" style={{ color: 'var(--text2)', fontSize: '0.88rem', textDecoration: 'none' }}>Back to app</Link>}
-        </div>
-
-        {showDisableModal && (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }} onClick={e => { if (e.target === e.currentTarget) setShowDisableModal(false); }}>
-                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '2rem', width: '100%', maxWidth: 380, boxShadow: 'var(--shadow)' }}>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.4rem' }}>Disable 2FA</div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--text2)', marginBottom: '1.4rem', lineHeight: 1.5 }}>Enter your current authenticator code to confirm. This will remove 2FA from your account.</div>
-                    <Alert alert={disableAlert} />
-                    <OtpInput id="otpDisableWrap" onComplete={confirmDisable2FA} />
-                    <button className={`btn--primary${loading ? ' loading' : ''}`} id="confirmDisableBtn" onClick={() => {
-                        const inputs = document.querySelectorAll<HTMLInputElement>('#otpDisableWrap input');
-                        confirmDisable2FA([...inputs].map(i => i.value).join(''));
-                        }} style={{ background: 'linear-gradient(135deg,#ff453a,#ff6b61)', marginTop: '1.2rem' }} disabled={loading}>
-                        <span className="btn-text">Confirm &amp; Disable</span><div className="btn-loader" />
-                    </button>
-                    <button className="btn-ghost" onClick={() => setShowDisableModal(false)} style={{ marginTop: '0.5rem' }}>Cancel</button>
-                </div>
+        {view !== 'loggedIn' && (
+            <div className="card-footer" id="mainFooter">
+                <Link href="/" style={{ color: 'var(--text2)', fontSize: '0.88rem', textDecoration: 'none' }}>Back to app</Link>
             </div>
         )}
 
-            {showChangePw && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }} onClick={e => { if (e.target === e.currentTarget) setShowChangePw(false); }}>
-                    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '2rem', width: '100%', maxWidth: 380 }}>
-                        <div style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '1rem' }}>Change Password</div>
-                        <Alert alert={changePwAlert} />
-                        {changePwStep === 1 && (
-                            <>
-                                <div className="view-subtitle" style={{ marginBottom: '1rem' }}>Enter your 2FA code first.</div>
-                                <OtpInput id="otpChangePwWrap" onComplete={doChangePassword} />
-                                <button className={`btn--primary${loading ? ' loading' : ''}`} onClick={() => {
-                                    const inputs = document.querySelectorAll<HTMLInputElement>('#otpChangePwWrap input');
-                                    doChangePassword([...inputs].map(i => i.value).join(''));
-                                    }} disabled={loading} style={{ marginTop: '1rem' }}>
-                                    <span className="btn-text">Verify</span><div className="btn-loader" />
-                                </button>
-                            </>
-                        )}
-                        {changePwStep === 2 && (
-                            <>
-                                <div className="field" style={{ marginBottom: '1rem' }}>
-                                    <label>New password</label>
-                                    <div className="input-wrap">{lockIcon}<input type="password" id="newPassword" placeholder="New password" autoComplete="new-password" /></div>
-                                </div>
-                                <div className="field" style={{ marginBottom: '1rem' }}>
-                                    <label>Confirm password</label>
-                                    <div className="input-wrap">{lockIcon}<input type="password" id="confirmNewPassword" placeholder="Confirm password" autoComplete="new-password" /></div>
-                                </div>
-                                <button className={`btn--primary${loading ? ' loading' : ''}`} onClick={doChangePasswordSubmit} disabled={loading}>
-                                    <span className="btn-text">Change Password</span><div className="btn-loader" />
-                                </button>
-                            </>
-                        )}
-                        <button className="btn-ghost" onClick={() => setShowChangePw(false)} style={{ marginTop: '0.5rem' }}>Cancel</button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
