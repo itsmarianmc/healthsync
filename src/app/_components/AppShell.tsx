@@ -24,7 +24,8 @@ import { removeHeaderBtn, addHeaderBtn } from '../_lib/headerBtns';
 import { consumePendingTour, startTourWhenReady } from '../_lib/tour';
 
 const ONBOARDING_KEY = 'calsync_onboarding_done';
-const KNOWN_ROUTES = new Set(['/', '/dash', '/food', '/drinks', '/login']);
+const KNOWN_ROUTES = new Set(['/', '/dash', '/food', '/drinks', '/login', '/account']);
+const MAIN_APP_ROUTES = new Set(['/dash', '/food', '/drinks']);
 const LEGAL_ROUTES_PREFIX = '/legal/';
 
 type InstallPromptEvent = Event & {
@@ -247,7 +248,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         <span className="mfa-gate__account-value">{mfaUser?.email || 'Your HealthSync account'}</span>
                     </div>
 
-                    <button className="mfa-gate__primary" type="button" onClick={() => router.push('/login')}>
+                    <button className="mfa-gate__primary" type="button" onClick={() => router.push(pathname === '/account' ? '/login?next=%2Faccount' : '/login')}>
                         Enter verification code
                         <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
                             <path d="M4 10h12m-5-5 5 5-5 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
@@ -266,7 +267,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         return <>{children}</>;
     }
 
-    const showFooter = pathname !== '/login';
+    const showFooter = MAIN_APP_ROUTES.has(pathname);
     const showInstallBanner = deferredPrompt && pathname !== '/onboarding' && pathname !== '/login';
 
     return (

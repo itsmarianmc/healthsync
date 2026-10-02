@@ -10,7 +10,7 @@ This inventory describes the currently relevant files. Historical copies under `
 | `CLAUDE.md` | compatibility pointer to canonical `AGENTS.md` |
 | `README.md` | user and developer overview |
 | `FUNCTIONALITY.md` | detailed, partly historical feature description |
-| `hosting.md` | self-hosting, Supabase SQL, RLS, Docker and operations |
+| `hosting.md` | self-hosting notes, reference Supabase schema, Docker and operations |
 | `CHANGELOG.md` | human-maintained change log |
 | `checklist.md` | general security review checklist |
 | `.env.example` | environment variable template |
@@ -23,14 +23,10 @@ This inventory describes the currently relevant files. Historical copies under `
 | `postcss.config.mjs` | PostCSS configuration |
 | `playwright.config.ts` | Playwright browser, base URL and web server setup |
 | `.github/workflows/playwright.yml` | Playwright workflow (currently disabled with `if: false`) |
-| `supabase/config.toml` | Supabase CLI project configuration for ordered migrations |
-| `supabase/migrations/20260929000000_initial_schema.sql` | reproducible base tables, indexes, RLS enablement and settings trigger |
-| `supabase/migrations/20260930000000_security_sync.sql` | owner/MFA RLS, grants, sync markers, unique keys and data-reset RPC |
-| `supabase/migrations/20261001010000_profile_latest_version.sql` | add owner-readable/writable changelog version to profiles |
-| `supabase/migrations/20261001000000_fix_data_reset_defaults.sql` | ensures reset RPC writes valid defaults for required settings columns |
+| `supabase/migrations/20261002010000_profile_newsletter_preferences.sql` | adds profile newsletter preference/timestamps and column grants to an existing `profiles` table; no base schema or RLS policies |
 | `tests/localData.test.mjs` | Node.js unit tests for local workspace and sync-policy helpers |
 | `tests/syncWorkouts.test.mjs` | workout-routine sync authorization, read-failure and empty-state contract tests |
-| `e2e/login-a11y.spec.ts` | login remembered-device copy and reduced-motion browser check |
+| `e2e/login-a11y.spec.ts` | checks removed remembered-device copy and reduced-motion login behavior |
 
 ## `src/app` – Next App Router
 
@@ -55,7 +51,11 @@ This inventory describes the currently relevant files. Historical copies under `
 | `food/page.tsx` | CalSync adapter, query- and event-driven modal opening |
 | `drinks/page.tsx` | DropSync adapter, query-driven modal opening |
 | `onboarding/page.tsx` | onboarding completion and redirect |
-| `login/page.tsx` | login, registration, MFA, reset and account management |
+| `login/page.tsx` | login, registration, MFA verification and password reset |
+| `account/page.tsx` | signed-in account overview, password and 2FA management, newsletter preference |
+| `account/account.css` | responsive account page styling |
+| `_components/account/AccountSecuritySettings.tsx` | account-scoped password and TOTP factor management |
+| `_components/shared/OtpInput.tsx` | shared six-digit TOTP code input |
 | `support/page.tsx` | support form and external submission |
 | `legal/privacy/page.tsx` | privacy policy content |
 | `legal/cookies/page.tsx` | cookie/consent content |
@@ -130,6 +130,7 @@ This inventory describes the currently relevant files. Historical copies under `
 | `onboarding/Tooltip.tsx` | tour/tooltip positioning |
 | `navigation/BottomNav.tsx` | main navigation |
 | `shared/Toast.tsx` | toast queue rendering |
+| `shared/OtpInput.tsx` | six-digit OTP entry with paste/autofill support |
 | `shared/PullToRefresh.tsx` | mobile pull-to-refresh gesture |
 | `shared/CookieBanner.tsx` | consent banner and settings |
 | `shared/AnalyticsTracker.tsx` | analytics tracking under consent |
@@ -176,6 +177,7 @@ This inventory describes the currently relevant files. Historical copies under `
 | `camera.ts` | camera constraints and friendly errors |
 | `location.ts` | Nominatim reverse geocoding |
 | `changelog.ts` | changelog parsing and local version keys |
+| `changelogStorage.ts` | guest/user-specific local changelog acknowledgement keys |
 | `release.ts` | `APP_VERSION` from `package.json` |
 | `ids.ts` | client ID generators |
 | `supplements.ts` | supplement calculation and persistence |

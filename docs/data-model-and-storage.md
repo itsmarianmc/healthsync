@@ -6,7 +6,7 @@ HealthSync stores domain data in the browser and optionally synchronizes it to S
 
 ## TypeScript domain models
 
-The central types are in [types.ts](../../src/app/_lib/types.ts).
+The central types are in [types.ts](../src/app/_lib/types.ts).
 
 ### FoodEntry
 
@@ -107,7 +107,7 @@ When a searched or scanned food is classified as a liquid, `foodLog.ts` writes i
 | `calsync_supplements_taken` | `Record<string, Record<string, boolean>>` by date/supplement |
 | `healthsync_activity_status` | `ActivityStatusRecord` JSON |
 
-`calcSupplements` in [supplements.ts](../../src/app/_lib/supplements.ts) calculates at least 3 g creatine, otherwise roughly `0.1 g/kg`, and roughly `5 mg/kg` magnesium.
+`calcSupplements` in [supplements.ts](../src/app/_lib/supplements.ts) calculates at least 3 g creatine, otherwise roughly `0.1 g/kg`, and roughly `5 mg/kg` magnesium.
 
 ### AI, consent, onboarding and updates
 
@@ -126,7 +126,7 @@ When a searched or scanned food is classified as a liquid, `foodLog.ts` writes i
 | `healthsync_last_seen_changelog_version_guest` | last seen version for guests | never copied into an account |
 | `healthsync_last_seen_changelog_version_user_<user-id>` | last seen version for one signed-in account | combined only with that account's owner-protected `profiles.latest_version` |
 | `healthsync_last_seen_changelog_version` | old browser-wide acknowledgement | ignored because its owner cannot be determined; retained only as legacy browser data |
-| `healthsync_pending_reload_after_update` | reload after worker switch | boolean string |
+| `healthsync_pending_reload_after_update` | one-time marker consumed after a worker switch and app reload to open the Update Center | boolean string |
 | `hs_install_dismissed` | PWA install banner dismissed | `'1'` |
 
 ### Weather
@@ -152,11 +152,11 @@ The weather code migrates older keys `weather_widget_enabled`, `weather_latitude
 
 ### IDs
 
-`generateId()` in [ids.ts](../../src/app/_lib/ids.ts) combines a prefix, base-36 timestamp, process counter and random suffix. Food/drink entries use `entry_`, AI detections use `det_` and drafts use `draft_`. The client ID maps to Supabase `entry_id`; do not confuse it with the server UUID column `id`.
+`generateId()` in [ids.ts](../src/app/_lib/ids.ts) combines a prefix, base-36 timestamp, process counter and random suffix. Food/drink entries use `entry_`, AI detections use `det_` and drafts use `draft_`. The client ID maps to Supabase `entry_id`; do not confuse it with the server UUID column `id`.
 
 ## Supabase schema and mapping
 
-The executable schema is in [hosting.md](../../hosting.md). The four tables are:
+The app code expects the four health-data tables and `profiles` described below. The SQL schema in [hosting.md](../hosting.md) is a setup/reference script. This checkout contains only one executable migration, which adds newsletter fields to an already existing `public.profiles` table; it does not create the base tables, policies, grants or reset RPC. Therefore these definitions describe the app's expected shape, not a verified live database schema.
 
 ### `calsync_entries`
 
@@ -174,10 +174,24 @@ One row per user. It contains goals, optional `workout_routines` JSONB and `upda
 
 Contains `session_id`, routine information, ISO timestamps, duration and exercise JSONB. Routine definitions are stored in `user_settings.workout_routines` instead.
 
-Health data tables require owner-scoped RLS policies. `profiles` is scoped by
-`id = auth.uid()`. The base schema and production policies are separate: use
-the table definitions in `hosting.md`, then review and apply the MFA-aware
-policy and grant migration described in [`security-migration.md`](./security-migration.md).
+Health data tables require owner-scoped RLS policies. The app and historical
+runbook expect `profiles` to be scoped by `id = auth.uid()` and protected by
+the verified-factor/AAL policy, but the migrations that establish those rules
+are not present in this checkout. Do not infer current database grants or
+policies from the client code or reference SQL; inspect the target database
+using the preflight in [`security-migration.md`](./security-migration.md).
+
+Account identity and account preferences are read from `profiles`; health goals,
+supplement preferences and workout routines use `user_settings`. The sole
+checked-in migration, `20261002010000_profile_newsletter_preferences.sql`, adds
+`newsletter_opt_in` (false by default), `newsletter_opt_in_at` and
+`newsletter_opt_out_at`. An owner may read the preference and timestamps and
+update only the preference. A database trigger records the latest opt-in or
+opt-out transition time. This stores consent preference only; it does not
+connect a mail provider or send newsletters. The migration grants authenticated
+column access but does not create or alter the profile table's RLS policies.
+The required owner and MFA RLS authorization boundary must already exist in
+the target database and was not verified in this audit.
 
 ## Sync algorithms
 
@@ -216,6 +230,6 @@ The login screen no longer offers a remembered-device checkbox. The former `heal
 
 - Food/drink daily deletion removes only entries for the current `date` string; undo restores locally and attempts the cloud write.
 - Settings offers a local export of food, drinks, workouts and goals. The exact scope is implemented in `SettingsModal.tsx`.
-- “Delete All Data” calls the MFA-protected `clear_healthsync_data()` RPC, which removes the account's cloud food, drinks and workout sessions and resets app settings while preserving profile identity fields. The client clears its local health-data workspace only after the cloud reset succeeds. Full account deletion goes through `/api/account/delete`; deletion of cloud rows and the profile relies on verified `ON DELETE CASCADE` foreign keys from `auth.users`.
+- “Delete All Data” calls the target database's `clear_healthsync_data()` RPC and clears local health data only after the RPC succeeds. The app expects the RPC to enforce authorization, clear the account's cloud health rows and reset settings while preserving profile identity fields; its definition is absent from this checkout, so target behavior and MFA enforcement are unverified. Full account deletion goes through `/api/account/delete`; associated-row deletion depends on `ON DELETE CASCADE` foreign keys from `auth.users`, which also are not established by the migration present here.
 - `logout(true)` removes a defined list of local domain/profile keys. Not every UI, consent, update or favorite key is in that list; this is intentional or currently inconsistent and is recorded in [known-gaps.md](./known-gaps.md).
 

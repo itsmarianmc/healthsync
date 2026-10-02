@@ -1,6 +1,6 @@
 # HealthSync – Technical Documentation
 
-This documentation describes the HealthSync codebase as it exists in the repository on **October 1, 2026**. It is intended for developers, maintainers, rebuilds, and coding agents. The maintainer reports that the security/sync migration was applied successfully to the cloned development project and that checks performed so far pass; a later Delete All Data run exposed a `supplements_taken` constraint mismatch, for which an additive SQL hotfix is documented. This is not evidence of a production rollout or completion of every account-isolation acceptance test.
+This documentation describes the checked-in HealthSync code and configuration as inspected on **October 2, 2026**. It is intended for developers, maintainers, rebuilds, and coding agents. The working tree contains application and documentation changes; inspect `git status --short` before relying on them as a released state. Only `20261002010000_profile_newsletter_preferences.sql` is present under `supabase/migrations/` in this checkout. `AGENTS.md` and older audit notes contain maintainer-reported rollout status for other migration files and Supabase projects; those reports are not independent evidence, and the referenced files/database state are not available for verification here.
 
 ## Purpose
 
@@ -35,7 +35,7 @@ When documentation and implementation differ, use this order:
 
 1. current code under `src/`
 2. `package.json`, `next.config.ts`, `playwright.config.ts` and `.env.example`
-3. `supabase/migrations/` for versioned SQL changes and `hosting.md` for the base Supabase schema and deployment notes
+3. SQL files actually present under `supabase/migrations/`, plus `hosting.md` for the documented reference schema and deployment notes. A reference schema is not proof that a target database has that schema.
 4. this documentation
 5. older documents such as `FUNCTIONALITY.md` when they describe the former Vanilla-JS structure
 
@@ -61,7 +61,8 @@ The app is normally available at `http://localhost:3000`. The actual npm scripts
 | `/food` | CalSync |
 | `/drinks` | DropSync |
 | `/onboarding` | First-time setup |
-| `/login` | Login, registration, MFA, password reset and account management |
+| `/login` | Login, registration, MFA and password reset |
+| `/account` | Signed-in account overview, security status and newsletter preference |
 | `/support` | Support form |
 | `/legal/privacy` | Privacy policy |
 | `/legal/cookies` | Cookie and consent information |

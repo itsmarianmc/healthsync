@@ -685,7 +685,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                 </button>
                                 <div className="divider">or</div>
                                 <button id="manageAccount" className="option-btn active" style={{ width: '100%', borderRadius: 'var(--radius-sm)', padding: '13px 16px' }}
-                                    onClick={() => { sheet.close(); window.location.href = '/login?keep_login_page=true'; }}>
+                                    onClick={() => { sheet.close(); window.location.href = '/account'; }}>
                                     <i className="fas fa-user" /> Manage Account
                                 </button>
                             </div>
@@ -708,6 +708,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                     role="switch"
                                     aria-checked={aiEnabled}
                                     aria-label="Enable AI Detection"
+                                    aria-pressed={String(aiEnabled) as 'true'|'false'}
                                     onClick={handleAiToggle}
                                     disabled={!canUseThirdParty}
                                 />
