@@ -18,7 +18,7 @@ Next.js App Router
         |      +--> Dashboard
         |      +--> CalSync
         |      +--> DropSync
-        |      +--> Login / Onboarding / Support / Legal
+        |      +--> Login / Account / Onboarding / Support / Legal
         |
         +--> Local Storage (offline-first UI data)
         +--> Supabase Auth + PostgreSQL (signed-in users only)
@@ -63,11 +63,11 @@ RootLayout
 
 Important files:
 
-- [layout.tsx](../../src/app/layout.tsx) – global HTML, providers and external assets
-- [AppShell.tsx](../../src/app/_components/AppShell.tsx) – route-aware shell, footer, global modals and extra menu
-- [AuthContext.tsx](../../src/app/_context/AuthContext.tsx) – session, toast queue and cloud sync
-- [AppShellContext.tsx](../../src/app/_context/AppShellContext.tsx) – global open/close state
-- [AiDetectionContext.tsx](../../src/app/_context/AiDetectionContext.tsx) – running AI detections and resume behavior
+- [layout.tsx](../src/app/layout.tsx) – global HTML, providers and external assets
+- [AppShell.tsx](../src/app/_components/AppShell.tsx) – route-aware shell, footer, global modals and extra menu
+- [AuthContext.tsx](../src/app/_context/AuthContext.tsx) – session, toast queue and cloud sync
+- [AppShellContext.tsx](../src/app/_context/AppShellContext.tsx) – global open/close state
+- [AiDetectionContext.tsx](../src/app/_context/AiDetectionContext.tsx) – running AI detections and resume behavior
 
 ## Route pages and feature boundaries
 
@@ -77,7 +77,8 @@ Route pages are thin adapters. They read query parameters, optionally open a fea
 - `food/page.tsx` renders `CalSync` and translates `openModal`, `mode` and `openAiMethod` into props.
 - `drinks/page.tsx` renders `DropSync` and translates `openModal` into an opening signal.
 - `onboarding/page.tsx` stores completion and then navigates to `/dash`.
-- `login/page.tsx` is a standalone auth/account flow.
+- `login/page.tsx` is the standalone sign-in, registration, MFA and password flow; signed-in account settings are on `/account`.
+- `account/page.tsx` is a standalone signed-in account page for profile display, TOTP/password management and newsletter preference. It redirects unauthenticated or MFA-pending sessions to `/login?next=%2Faccount`.
 - Legal pages and Support are not treated as main-app views.
 
 The visible section is therefore not switched by an internal `view` state machine. `BottomNav` navigates with `next/link` between `/dash`, `/food` and `/drinks`; `viewChanged` is only an internal refresh event.
@@ -93,7 +94,7 @@ The visible section is therefore not switched by an internal `view` state machin
 | Consent | `cookieSettings` in `localStorage` | Analytics, preferences, third party |
 | Update/changelog state | `localStorage` + Service Worker | waiting worker, last-seen version |
 
-The Dashboard hook [useDashboardData.ts](../../src/app/_hooks/useDashboardData.ts) reads directly from Local Storage and reacts to `storage`, `focus`, `viewChanged`, `visibilitychange` and a 30-second interval. Dashboard rendering must not depend on a successful Supabase request.
+The Dashboard hook [useDashboardData.ts](../src/app/_hooks/useDashboardData.ts) reads directly from Local Storage and reacts to `storage`, `focus`, `viewChanged`, `visibilitychange` and a 30-second interval. Dashboard rendering must not depend on a successful Supabase request.
 
 ## Data flow for a change
 
@@ -107,9 +108,9 @@ User action
   -> UI remains usable on cloud failure; errors are logged
 ```
 
-This is intentionally optimistic. A cloud failure normally does not roll back the local change. Sync functions are centralized in [sync.ts](../../src/app/_lib/sync.ts); some workout routine writes also use direct Supabase code in the workout modal.
+This is intentionally optimistic. A cloud failure normally does not roll back the local change. Sync functions are centralized in [sync.ts](../src/app/_lib/sync.ts); some workout routine writes also use direct Supabase code in the workout modal.
 
-Food entry creation from the route sheet, global barcode search or global AI sheet goes through [foodLog.ts](../../src/app/_lib/foodLog.ts). The helper checks the active workspace, reads the latest local arrays and marks signed-in writes pending before cloud sync. The global barcode popup calls its save callback directly; it does not depend on the `/food` page being mounted.
+Food entry creation from the route sheet, global barcode search or global AI sheet goes through [foodLog.ts](../src/app/_lib/foodLog.ts). The helper checks the active workspace, reads the latest local arrays and marks signed-in writes pending before cloud sync. The global barcode popup calls its save callback directly; it does not depend on the `/food` page being mounted.
 
 ## Internal events
 
@@ -132,7 +133,7 @@ In a rebuild, a sheet must not be implemented as an ordinary dialog only: the cu
 
 ## Styling and assets
 
-- App styling is primarily in [styles.css](../../src/app/styles.css), consent styling in `cookiebanner.css`, login styling in `login/styles.css` and legal styling in `legal/legal.css`.
+- App styling is primarily in [styles.css](../src/app/styles.css), consent styling in `cookiebanner.css`, login styling in `login/styles.css` and legal styling in `legal/legal.css`.
 - The app uses DM Sans plus external global variable/color CSS files.
 - Font Awesome is loaded externally; ZXing is loaded as a global browser script from `layout.tsx`.
 - `public/exercises.json` is a large static exercise catalog; `public/changelog.json` is the Update Center source.
@@ -142,6 +143,6 @@ In a rebuild, a sheet must not be implemented as an ordinary dialog only: the cu
 - Client code uses only `NEXT_PUBLIC_SUPABASE_URL` and the publishable/anon key.
 - The server route `/api/account/delete` is the only code path allowed to use `SUPABASE_SERVICE_ROLE_KEY`.
 - `/api/sync/verify` verifies the access token server-side before cloud sync functions continue.
-- [proxy.ts](../../src/proxy.ts) sets CSP, frame/content-type/referrer headers and a Permissions Policy.
+- [proxy.ts](../src/proxy.ts) sets CSP, frame/content-type/referrer headers and a Permissions Policy.
 - Camera, geolocation, third-party requests and AI are capability- and consent-dependent.
 

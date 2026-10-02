@@ -106,12 +106,12 @@ export default function UpdateCenter() {
     const [entries, setEntries] = useState<ChangelogEntry[]>([]);
     const [loadingEntries, setLoadingEntries] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
-    const [hasPendingChangelog, setHasPendingChangelog] = useState(false);
     const reloadAfterUpdateRef = useRef(false);
     const bootstrapRef = useRef(false);
     const profileSeenVersionRef = useRef<string | null>(null);
     const openedOwnerRef = useRef<string | null>(null);
     const expandTimerRef = useRef<number | null>(null);
+    const showChangelogAfterUpdateRef = useRef(false);
 
     const sheet = useDraggableSheet({
         onClose: () => {
@@ -143,6 +143,13 @@ export default function UpdateCenter() {
         const serwist = new Serwist('/serwist/sw.js', { type: 'module', scope: '/' });
         globalWindow.serwist = serwist;
 
+        // The pending marker survives the reload initiated after a waiting worker activates.
+        // Consume it on the next app boot so fresh installs and ordinary visits stay quiet.
+        if (readPendingReloadAfterUpdate()) {
+            writePendingReloadAfterUpdate(false);
+            showChangelogAfterUpdateRef.current = true;
+        }
+
         const persistedUpdateAvailable = readUpdateAvailable();
         const persistedDismissedBanner = readDismissedBanner();
         if (persistedUpdateAvailable) {
@@ -162,7 +169,6 @@ export default function UpdateCenter() {
         const handleControllerChange = () => {
             if (!reloadAfterUpdateRef.current && !readPendingReloadAfterUpdate()) return;
             reloadAfterUpdateRef.current = false;
-            writePendingReloadAfterUpdate(false);
             setUpdateAvailable(false);
             writeUpdateAvailable(false);
             window.location.reload();
@@ -205,7 +211,6 @@ export default function UpdateCenter() {
                 const jsonData = await response.json();
 
                 if (cancelled) return;
-                setHasPendingChangelog(false);
 
                 const allEntries = convertJsonToChangelogEntries(jsonData);
 
@@ -241,18 +246,7 @@ export default function UpdateCenter() {
                     compareVersions(entry.version, APP_VERSION) <= 0
                 );
 
-                const unseenEntries = currentEntries.filter((entry) => {
-                    if (!latestSeenVersion) return true;
-                    return compareVersions(entry.version, latestSeenVersion) > 0;
-                });
-
-                if (currentEntries.length > 0) {
-                    setEntries(currentEntries);
-                    setHasPendingChangelog(unseenEntries.length > 0);
-                } else {
-                    setEntries([]);
-                    setHasPendingChangelog(false);
-                }
+                setEntries(currentEntries);
             } catch {
                 if (!cancelled) {
                     setLoadError('Could not load the latest updates.');
@@ -270,12 +264,14 @@ export default function UpdateCenter() {
     }, [user?.id]);
 
     useEffect(() => {
-        if (hasPendingChangelog && isAllowedRoute && !updateCenterOpen && profileSeenVersionRef.current !== null) {
-            openedOwnerRef.current = user?.id ?? null;
-            openUpdateCenter();
-            setHasPendingChangelog(false);
+        if (showChangelogAfterUpdateRef.current && !loadingEntries && isAllowedRoute) {
+            if (!updateCenterOpen) {
+                openedOwnerRef.current = user?.id ?? null;
+                openUpdateCenter();
+            }
+            showChangelogAfterUpdateRef.current = false;
         }
-    }, [hasPendingChangelog, isAllowedRoute, updateCenterOpen, openUpdateCenter, user?.id]);
+    }, [loadingEntries, isAllowedRoute, updateCenterOpen, openUpdateCenter, user?.id]);
 
     useEffect(() => {
         if (updateCenterOpen && !isAllowedRoute) {

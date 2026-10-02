@@ -242,7 +242,8 @@ Email confirmation can be enabled under **Authentication → Providers → Email
 
 HealthSync's login flow supports TOTP via Supabase Auth. Enable it under
 **Authentication → Multi-factor authentication** in the Supabase dashboard.
-The app handles enrolment and challenge from `src/app/login/page.tsx`. A
+The app handles sign-in verification in `src/app/login/page.tsx` and factor
+enrolment, testing and removal on `src/app/account/page.tsx`. A
 verified factor requires a code before access. The app checks assurance during
 session restore and in protected API routes; the database migration also
 enforces it for table access. Apply the migration before deploying this code.
@@ -250,11 +251,22 @@ No trusted-device list is stored in the browser.
 
 The app uses `public.profiles` for the signed-in user's `display_name`,
 `full_name`, `avatar_url`, and `latest_version` (the last changelog version
-acknowledged). Its primary key is `id`, linked to
+acknowledged), plus account-level newsletter consent. Its primary key is `id`, linked to
 `auth.users(id)` with `ON DELETE CASCADE`. The migration restricts profile
 reads and writes to the owner and grants access only to these fields. The
 additive `20261001010000_profile_latest_version.sql` migration grants the
 changelog field separately. It does not expose profiles as a directory.
+
+The additive migration
+[`20261002010000_profile_newsletter_preferences.sql`](supabase/migrations/20261002010000_profile_newsletter_preferences.sql)
+adds `newsletter_opt_in boolean not null default false`,
+`newsletter_opt_in_at timestamptz` and `newsletter_opt_out_at timestamptz`.
+It preserves existing profile rows and RLS policies, grants authenticated
+owners SELECT on the preference and timestamps and UPDATE only on the
+preference, and records the latest consent transition using a database trigger.
+Apply this migration before deploying the `/account` newsletter preference UI.
+No mail provider is configured and no newsletter messages are sent by this
+feature.
 
 ---
 
@@ -580,10 +592,8 @@ Open the browser console. `sync.ts` logs every backend error prefixed with
 or a stale RLS policy.
 
 **MFA QR code does not render**
-The QR code is rendered in `src/app/login/page.tsx` using the global
-`QRCode` library loaded from the CDN allowed by the CSP in `src/proxy.ts`.
-If the library fails to load it falls back to a plain "Open in
-authenticator" link - make sure your CSP allows that CDN.
+The QR code for TOTP setup is rendered on `/account` with the local
+`qrcode.react` dependency. It does not use a QR-code CDN.
 
 **AI Detection does nothing**
 The feature is disabled by default. Enable it in *Settings → AI Detection*,

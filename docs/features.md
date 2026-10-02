@@ -122,7 +122,7 @@ On start, routine exercises are enriched from the catalog. A session has start t
 
 On finish, end time, duration and intensity are calculated, the local log is prepended to `healthsync_workout_logs` and `pushWorkoutSessionToCloud` is called when signed in. Success and possible personal records are shown as toasts.
 
-Workout history currently reads from the local log. There is no normal-auth-sync pull from `workout_sessions`.
+After sign-in, `AuthContext` calls `syncWorkoutHistory()`: pending and older local sessions absent from the cloud are uploaded, then the confirmed cloud history is stored in the active owner's local workspace. The history modal itself reads from that local log. Cloud failures must not be described as a successful empty history.
 
 ## Settings
 
@@ -145,13 +145,13 @@ Creatine and magnesium goals can be calculated from body weight. Daily intake is
 
 ### Export and account
 
-Settings provides local export and local deletion. Full account deletion requires confirmation, a valid Supabase token and a signed-in user, then uses `/api/account/delete`.
+Settings provides local export, local health-data deletion, and a separate full-account deletion flow. Full account deletion requires confirmation and a signed-in user; the client sends the current access token and user ID to `/api/account/delete`, which verifies them and the MFA assurance before using the service-role client to delete the Auth user. Database cascades are required for associated rows; their presence in a live database is not verified by the app code.
 
 ## Authentication and account management
 
-The login page has internal views for login, registration, MFA, 2FA setup, reset, reset MFA, confirmation and logged-in state. Password login can lead directly to the MFA challenge. Registration passes name/avatar metadata to Supabase. The global `AuthContext` synchronizes local data after successful sign-in. The MFA screen does not offer a remembered-device bypass; a verified factor requires an AAL2 challenge. OTP fields support paste and Ctrl/⌘+A to clear the full six-digit code; multi-digit authenticator autofill is distributed across all six fields. Login views slide horizontally between steps and respect reduced-motion preferences. When a verified MFA factor requires another challenge, `AppShell` displays a branded gate with the current account identity, a link to enter the code and a sign-out action. The limited `mfaUser` context value is only used to identify that pending session; it does not authorize health-data access.
+The login page handles login, registration, MFA verification, password reset, MFA reset, confirmation and the logged-in state. Password login can lead to an MFA challenge. Registration passes name/avatar metadata to Supabase. The logged-in state offers Go back to app, Manage Account (to `/account`) and Logout. Password changes and TOTP setup, testing and removal happen on `/account`. The account page also reads and updates the owner profile's newsletter preference; the UI states that no email service is connected and sends no newsletter. `AuthContext` synchronizes local data after successful sign-in. A verified factor requires AAL2; the app checks verified factor status as well as assurance level. Shared OTP fields support paste and authenticator autofill. Login views respect reduced-motion preferences. When MFA is required, `AppShell` displays a gate with the pending account identity, a link to `/login` and a sign-out action. The limited `mfaUser` context value identifies that pending session; it does not authorize health-data access.
 
-The update center stores a separate acknowledged changelog version for guests and each signed-in user ID. Signed-in users combine only their own local value with their owner-scoped `profiles.latest_version`; failed profile reads or writes retain the local fallback without claiming cloud persistence. The old browser-wide marker is ignored. The additive profile migration grants owner-scoped access to this one field under the existing MFA-aware profile policies.
+The update center stores a separate acknowledged changelog version for guests and each signed-in user ID. Signed-in users combine only their own local value with their `profiles.latest_version`; failed profile reads or writes retain the local fallback without claiming cloud persistence. The old browser-wide marker is ignored. The profile-version migration is described in historical audit notes but is absent from this checkout, so its deployed column/grants and the profile's owner/MFA policies cannot be verified here. The one checked-in SQL migration adds newsletter preference columns and grants; it does not create the profile table or its base policies.
 
 Session tokens are held in cookies through the Supabase SSR browser client. HealthSync does not maintain its own password database and does not store session tokens as domain data in Local Storage.
 
@@ -165,7 +165,7 @@ Afterwards, the tooltip tour can start or be requested again from the tour code.
 
 The Service Worker is in `src/app/sw.ts` and is registered by Serwist under `/serwist/sw.js`. It precaches build assets, uses `defaultCache` and serves `public/offline.html` for navigation failures.
 
-When a new worker is waiting, `UpdateCenter` marks `healthsync_update_available`, shows a banner/changelog and can send `SKIP_WAITING`. On `controllerchange`, a pending reload causes the page to reload.
+When a new worker is waiting, `UpdateCenter` marks `healthsync_update_available` and shows an update banner. Choosing Update sends `SKIP_WAITING`; on `controllerchange`, the page reloads and consumes `healthsync_pending_reload_after_update` to open the changelog once. The changelog never opens automatically just because a first-time visitor, reinstall, or ordinary visit has unseen entries. Users can still open it from the dashboard update button.
 
 `public/manifest.json` defines standalone portrait mode, `/dash` as start URL and Food/Drinks shortcuts. The install banner uses `beforeinstallprompt` and is suppressed by `hs_install_dismissed`.
 
