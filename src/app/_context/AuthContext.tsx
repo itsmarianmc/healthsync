@@ -5,17 +5,24 @@ import type { User } from '@supabase/supabase-js';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '../_lib/supabase';
 import {
-  pullSettings, ensureSettings, mergeFoodEntries, mergeDrinkEntries,
-  pullFoodFromCloud, pullDrinksFromCloud, pushFoodEntriesToCloud, syncWorkouts
+  pullSettings, ensureSettings, pullFoodFromCloud, pullDrinksFromCloud,
+  pushFoodEntriesToCloud, syncDrinkToCloud, pushSettings, syncWorkouts,
+  syncWorkoutHistory, flushDeletedEntries, flushRestoredFood,
 } from '../_lib/sync';
-import type { UserSettings } from '../_lib/types';
+import type { UserSettings, FoodEntry, DrinkEntry } from '../_lib/types';
+import { switchWorkspace, activeOwner, GUEST_OWNER, pendingIds, clearActiveHealthData, clearPending, acknowledgeSettings } from '../_lib/localData';
+import { entriesToUpload, mustDiscardAfterReset } from '../_lib/syncPolicy';
+import { hasVerifiedMfaFactor, needsMfaVerification } from '../_lib/mfaPolicy';
 
 interface AuthContextType {
   user: User | null;
   syncEnabled: boolean;
   loading: boolean;
+  mfaRequired: boolean;
+  mfaUser: User | null;
   settings: UserSettings | null;
   refreshSettings: () => Promise<void>;
+  retrySync: () => Promise<void>;
   logout: (clearData?: boolean) => Promise<void>;
   showToast: (msg: string, duration?: number, undo?: (() => void) | null, cls?: string) => void;
   toastQueue: ToastItem[];
@@ -38,33 +45,76 @@ function isTokenExpired(session: { expires_at?: number } | null): boolean {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+const SYNC_TOAST_ROUTES = new Set(['/dash', '/food', '/drinks']);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
+    const pathnameRef = React.useRef(pathname);
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [mfaRequired, setMfaRequired] = useState(false);
+    const [mfaUser, setMfaUser] = useState<User | null>(null);
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [toastQueue, setToastQueue] = useState<ToastItem[]>([]);
     const isSyncingRef = React.useRef(false);
+    const queuedSyncUserRef = React.useRef<string | null>(null);
     const lastSyncedUserIdRef = React.useRef<string | null>(null);
+    const displayedUserIdRef = React.useRef<string | null>(null);
+    const syncToastEpochRef = React.useRef(0);
+    const syncToastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const previousPathnameRef = React.useRef(pathname);
 
     const syncEnabled = user !== null;
 
+    const invalidateSyncToast = useCallback(() => {
+        syncToastEpochRef.current += 1;
+        if (syncToastTimerRef.current !== null) {
+            clearTimeout(syncToastTimerRef.current);
+            syncToastTimerRef.current = null;
+        }
+        setToastQueue(queue => queue.filter(toast =>
+            toast.msg !== 'Syncing...' && toast.msg !== 'Sync complete' &&
+            toast.msg !== 'Cloud sync failed. Your changes remain saved on this device and will retry.'
+        ));
+    }, []);
+
+    useEffect(() => {
+        pathnameRef.current = pathname;
+        if (previousPathnameRef.current !== pathname) invalidateSyncToast();
+        previousPathnameRef.current = pathname;
+    }, [pathname, invalidateSyncToast]);
+
+    useEffect(() => {
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') invalidateSyncToast();
+        };
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            syncToastEpochRef.current += 1;
+            if (syncToastTimerRef.current !== null) clearTimeout(syncToastTimerRef.current);
+            syncToastTimerRef.current = null;
+        };
+    }, [invalidateSyncToast]);
+
     const showToast = useCallback((msg: string, duration = 2500, undo: (() => void) | null = null, cls = '') => {
         setToastQueue(q => {
+            const next = { id: ++toastIdCounter, msg, duration, undo, cls };
             if (q.length === 0) {
-                return [{ id: ++toastIdCounter, msg, duration, undo, cls }];
+                return [next];
             }
 
-            // Keep one visible toast and fold all pending messages into it.
-            // This lets the toast grow naturally instead of stacking bubbles.
             const first = q[0];
+            if (first.undo) {
+                if (undo || q[q.length - 1].undo) return [...q, next];
+                return [...q.slice(0, -1), next];
+            }
+            if (undo || first.cls !== cls) return [next];
             return [{
                 ...first,
-                msg: [...q.map(item => item.msg), msg].join('\n'),
+                msg,
                 duration: Math.max(first.duration, duration),
-                cls: first.cls || cls,
             }];
         });
     }, []);
@@ -76,13 +126,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const applySettingsToLocalStorage = useCallback((data: UserSettings) => {
         if (data.calorie_goal > 0)
         localStorage.setItem('calsync_goal', String(data.calorie_goal));
-        if (data.protein_goal > 0)
+        if (data.protein_goal >= 0)
         localStorage.setItem('calsync_goal_protein', String(data.protein_goal));
-        if (data.carbs_goal > 0)
+        if (data.carbs_goal >= 0)
         localStorage.setItem('calsync_goal_carbs', String(data.carbs_goal));
-        if (data.fat_goal > 0)
+        if (data.fat_goal >= 0)
         localStorage.setItem('calsync_goal_fat', String(data.fat_goal));
-        if (data.goal_ml > 0) {
+        if (data.goal_ml >= 0) {
             localStorage.setItem('dropsync_goal', String(data.goal_ml));
         }
         if (data.weight_kg !== undefined && data.weight_kg !== null)
@@ -101,19 +151,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         window.dispatchEvent(new Event('storage'));
     }, []);
 
-    const checkAndNotifyMissingMacros = useCallback((data: UserSettings) => {
+    const checkAndNotifyMissingMacros = useCallback((data: UserSettings, userId: string) => {
         const hasMacros = data.protein_goal > 0 || data.carbs_goal > 0 || data.fat_goal > 0;
         if (!hasMacros) {
-            setTimeout(() => showToast('Set macro goals in Settings to track protein, carbs & fat!', 4000, null, 'toast-info'), 3000);
+            setTimeout(() => {
+                if (activeOwner() === userId) showToast('Set macro goals in Settings to track protein, carbs & fat!', 4000, null, 'toast-info');
+            }, 3000);
         }
     }, [showToast]);
 
     const fetchSettings = useCallback(async (userId: string) => {
         const data = await pullSettings(userId);
-        if (data) {
+        if (data && activeOwner() === userId) {
             setSettings(data);
             applySettingsToLocalStorage(data);
-            checkAndNotifyMissingMacros(data);
+            checkAndNotifyMissingMacros(data, userId);
         }
     }, [applySettingsToLocalStorage, checkAndNotifyMissingMacros]);
 
@@ -123,14 +175,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [user, fetchSettings]);
 
     const performCloudSync = useCallback(async (userId: string) => {
-        const suppressToast = pathname === '/login' || pathname === '/onboarding';
+        const startedPathname = pathnameRef.current;
         const { data: { session } } = await supabase.auth.getSession();
-        const hasValidSession = !!session && !!session.user && !isTokenExpired(session);
-        if (!suppressToast && hasValidSession) showToast('Syncing...', 2000, null, undefined);
-        if (isSyncingRef.current || lastSyncedUserIdRef.current === userId) return;
+        const hasValidSession = !!session && session.user?.id === userId && !isTokenExpired(session);
+        if (isSyncingRef.current) {
+            if (lastSyncedUserIdRef.current !== userId) queuedSyncUserRef.current = userId;
+            return;
+        }
+        if (lastSyncedUserIdRef.current === userId) return;
         if (!hasValidSession) return;
+        if (activeOwner() !== userId) return;
+        invalidateSyncToast();
         isSyncingRef.current = true;
         lastSyncedUserIdRef.current = userId;
+        const toastEpoch = syncToastEpochRef.current;
+        const toastContextIsCurrent = () => syncToastEpochRef.current === toastEpoch &&
+            pathnameRef.current === startedPathname && window.location.pathname === startedPathname &&
+            SYNC_TOAST_ROUTES.has(startedPathname ?? '') &&
+            document.visibilityState === 'visible' && activeOwner() === userId;
+        const canShowCompletionToast = async () => {
+            if (!toastContextIsCurrent()) return false;
+            try {
+                const { data: { session: currentSession } } = await supabase.auth.getSession();
+                return toastContextIsCurrent() && currentSession?.user?.id === userId && !isTokenExpired(currentSession);
+            } catch {
+                return false;
+            }
+        };
+        if (toastContextIsCurrent()) showToast('Syncing...', 2000);
 
         try {
             const hasDropsyncGoal = localStorage.getItem('dropsync_goal');
@@ -142,98 +214,169 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch {}
         try {
             await ensureSettings(userId);
-            await fetchSettings(userId);
+            if (activeOwner() !== userId) return;
+            let cloudSettings = await pullSettings(userId);
+            if (activeOwner() !== userId) return;
+            if (!cloudSettings) throw new Error('Unable to read cloud settings');
+            const lastSync = localStorage.getItem('healthsync_last_cloud_sync');
+            if (mustDiscardAfterReset(lastSync, cloudSettings.data_reset_at)) {
+                clearActiveHealthData();
+                // Record the reset marker immediately so a later retry does not
+                // discard new entries created after this reset was processed.
+                localStorage.setItem('healthsync_last_cloud_sync', cloudSettings.data_reset_at!);
+            }
+            let pendingSettings = JSON.parse(localStorage.getItem('healthsync_pending_settings') || '{}');
+            const hadPendingSettings = Object.keys(pendingSettings).length > 0;
+            while (Object.keys(pendingSettings).length) {
+                if (activeOwner() !== userId) return;
+                await pushSettings(userId, pendingSettings);
+                if (activeOwner() !== userId) return;
+                acknowledgeSettings(pendingSettings);
+                pendingSettings = JSON.parse(localStorage.getItem('healthsync_pending_settings') || '{}');
+            }
+            if (hadPendingSettings) {
+                cloudSettings = await pullSettings(userId);
+                if (!cloudSettings) throw new Error('Unable to confirm cloud settings');
+            }
+            if (activeOwner() !== userId) return;
+            setSettings(cloudSettings);
+            applySettingsToLocalStorage(cloudSettings);
+            await flushDeletedEntries(userId);
+            await flushRestoredFood(userId);
 
             const cloudFood = await pullFoodFromCloud(userId);
-            if (cloudFood !== null) {
-                const localFood = (() => {
-                    try {
-                        return JSON.parse(localStorage.getItem('calsync_v1') || '[]');
-                    } catch {
-                        return [];
-                    }
-                })();
-                const merged = mergeFoodEntries(cloudFood, localFood);
-                localStorage.setItem('calsync_v1', JSON.stringify(merged));
-                const localOnly = localFood.filter((e: { id: string }) => !cloudFood.some(c => c.id === e.id));
-                if (localOnly.length > 0) await pushFoodEntriesToCloud(localOnly, userId);
-            }
+            if (activeOwner() !== userId) return;
+            if (!cloudFood) throw new Error('Unable to read food entries');
+            const localFood = JSON.parse(localStorage.getItem('calsync_v1') || '[]') as FoodEntry[];
+            const foodPending = pendingIds('food');
+            const foodUpload = entriesToUpload(localFood, foodPending, cloudFood.deletedIds, cloudFood.entries.map(entry => entry.id));
+            if (foodUpload.length) await pushFoodEntriesToCloud(foodUpload, userId);
+            const finalFood = foodUpload.length ? await pullFoodFromCloud(userId) : cloudFood;
+            if (activeOwner() !== userId) return;
+            if (!finalFood) throw new Error('Unable to confirm food upload');
+            clearPending('food', finalFood.deletedIds);
+            localStorage.setItem('calsync_v1', JSON.stringify(finalFood.entries));
 
             const cloudDrinks = await pullDrinksFromCloud(userId);
-            if (cloudDrinks !== null) {
-                const localDrinks = (() => {
-                    try {
-                        return JSON.parse(localStorage.getItem('dropsync_v3') || '[]');
-                    } catch {
-                        return [];
-                    }
-                })();
-                const merged = mergeDrinkEntries(cloudDrinks, localDrinks);
-                localStorage.setItem('dropsync_v3', JSON.stringify(merged));
-            }
+            if (activeOwner() !== userId) return;
+            if (!cloudDrinks) throw new Error('Unable to read drink entries');
+            const localDrinks = JSON.parse(localStorage.getItem('dropsync_v3') || '[]') as DrinkEntry[];
+            const drinkPending = pendingIds('drinks');
+            const drinkUpload = entriesToUpload(localDrinks, drinkPending, cloudDrinks.deletedIds, cloudDrinks.entries.map(entry => entry.id));
+            for (const entry of drinkUpload) await syncDrinkToCloud(entry, userId);
+            const finalDrinks = drinkUpload.length ? await pullDrinksFromCloud(userId) : cloudDrinks;
+            if (activeOwner() !== userId) return;
+            if (!finalDrinks) throw new Error('Unable to confirm drink upload');
+            clearPending('drinks', finalDrinks.deletedIds);
+            localStorage.setItem('dropsync_v3', JSON.stringify(finalDrinks.entries));
 
             await syncWorkouts(userId);
+            await syncWorkoutHistory(userId);
+            if (activeOwner() !== userId) return;
+            localStorage.setItem('healthsync_last_cloud_sync', new Date().toISOString());
 
             window.dispatchEvent(new Event('storage'));
-            if (!suppressToast) setTimeout(() => showToast('Sync complete', 2000, null, 'toast-success'), 1000);
-        } catch (err) {
-            console.error('[Auth] sync error:', err);
+            if (await canShowCompletionToast()) {
+                syncToastTimerRef.current = setTimeout(() => {
+                    syncToastTimerRef.current = null;
+                    void canShowCompletionToast().then(allowed => {
+                        if (allowed) showToast('Sync complete', 2000, null, 'toast-success');
+                    });
+                }, 1000);
+            }
+        } catch {
+            console.error('[Auth] cloud sync failed. Local changes are retained for retry.');
             lastSyncedUserIdRef.current = null;
+            if (await canShowCompletionToast()) {
+                showToast('Cloud sync failed. Your changes remain saved on this device and will retry.', 4500, null, 'toast-error');
+            }
         } finally {
             isSyncingRef.current = false;
+            const queued = queuedSyncUserRef.current;
+            queuedSyncUserRef.current = null;
+            if (queued && activeOwner() === queued) setTimeout(() => window.dispatchEvent(new Event('online')), 0);
         }
-    }, [fetchSettings, showToast, pathname]);
+    }, [applySettingsToLocalStorage, showToast, invalidateSyncToast]);
 
     const logout = useCallback(async (clearData = false) => {
+        invalidateSyncToast();
+        setToastQueue([]);
         if (clearData) {
-            const keys = [
-                'calsync_v1', 'dropsync_v3', 'calsync_goal', 'calsync_goal_protein',
-                'calsync_goal_carbs', 'calsync_goal_fat', 'dropsync_goal',
-                'calsync_pending', 'calsync_user_weight_kg', 'calsync_creatine_goal',
-                'calsync_magnesium_goal', 'calsync_track_supplements', 'calsync_supplements_taken',
-                'healthsync_activity_status', 'healthsync_workouts',
-                'calsync_ai_api_key', 'calsync_ai_enabled', 'calsync_ai_terms_accepted',
-                'calsync_first_name', 'calsync_theme', 'calsync_splash_enabled',
-                'healthsync_weather_enabled', 'healthsync_weather_lat',
-                'healthsync_weather_lon', 'healthsync_weather_name',
-                'calsync_onboarding_done', 'calsync_tour_done',
-            ];
-            keys.forEach(k => localStorage.removeItem(k));
-            window.dispatchEvent(new Event('storage'));
+            clearActiveHealthData();
         }
         await supabase.auth.signOut();
+        switchWorkspace(GUEST_OWNER);
         setUser(null);
+        setMfaUser(null);
         setSettings(null);
-        isSyncingRef.current = false;
         lastSyncedUserIdRef.current = null;
         showToast(clearData ? 'Logged out · local data cleared' : 'Logged out');
         setTimeout(() => router.push('/login'), 500);
-    }, [showToast, router]);
+    }, [showToast, router, invalidateSyncToast]);
+
+    const retrySync = useCallback(async () => {
+        if (!user) return;
+        lastSyncedUserIdRef.current = null;
+        await performCloudSync(user.id);
+    }, [user, performCloudSync]);
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            const u = session?.user ?? null;
-            setUser(u);
+        let mounted = true;
+        let revision = 0;
+        const resolveSession = async (session: { user: User; expires_at?: number } | null) => {
+            const current = ++revision;
+            let authorized: User | null = null;
+            let needsMfa = false;
+            if (session?.user && !isTokenExpired(session)) {
+                const { data: level, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+                const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+                if (!error && !factorsError && level && factors) {
+                    needsMfa = needsMfaVerification(level.currentLevel, hasVerifiedMfaFactor(factors.all));
+                    if (!needsMfa) authorized = session.user;
+                }
+            }
+            if (!mounted || current !== revision) return;
+            if (displayedUserIdRef.current !== (authorized?.id || null)) {
+                invalidateSyncToast();
+                setToastQueue([]);
+            }
+            switchWorkspace(authorized?.id || GUEST_OWNER);
+            if (displayedUserIdRef.current !== (authorized?.id || null)) {
+                setSettings(null);
+                displayedUserIdRef.current = authorized?.id || null;
+            }
+            setUser(authorized);
+            setMfaRequired(needsMfa);
+            setMfaUser(needsMfa ? session?.user ?? null : null);
             setLoading(false);
-        });
-
+            if (authorized) void performCloudSync(authorized.id);
+            else lastSyncedUserIdRef.current = null;
+        };
+        void supabase.auth.getSession().then(({ data: { session } }) => resolveSession(session));
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            const u = session?.user ?? null;
-            const prevId = lastSyncedUserIdRef.current;
-            setUser(u);
-            if (u && u.id !== prevId) performCloudSync(u.id);
-            if (!u) lastSyncedUserIdRef.current = null;
+            // Supabase auth calls must run after the auth callback returns.
+            setTimeout(() => { void resolveSession(session); }, 0);
         });
+        return () => { mounted = false; subscription.unsubscribe(); };
+    }, [performCloudSync, invalidateSyncToast]);
 
-        return () => subscription.unsubscribe();
-    }, [performCloudSync]);
+    useEffect(() => {
+        const retry = () => {
+            if (user) {
+                lastSyncedUserIdRef.current = null;
+                void performCloudSync(user.id);
+            }
+        };
+        window.addEventListener('online', retry);
+        return () => window.removeEventListener('online', retry);
+    }, [user, performCloudSync]);
 
     return (
         <AuthContext.Provider value={{
-            user, syncEnabled, loading, settings,
-            refreshSettings, logout, showToast, toastQueue, consumeToast
+            user, syncEnabled, loading, mfaRequired, mfaUser, settings,
+            refreshSettings, retrySync, logout, showToast, toastQueue, consumeToast
             }}>
-            {children}
+            {loading ? null : children}
         </AuthContext.Provider>
     );
 }

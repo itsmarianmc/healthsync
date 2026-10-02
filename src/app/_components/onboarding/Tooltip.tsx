@@ -216,8 +216,8 @@ export default function Tooltip() {
                 ? () => {
                     try {
                     (window as unknown as Record<string, () => void>)[buttonAction]?.();
-                    } catch (e) {
-                    console.error('Tooltip button action error:', e);
+                    } catch {
+                    console.error('Onboarding action could not be completed.');
                     }
                 }
                 : undefined,

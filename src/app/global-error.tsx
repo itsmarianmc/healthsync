@@ -10,7 +10,7 @@ export default function GlobalError({
     reset: () => void;
 }) {
     useEffect(() => {
-        console.error(error);
+        console.error('An unexpected application error occurred.');
     }, [error]);
 
     return (

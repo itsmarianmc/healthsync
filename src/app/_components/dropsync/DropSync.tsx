@@ -7,6 +7,7 @@ import DropSyncModal from './DropSyncModal';
 import HistoryModal from './HistoryModal';
 import { useAuth } from '../../_context/AuthContext';
 import { syncDrinkToCloud, deleteDrinkFromCloud } from '../../_lib/sync';
+import { activeOwner, GUEST_OWNER, markDeleted, markPending } from '../../_lib/localData';
 import { removeHeaderBtn, addHeaderBtn } from '../../_lib/headerBtns';
 import HeaderTitle from '../shared/HeaderTitle';
 
@@ -87,25 +88,39 @@ export default function DropSync({
     const isLiter = total >= 1000;
 
     const handleAddEntry = useCallback(async (entry: DrinkEntry) => {
+        const ownerId = user?.id ?? GUEST_OWNER;
+        if (activeOwner() !== ownerId) return;
         const updated = [...entries, entry];
         setEntries(updated);
         localStorage.setItem('dropsync_v3', JSON.stringify(updated));
         window.dispatchEvent(new Event('storage'));
         if (total + entry.amount >= goal) showToast('Daily goal reached!', 3000, null, 'toast-success');
         else showToast(`+${entry.amount} ml`);
-        if (user) await syncDrinkToCloud(entry, user.id);
+        if (user) {
+            markPending('drinks', entry.id);
+            try { await syncDrinkToCloud(entry, user.id); }
+            catch {
+                if (activeOwner() === ownerId) showToast('Saved locally; cloud sync will retry when online');
+            }
+        }
     }, [entries, goal, total, user, showToast]);
 
     const handleDeleteEntry = useCallback(async (id: string) => {
+        const ownerId = user?.id ?? GUEST_OWNER;
+        if (activeOwner() !== ownerId) return;
         const updated = entries.filter(e => e.id !== id);
         setEntries(updated);
         localStorage.setItem('dropsync_v3', JSON.stringify(updated));
         window.dispatchEvent(new Event('storage'));
-        if (user) await deleteDrinkFromCloud(id, user.id);
-        showToast('Entry deleted');
+        const deleted = entries.find(e => e.id === id);
+        let cloudPending = false;
+        if (user && deleted) try { await deleteDrinkFromCloud(deleted, user.id); } catch { cloudPending = true; }
+        if (activeOwner() === ownerId) showToast(cloudPending ? 'Deleted locally · cloud sync pending' : 'Entry deleted');
     }, [entries, user, showToast]);
 
     const handleClearAll = useCallback(async () => {
+        const ownerId = user?.id ?? GUEST_OWNER;
+        if (activeOwner() !== ownerId) return;
         const warnEnabled = localStorage.getItem('dropsync_delete_warning') !== 'false';
         if (warnEnabled && !confirm('Delete all entries for today?')) return;
         const deleted = entries.filter(e => e.date === today);
@@ -113,10 +128,13 @@ export default function DropSync({
         setEntries(kept);
         localStorage.setItem('dropsync_v3', JSON.stringify(kept));
         window.dispatchEvent(new Event('storage'));
+        if (user) deleted.forEach(entry => markDeleted('drinks', entry));
+        let cloudPending = false;
         for (const e of deleted) {
-            if (user) await deleteDrinkFromCloud(e.id, user.id);
+            if (activeOwner() !== ownerId) return;
+            if (user) try { await deleteDrinkFromCloud(e, user.id); } catch { cloudPending = true; }
         }
-        showToast('All entries deleted');
+        if (activeOwner() === ownerId) showToast(cloudPending ? 'Deleted locally · cloud sync pending' : 'All entries deleted');
     }, [entries, today, user, showToast]);
 
     const handleModalClose = useCallback(() => {

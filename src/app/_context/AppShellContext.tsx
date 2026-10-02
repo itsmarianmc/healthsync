@@ -4,8 +4,11 @@ import React, {
 	createContext,
 	useContext,
 	useState,
-	useRef
+	useRef,
+	useCallback
 } from 'react';
+
+export type FoodAction = 'methods' | 'describe' | 'import' | 'capture';
 
 interface AppShellContextType {
 	settingsOpen: boolean;
@@ -31,6 +34,9 @@ interface AppShellContextType {
 	extraBtnRef: React.RefObject < HTMLDivElement | null > ;
 	barcodeSearchOpen: boolean;
 	setBarcodeSearchOpen: (v: boolean) => void;
+	foodAction: FoodAction | null;
+	openFoodAction: (action: FoodAction) => void;
+	closeFoodAction: () => void;
 }
 
 const AppShellContext = createContext < AppShellContextType | null > (null);
@@ -48,6 +54,9 @@ export function AppShellProvider({
 	const [supplementsOpen, setSupplementsOpen] = useState(false);
 	const [extraMenuOpen, setExtraMenuOpen] = useState(false);
 	const [barcodeSearchOpen, setBarcodeSearchOpen] = useState(false);
+	const [foodAction, setFoodAction] = useState<FoodAction | null>(null);
+	const openFoodAction = useCallback((action: FoodAction) => setFoodAction(action), []);
+	const closeFoodAction = useCallback(() => setFoodAction(null), []);
 	const extraBtnRef = useRef < HTMLDivElement | null > (null);
 
 	return (
@@ -75,6 +84,9 @@ export function AppShellProvider({
 			extraBtnRef,
 			barcodeSearchOpen,
 			setBarcodeSearchOpen,
+			foodAction,
+			openFoodAction,
+			closeFoodAction,
 			}} >
             {children}
         </AppShellContext.Provider>

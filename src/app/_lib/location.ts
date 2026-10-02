@@ -40,7 +40,7 @@ export async function reverseGeocodeLocation(latitude: number, longitude: number
     });
 
     if (!response.ok) {
-      throw new Error(`Reverse geocoding failed: ${response.status}`);
+      throw new Error('location_lookup_failed');
     }
 
     const data = (await response.json()) as ReverseGeocodeResponse;

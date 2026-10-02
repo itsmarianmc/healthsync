@@ -57,6 +57,32 @@ Route page + global `AppShell` + feature component + local JSON data + optional 
 9. External requests need matching capability and consent checks.
 10. New storage keys must be added to the data documentation and, where appropriate, the `logout(true)` clear list.
 
+## Supabase security rollout status
+
+The maintainer reports that all four local migrations match the remote history
+and supplied a read-only production SQL check for owner/AAL visibility across
+all five app tables. That check also denied the reset RPC for a verified-factor
+account at AAL1 and for `anon`. In a separate follow-up, the maintainer reports
+successful SQL write cases, an allowed reset, the current E2E suite, and a
+production build. The write matrix and E2E count were not included in that
+report. Do not turn this into a claim that every RLS acceptance case is complete; see
+[`security-migration.md`](./security-migration.md).
+
+Before recording the security work as complete, capture evidence for these
+acceptance cases against disposable users and the isolated project:
+
+1. Guest mode remains local and usable without an account.
+2. An account without a verified MFA factor can read and edit its own profile
+   and health data.
+3. Two accounts cannot read or edit each other's profiles or health data.
+4. A verified-MFA account is denied protected access at AAL1 and can access its
+   own data after TOTP verification reaches AAL2.
+5. Food, drinks and workouts survive reload after cloud synchronization.
+6. Delete All Data and account deletion both work using a disposable account.
+
+These app-level checks complement, but do not replace, inspection of database
+policies, grants, constraints, foreign keys and privileged functions.
+
 ## Common change workflows
 
 ### Add a food field
@@ -104,10 +130,10 @@ Always returns a complete `DashboardData` object. SSR/initial values are empty-l
 
 ### `sync.ts`
 
-- Push functions return `Promise<void>` and log errors; the normal UI flow generally does not rethrow them.
+- Push functions return `Promise<void>` and throw cloud-write errors so the UI can retain pending work and report failures.
 - Pull functions return `T[] | null`; `null` means sync/authorization failure, while `[]` means a successful empty result.
-- `mergeFoodEntries` and `mergeDrinkEntries` deduplicate by local IDs and sort by `ts`.
-- `syncWorkouts` returns `WorkoutRoutines | null` and resolves conflicts by timestamp.
+- Food and drink sync uploads only explicitly pending local entries, uses idempotent upserts, and honors cloud deletion tombstones.
+- Completed workout sessions are upserted by `(user_id, session_id)` and pulled back from the cloud; routine conflicts resolve by timestamp.
 
 ### Route handlers
 
@@ -116,6 +142,8 @@ Own API routes return JSON with `ok` and optional `error`. Status codes are list
 ### Toasts
 
 `showToast(message, duration?, undo?, className?)` adds a message to a shared toast queue. Multiple messages are folded into the visible toast. Undo callbacks should be idempotent or protected against repeated execution.
+
+Never render or toast a provider, database, HTTP response, or exception message directly. Map known cases to short, actionable user copy and use a safe context-specific fallback; keep runtime logs free of raw error objects and response details.
 
 ## UI and accessibility rules
 

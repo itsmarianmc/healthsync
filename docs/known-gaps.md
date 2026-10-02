@@ -14,33 +14,33 @@ Older documents mention a weather proxy. The current [WeatherWidget.tsx](../../s
 
 ### Test scripts
 
-Older README/AGENTS text mentions `npm test`, `npm run test:watch` and `npm run test:e2e`. These scripts are currently missing from `package.json`; use `npx playwright test` directly.
+`package.json` now provides `test` and `test:watch` for the Node test suite and `test:e2e` for Playwright. Database policy integration still requires a local or isolated Supabase project.
 
 ## Data and sync risks
 
-### Water goal on first cloud settings insert
+### Water goal on first cloud settings insert — fixed
 
-The UI defaults to 2500 ml. `ensureSettings()` in `sync.ts` currently falls back to 2000 when creating the first cloud row without a local value. A new cloud settings row can therefore receive a different water goal from the local UI default. Before fixing it, decide whether 2500 should be the canonical default everywhere.
+The UI, initial cloud insert, and reset RPC now share a 2500 ml default. A numeric zero is preserved as an explicit goal value.
 
-### Macro goals with value 0
+### Macro goals with value 0 — fixed
 
-`AuthContext.applySettingsToLocalStorage()` writes protein, carb and fat goals only when the cloud value is greater than 0. A cloud value of 0 therefore cannot actively remove an older positive local value. A fix must distinguish “no goal” from “not loaded yet”.
+Cloud values of zero are written locally and treated as an explicit disabled goal.
 
-### Drink upsert
+### Drink upsert — fixed
 
-Food uses an upsert with `user_id,entry_id`. `syncDrinkToCloud()` currently uses a normal insert. Repeating the same drink write can therefore hit a unique constraint; the local UI remains valid.
+Food and drinks both use upserts with `(user_id, entry_id)`; offline writes remain pending until acknowledged.
 
-### Workout history across devices
+### Workout history across devices — fixed
 
-Routines are loaded/merged through `syncWorkouts()`. Completed sessions are written, but `healthsync_workout_logs` is not pulled from `workout_sessions` during normal auth sync. Workout history is therefore primarily browser-local.
+Completed sessions upload idempotently and are pulled from `workout_sessions` during normal authenticated sync. The migration adds the unique key needed for safe upserts.
 
 ### Types versus UI session objects
 
 `_lib/types.ts` describes `WorkoutSet` with `done` and `WorkoutSessionExercise` with `exerciseName`. `WorkoutModal.tsx` additionally uses UI fields such as `state`, `activeStartTime`, `completedAt`, `isPR` and a local `name` structure. This is currently covered by local interfaces but complicates shared API/cloud typing.
 
-### Cloud failures are mostly non-blocking
+### Cloud read failures
 
-Many sync functions log errors and return `void` or `null` instead of blocking the UI. This is desirable for offline use, but a visible “Sync complete” state must not be interpreted as a guarantee that every cloud write succeeded.
+Cloud writes now throw so their pending state remains retryable and the UI can report failure. Pull helpers return `null` on read or authorization failure; callers must not treat that as an empty cloud account.
 
 ## Security and operational boundaries
 
@@ -48,9 +48,9 @@ Many sync functions log errors and return `void` or `null` instead of blocking t
 
 The personal Gemini key is stored in `calsync_ai_api_key` and sent directly from the browser to Google. Local Storage is not a secret vault: browser-profile access or a malicious extension can read it. A security-oriented rebuild should consider a server-side, rate-limited proxy, although that would be an intentional architecture change.
 
-### Account-delete error handling
+### Account-delete error handling — improved
 
-The delete route logs individual table failures and still attempts to delete the Auth user. A strictly transactional deletion would require a different procedure with explicit failure and retry handling.
+The route verifies MFA before using the service-role key, and reports failure when Auth deletion fails. It relies on verified `ON DELETE CASCADE` foreign keys for health data; inspect these constraints using the migration preflight before rollout.
 
 ### External support API
 
@@ -60,16 +60,9 @@ The support form sends user data to `api.itsmarian.dev`, not to a local Next rou
 
 `.github/workflows/playwright.yml` exists, but the job is disabled with `if: false`. Do not silently assume that this pipeline currently runs.
 
-## Local deletion is not fully uniform
+## Local deletion scope
 
-There are several delete paths:
-
-- daily deletion removes only today's food or drinks
-- Settings “All data deleted” mainly removes food/drinks and selected local values
-- `logout(true)` removes a fixed list of domain/profile keys
-- consent, update, favorite, install and some temporary keys may remain outside those lists
-
-If a rebuild promises “delete all local data”, it needs an explicit versioned key list and tests.
+The active owner's explicit Delete All Data flow clears local food, drinks, workout history, drafts, favorites, goals, personal settings and sync queues after the cloud reset RPC succeeds. Cookie consent and app-update/install state are intentionally retained because they are not health data or account settings.
 
 ## Update/changelog note
 

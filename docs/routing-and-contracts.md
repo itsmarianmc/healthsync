@@ -38,11 +38,12 @@ Global quick actions:
 
 | Action | Target |
 |---|---|
-| Describe Food | `/food?openModal=true&mode=describe` |
-| Import Food | `/food?openModal=true&mode=import` |
-| Capture Food | `/food?openModal=true&mode=capture` |
-| Search | internal barcode/search popup |
-| Scan Barcode | internal popup in camera mode |
+| Dashboard food action | AI method sheet on the current route |
+| Describe Food | food input sheet on the current route |
+| Import Food | food input sheet on the current route |
+| Capture Food | food input sheet on the current route |
+| Search | global barcode/search popup; saves from any main route |
+| Scan Barcode | global popup in camera mode; saves from any main route |
 | Log Drink | `/drinks?openModal=true` |
 | View Workouts | global `WorkoutHistoryModal` |
 | View Templates | global `WorkoutModal` |
@@ -63,6 +64,7 @@ Global quick actions:
 | `openAiMethod` | `true` | opens the AI method dialog first |
 
 After handling, `food/page.tsx` removes the processed parameters with `router.replace(..., { scroll: false })`. A `navigate:food` event with `{ openModal: true, mode?: ... }` can request the same state.
+These query parameters remain supported for links into `/food`. The global extra menu opens the same input flow in place on `/dash` and `/drinks`.
 
 ### `/drinks`
 
@@ -90,9 +92,8 @@ The server requires configured Supabase values, creates a client with `Authoriza
 | Status | JSON |
 |---:|---|
 | `200` | `{ "ok": true }` |
-| `400` | `{ "ok": false, "error": "Missing accessToken or userId" }` or `Invalid request` |
-| `401` | `{ "ok": false, "error": "Unauthorized" }` |
-| `403` | `{ "ok": false, "error": "Forbidden" }` |
+| `400` | `{ "ok": false, "error": "Missing accessToken or userId" }` or `{ "ok": false, "error": "Invalid request" }` |
+| `403` | `{ "ok": false, "error": "Complete two-factor authentication" }` for invalid identity/session or insufficient MFA assurance |
 | `500` | `{ "ok": false, "error": "Supabase not configured" }` |
 
 ### `POST /api/account/delete`
@@ -106,9 +107,15 @@ Request body:
 }
 ```
 
-The server authenticates the token with the anon client, compares the user ID and then uses the service-role client to delete rows from `calsync_entries`, `dropsync_entries`, `user_settings` and `workout_sessions`, followed by the Auth user.
+The server validates the access token and requested user ID, checks the user's
+MFA assurance, then uses the service-role client only to delete the Auth user.
+The health rows and `profiles` row are removed by their verified
+`ON DELETE CASCADE` foreign keys. The handler does not separately delete each
+table; the database constraints are therefore a required part of the contract.
 
-Responses are `200 { ok: true }`, `400` for an invalid request, `401` for missing/invalid identity and `500` for server/deletion failures. Individual table deletion errors are logged; deletion of the Auth user is still attempted.
+Responses are `200 { ok: true }`, `400` for a malformed/missing request, `403`
+when identity or MFA authorization fails, and `500` when the service key is
+missing or Auth deletion fails.
 
 ## Supabase client contract
 
@@ -136,6 +143,8 @@ There is no current server-side Gemini proxy in this repository. AI requests go 
 The login client uses Supabase Auth methods including password sign-in, registration, password reset, password update, sign-out and TOTP factor operations (`listFactors`, `challenge`, `verify`, `enroll`, `unenroll`).
 
 After password login, the Authenticator Assurance Level is checked. If a verified TOTP factor exists and AAL2 is required, the page switches to the MFA view and expects a six-digit code. 2FA setup uses a TOTP factor, QR display and a subsequent challenge/verify flow.
+
+The six OTP fields form one labelled group, support six-digit paste and authenticator autofill, and block another verification request while one is pending. The former remembered-device checkbox was removed because no server-bound device trust exists. A browser marker never changes `needsMfaVerification`, protected API authorization, `healthsync_mfa_ok()` or RLS. Sync progress and completion toasts appear only on visible main app routes; route changes, tab hiding and account changes invalidate pending completion messages without cancelling data sync.
 
 ## Rebuild rules
 

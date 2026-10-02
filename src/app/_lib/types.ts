@@ -69,6 +69,7 @@ export interface UserSettings {
   workout_routines?: WorkoutRoutines | null;
   status?: ActivityStatusRecord | null;
   updated_at?: string;
+  data_reset_at?: string | null;
 }
 
 export interface WorkoutExercise {

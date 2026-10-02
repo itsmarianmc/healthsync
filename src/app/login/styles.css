@@ -130,12 +130,29 @@ a:link, a:link:active {
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+#viewMFA .alert.info.show {
+	text-align: center;
+}
+
 .view {
 	display: none;
 }
 
 .view.active {
 	display: block;
+	animation: carousel-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes carousel-enter {
+	from {
+		opacity: 0;
+		transform: translateX(-28px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
 }
 
 .view-title {
@@ -364,6 +381,15 @@ input[type=number]::-webkit-inner-spin-button {
 .otp-wrap input:focus {
 	border-color: var(--accent);
 	background: var(--surface3);
+}
+
+.otp-wrap input:focus-visible {
+	outline: 2px solid rgba(232, 40, 42, 0.65);
+	outline-offset: 3px;
+}
+
+.otp-wrap input:disabled {
+	opacity: 0.65;
 }
 
 .btn--primary {
@@ -622,5 +648,17 @@ input[type=number]::-webkit-inner-spin-button {
 	.otp-wrap input {
 		width: 42px;
 		height: 50px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.view.active {
+		animation: none;
+	}
+	.page *,
+	.page *::before,
+	.page *::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
 	}
 }

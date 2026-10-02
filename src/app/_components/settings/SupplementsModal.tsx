@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { useAuth } from '../../_context/AuthContext';
 import { useCookieConsent } from '../../_lib/useCookieConsent';
-import { pushSettings } from '../../_lib/sync';
+import { queueSettings } from '../../_lib/localData';
 import { calcSupplements, SUPPLEMENT_KEYS } from '../../_lib/supplements';
 
 type TakenMap = Record<string, Record<string, boolean>>;
@@ -77,9 +77,9 @@ interface SupplementsModalProps {
 
 export default function SupplementsModal({ isOpen, onClose }: SupplementsModalProps) {
     const sheet = useDraggableSheet({ onClose });
-    const { user } = useAuth();
+    const { user, retrySync } = useAuth();
     const { canUsePreferences } = useCookieConsent();
-    const week = useMemo(buildWeek, [isOpen]);
+    const week = useMemo(() => buildWeek(), [isOpen]);
     const [selected, setSelected] = useState<string>(() => isoDate(new Date()));
     const [taken, setTaken] = useState<TakenMap>({});
     const [supplements, setSupplements] = useState<Supplement[]>([]);
@@ -121,9 +121,10 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
         localStorage.setItem(SUPPLEMENT_KEYS.taken, JSON.stringify(next));
         window.dispatchEvent(new Event('storage'));
         if (user) {
-            pushSettings(user.id, { supplements_taken: next }).catch(() => {});
+            queueSettings({ supplements_taken: next });
+            void retrySync();
         }
-    }, [user, canUsePreferences]);
+    }, [user, canUsePreferences, retrySync]);
 
     const toggle = useCallback((suppId: string) => {
         if (!trackingEnabled || !canUsePreferences) return;

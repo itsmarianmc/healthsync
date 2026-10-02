@@ -17,9 +17,6 @@ const MAX_IMAGE_EDGE = 1280;
 const JPEG_QUALITY = 0.82;
 
 async function prepareImage(file: File): Promise<{ data: string; mimeType: string }> {
-    // Phone cameras commonly create 4–15 MB images. Gemini does not need the full
-    // sensor resolution for a single food portion, so resize before base64 encoding.
-    // This shortens both the upload and the model's image-processing time.
     if (!file.type.startsWith('image/') || typeof createImageBitmap !== 'function') {
         return { data: await fileToBase64(file), mimeType: file.type || 'image/jpeg' };
     }
@@ -187,19 +184,19 @@ export async function analyzeWithGemini(
         body: JSON.stringify({
             contents: [{ parts }],
             generationConfig: {
-                temperature: 0.2,
-                maxOutputTokens: 160,
+                temperature: 0.25,
+                maxOutputTokens: 512,
                 response_mime_type: 'application/json',
                 response_schema: NUTRITION_RESPONSE_SCHEMA,
             },
         }),
     });
     if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
         logger.error('Gemini API error');
         if (res.status === 429) throw new Error('quota');
-        const msg = (err as { error?: { message?: string } })?.error?.message || '';
-        throw new Error('api_error: ' + msg);
+        if (res.status === 401 || res.status === 403) throw new Error('api_key');
+        if (res.status >= 500) throw new Error('service_unavailable');
+        throw new Error('api_error');
     }
     const data = await res.json();
     const raw: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
@@ -226,10 +223,13 @@ export async function validateApiKey(apiKey: string): Promise<boolean> {
 }
 
 export function describeGeminiError(err: Error): string {
-    if (err.message === 'quota') return 'API quota exceeded. Try again later.';
-    if (err.message === 'no_json') return 'AI returned an unreadable response. Try again.';
-    if (err.message.startsWith('api_error')) return 'AI service error. Try again in a moment.';
-    return 'AI detection failed. Try again.';
+    if (err.message === 'No API key configured') return 'AI detection is not configured. Add and validate your Gemini API key in Settings.';
+    if (err.message === 'quota') return 'AI usage limit reached. Check your Gemini plan or try again later.';
+    if (err.message === 'api_key') return 'Gemini rejected the API key. Check it in Settings and try again.';
+    if (err.message === 'no_json') return 'AI could not read the result. Try a clearer photo or description.';
+    if (err.message === 'service_unavailable') return 'Gemini is temporarily unavailable. Try again shortly.';
+    if (err instanceof TypeError) return 'Could not reach Gemini. Check your connection and try again.';
+    return 'AI detection failed. Check your settings and try again.';
 }
 
 export function toGeminiFoodSearchResult(

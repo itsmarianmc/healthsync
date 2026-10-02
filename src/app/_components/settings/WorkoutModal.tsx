@@ -5,7 +5,7 @@ import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { useAuth } from '../../_context/AuthContext';
 import { useCookieConsent } from '../../_lib/useCookieConsent';
 import { pushWorkoutSessionToCloud } from '../../_lib/sync';
-import { supabase } from '../../_lib/supabase';
+import { activeOwner, markPending, queueSettings } from '../../_lib/localData';
 
 interface ExerciseSet {
     reps: number;
@@ -145,7 +145,7 @@ async function loadExercisesCache(): Promise<ExerciseCacheItem[]> {
     if (exercisesCache) return exercisesCache;
     try {
         const res = await fetch('/exercises.json');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error('exercise_catalog_unavailable');
         const data = await res.json();
         const flat: ExerciseCacheItem[] = [];
 
@@ -199,7 +199,7 @@ async function loadExercisesCache(): Promise<ExerciseCacheItem[]> {
 
         exercisesCache = flat;
         return flat;
-    } catch (err) {
+    } catch {
         return [];
     }
 }
@@ -1230,7 +1230,7 @@ interface WorkoutModalProps {
 
 export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
     const sheet = useDraggableSheet({ onClose });
-    const { user, showToast } = useAuth();
+    const { user, showToast, retrySync } = useAuth();
     const { canUsePreferences } = useCookieConsent();
 
     const [routines, setRoutines] = useState<Routine[]>([]);
@@ -1292,7 +1292,8 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
         setRoutines(list);
         if (user) {
             const payload = { routines: list, _updated_at: new Date().toISOString() };
-            supabase.from('user_settings').upsert({ user_id: user.id, workout_routines: payload }, { onConflict: 'user_id' }).then(() => {});
+            queueSettings({ workout_routines: payload });
+            void retrySync();
         }
     };
 
@@ -1374,16 +1375,19 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
         logs.unshift(log);
         localStorage.setItem('healthsync_workout_logs', JSON.stringify(logs));
         if (user) {
-            pushWorkoutSessionToCloud({
+            markPending('workouts', log.id);
+            void pushWorkoutSessionToCloud({
                 id: log.id, routineId: log.routineId, routineName: log.routineName,
-                startTime: log.startTime, endTime, duration,
+                startTime: log.startTime, endTime, duration, intensity: log.intensity,
                 exercises: session.exercises.map(ex => ({
                 exerciseId: ex.exerciseId,
                 exerciseName: ex.name,
                 intensity: ex.intensity ?? String(rating),
                 sets: ex.sets.map(s => ({ reps: s.reps, weight: s.weight, done: s.state === 'completed' })),
                 })),
-            }, user.id);
+            }, user.id).catch(() => {
+                if (activeOwner() === user.id) showToast('Workout saved locally; cloud sync will retry');
+            });
         }
         const m = Math.floor(duration / 60), s = duration % 60;
         showToast(`Workout saved! ${m}:${String(s).padStart(2, '0')} min`);

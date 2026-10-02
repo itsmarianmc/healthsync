@@ -2,13 +2,6 @@
 
 import { useEffect, useState } from 'react';
 
-interface TooltipStep {
-    elementId: string;
-    message: string;
-    progress: string;
-    buttonText?: string;
-}
-
 interface TooltipState {
     visible: boolean;
     elementId: string;
@@ -20,8 +13,6 @@ interface TooltipState {
     above: boolean;
     onNext: () => void;
 }
-
-let _resolveTooltip: (() => void) | null = null;
 
 export function showToolTip(
         elementId: string, message: string, progress: string,

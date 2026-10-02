@@ -49,6 +49,11 @@ node_modules/
 /playwright/.cache/
 /playwright/.auth/
 
+# Local database backups and Supabase CLI state
+/supabase-backup/
+/supabase/.temp/
+supabase_migration.sql
+
 # AI Models
 .models
 .claude

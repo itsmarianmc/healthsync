@@ -3,7 +3,7 @@
 import { JSX, useEffect, useState } from 'react';
 import { useAuth } from '../../_context/AuthContext';
 import { useCookieConsent } from '../../_lib/useCookieConsent';
-import { pushSettings } from '../../_lib/sync';
+import { queueSettings } from '../../_lib/localData';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
 export type ActivityStatus = 'active' | 'sick' | 'injured' | 'on_a_break';
@@ -268,7 +268,7 @@ function RadioMark({ selected }: { selected: boolean }) {
 }
 
 export default function ActivityStatus() {
-    const { user } = useAuth();
+    const { user, retrySync } = useAuth();
     const { canUsePreferences } = useCookieConsent();
 
     const [savedState, setSavedState] = useState<ActivityStatusState>(DEFAULT_STATE);
@@ -424,7 +424,7 @@ export default function ActivityStatus() {
         setDraftCustomEndDate(nextState.customEndDate);
         saveState(nextState);
         if (user) {
-            void pushSettings(user.id, {
+            queueSettings({
                 status: {
                     status: nextState.status,
                     duration: nextState.duration,
@@ -435,7 +435,8 @@ export default function ActivityStatus() {
                         ? nextState.customEndDate.toISOString()
                         : null,
                 },
-            }).catch(() => {});
+            });
+            void retrySync();
         }
         if (isCustomDateOpen) {
             setIsCustomDateOpen(false);

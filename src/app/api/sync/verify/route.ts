@@ -1,5 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeProtectedRequest } from '../../../_lib/serverAuthorization';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -18,17 +18,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ ok: false, error: 'Missing accessToken or userId' }, { status: 400 });
         }
 
-        const client = createClient(supabaseUrl, supabaseAnonKey, {
-            global: { headers: { Authorization: `Bearer ${accessToken}` } },
-        });
-
-        const { data: { user }, error } = await client.auth.getUser();
-        if (error || !user) {
-            return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-        }
-        if (user.id !== userId) {
-            return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
-        }
+        if (!(await authorizeProtectedRequest(accessToken, userId)))
+            return NextResponse.json({ ok: false, error: 'Complete two-factor authentication' }, { status: 403 });
 
         return NextResponse.json({ ok: true });
     } catch {

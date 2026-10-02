@@ -6,7 +6,7 @@ import { useCookieConsent } from '../../_lib/useCookieConsent';
 import type { Detection, DetectionMode } from '../../_context/AiDetectionContext';
 import { generateEntryId } from '../../_lib/ids';
 import { logger } from '@/lib/logger';
-import { toGeminiFoodSearchResult } from '../../_lib/gemini';
+import { describeGeminiError, toGeminiFoodSearchResult } from '../../_lib/gemini';
 
 const FAVS_KEY   = 'calsync_favourites';
 const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
@@ -32,7 +32,7 @@ function isFav(name: string, brand: string) {
 interface CalSyncModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onLog: (entry: FoodEntry) => void;
+    onLog: (entry: FoodEntry) => Promise<{ cloudPending: boolean } | void> | { cloudPending: boolean } | void;
     onShowToast: (msg: string, dur?: number, undo?: (() => void) | null, cls?: string) => void;
     openWithAi?: 'describe' | 'import' | 'capture' | null;
     onOpenSettings?: () => void;
@@ -60,7 +60,6 @@ export default function CalSyncModal({
         onLog,
         onShowToast,
         openWithAi,
-        onOpenSettings,
         prefill,
         editingDraftId,
         onDraftChange,
@@ -76,7 +75,7 @@ export default function CalSyncModal({
     const [unit, setUnit] = useState<'g' | 'ml' | 'pcs'>('g');
     const [amount, setAmount] = useState(100);
     const [entryCreatedAt, setEntryCreatedAt] = useState<number | null>(null);
-    const [favs, setFavs] = useState<FoodSearchResult[]>([]);
+    const [, setFavs] = useState<FoodSearchResult[]>([]);
     const [, forceUpdate] = useState(0);
     const [modalState, setModalState] = useState<'closed' | 'open' | 'expanded'>('closed');
     const [showNFT, setShowNFT] = useState(false);
@@ -85,7 +84,7 @@ export default function CalSyncModal({
 
     const [aiTextOpen, setAiTextOpen] = useState(false);
     const [aiTextValue, setAiTextValue] = useState('');
-    const [aiProcessing, setAiProcessing] = useState(false);
+    const [, setAiProcessing] = useState(false);
     const aiImageInputRef = useRef<HTMLInputElement>(null);
     const aiCameraInputRef = useRef<HTMLInputElement>(null);
     const isModalHiddenForAiRef = useRef(false);
@@ -113,6 +112,7 @@ export default function CalSyncModal({
     const currentDetectionIdRef = useRef<string | null>(null);
     const errorMessageRef = useRef<string | null>(null);
     const loggedRef = useRef(false);
+    const loggingRef = useRef(false);
     const snapToClosedRef = useRef<() => void>(() => {});
     const toastedDetectionIdRef = useRef<string | null>(null);
     const appliedResultRef = useRef<Detection['result'] | null>(null);
@@ -286,13 +286,10 @@ export default function CalSyncModal({
         setAiProcessing(false);
         logger.error('AI analysis failed');
         isModalHiddenForAiRef.current = false;
-        errorMessageRef.current = err.message;
+        const message = describeGeminiError(err);
+        errorMessageRef.current = message;
         snapToClosed();
-        if (err.message === 'quota') onShowToast('API quota exceeded. Try again later.');
-        else if (err.message === 'no_json') onShowToast('AI returned an unreadable response. Try again.');
-        else if (err.message.startsWith('api_error')) onShowToast('AI service error. Try again in a moment.');
-        else if (err.message === 'No API key configured') onShowToast('No API key configured. Add one in Settings.');
-        else onShowToast('AI detection cancelled. Try scanning a barcode instead.');
+        onShowToast(message);
         if (closingRef.current) return;
         try {
             window.dispatchEvent(new CustomEvent('extra:openBarcodeSearch', { detail: { mode: 'camera' } }));
@@ -616,13 +613,22 @@ export default function CalSyncModal({
         return selFood.fatPer100 * amount / 100;
     };
 
-    const logFood = () => {
-        if (!selFood) return;
+    const logFood = async () => {
+        if (!selFood || loggingRef.current) return;
+        loggingRef.current = true;
         const entry = buildFoodEntry(selFood, amount, unit || 'g');
-        onLog(entry);
-        loggedRef.current = true;
-        snapToClosed();
-        onShowToast(`${entry.kcal} kcal logged`);
+        try {
+            const outcome = await onLog(entry);
+            loggedRef.current = true;
+            snapToClosed();
+            onShowToast(outcome?.cloudPending
+                ? 'Saved locally; cloud sync will retry when online'
+                : `${entry.kcal} kcal logged`);
+        } catch {
+            onShowToast('Could not save food locally. Please try again.');
+        } finally {
+            loggingRef.current = false;
+        }
     };
 
     useEffect(() => {

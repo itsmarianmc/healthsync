@@ -1,5 +1,14 @@
 # HealthSync
 
+> **Dokumentationshinweis (30.09.2026):** Dieses Dokument ist ein älterer
+> Funktions- und Migrationsverweis und enthält Abschnitte aus der früheren
+> Vanilla-JS-Version, die nicht zum aktuellen Next.js-Code passen. Für den
+> tatsächlichen Projektaufbau, aktuelle Datenflüsse, Routen, Tests und
+> Supabase-Sicherheit gelten [`AGENTS.md`](./AGENTS.md), der
+> [`docs/README.md`](./docs/README.md) und die darin verlinkten technischen
+> Dokumente. Prüfe den Quellcode, bevor du Angaben aus diesem Dokument als
+> aktuelle Implementierung übernimmst.
+
 **HealthSync** is a mobile-first Progressive Web App (PWA) for personal health tracking. The app combines calorie counting (CalSync), hydration tracking (DropSync), and workout logging under a unified interface and is available at `healthsync.itsmarian.dev`.
 
 The project originated as an independent evolution from two separate projects - CalSync and DropSync - which were merged into a single platform. HealthSync is a personal project by Marian and is actively maintained.

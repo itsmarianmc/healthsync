@@ -6,7 +6,7 @@ import Linkout from '@/app/legal/components/Linkout'
 export const metadata: Metadata = {
     title: 'Privacy Policy - HealthSync',
     description:
-        'Privacy policy for HealthSync, a personal health-tracking app by itsmarian. Learn how your account data, health metrics, food, hydration and workout entries are collected, processed and protected in compliance with the GDPR.',
+        'Privacy policy for HealthSync, a personal health-tracking app by itsmarian. Learn how account data, health metrics, food, hydration and workout entries are collected, processed and protected, including information about health data under the GDPR.',
     robots: {
         index: false,
         follow: true,
@@ -244,7 +244,8 @@ export default function PrivacyPage() {
                     These measures include, in particular: TLS/SSL encryption for all traffic to and from
                     the app and its backend; access protection for the production database; row-level
                     security (RLS) policies in our database backend so that each user can only read and
-                    modify their own data; optional Two-Factor Authentication (TOTP) for account login;
+                    modify their own data; verified Two-Factor Authentication (TOTP) is required before
+                    protected data access for accounts that enable it;
                     storage of authentication tokens in secure HTTP cookies; and the principle of data
                     minimisation in our database schema.
                 </div>
@@ -573,11 +574,11 @@ export default function PrivacyPage() {
                     },
                     {
                         label: 'User profiles are not publicly visible',
-                        text: 'HealthSync has no social feed or public profile feature. Your data is visible only to you.',
+                        text: 'HealthSync has no social feed or public profile feature. Database policies restrict profile and health records to the account owner; verified MFA accounts must complete the second factor before accessing protected records.',
                     },
                     {
                         label: 'Erasure on account deletion',
-                        text: 'When you delete your account, all rows in our database that are associated with your user ID are removed without undue delay, subject only to statutory retention obligations.',
+                        text: 'After account deletion succeeds, associated cloud records are removed through the database cascade. A deletion request can fail if the database is not configured correctly; the app reports that failure instead of confirming deletion. Some separately deleted food and drink records remain as hidden tombstones until Delete All Data or account deletion removes them.',
                     },
                     {
                         label: 'No obligation to retain data',
@@ -597,7 +598,10 @@ export default function PrivacyPage() {
                     from your authenticator app, which is verified server-side.
                 </div>
                 <div className="text-section">
-                    The two-factor code is always required and verified server-side on every login.
+                    Once a TOTP factor is verified, the code is required and verified by Supabase Auth
+                    on each sign-in. Protected database and API actions also require the stronger
+                    authenticated session level. Accounts without a verified factor can continue to use
+                    password-only sign-in.
                     HealthSync does not store a list of &quot;trusted&quot; devices in your browser, because such
                     a client-side list could be tampered with and would silently bypass the second
                     factor. You can revoke access at any time by signing out.
