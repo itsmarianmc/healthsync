@@ -1,11 +1,11 @@
 # Self-Hosting HealthSync
 
 This guide walks you through hosting HealthSync on your own infrastructure.
-HealthSync is a [Next.js 16](https://nextjs.org) App Router project that talks
-to [Supabase](https://supabase.com) (PostgreSQL + Auth + RLS) as its default
-backend. If you prefer a lightweight self-managed alternative, the second half
-of this document also documents an equivalent **SQLite** schema you can plug
-into a custom backend.
+HealthSync is a [Next.js 16](https://nextjs.org) App Router project whose
+current authentication and cloud-data implementation uses
+[Supabase](https://supabase.com) (PostgreSQL + Auth + RLS). The SQLite section
+is a porting outline for a separately implemented backend; it is not a
+drop-in or currently supported database option.
 
 > HealthSync is part of [itsmarian](https://github.com/itsmarianmc)'s projects.
 > Please review the in-app [Privacy Policy](https://healthsync.itsmarian.dev/legal/privacy),
@@ -26,10 +26,9 @@ into a custom backend.
    - [SQL schema & RLS policies](#42-sql-schema--rls-policies)
    - [Auth configuration](#43-auth-configuration)
    - [MFA / TOTP](#44-mfa--totp)
-5. [Option B - SQLite (DIY backend)](#5-option-b--sqlite-diy-backend)
-6. [Optional: AI Detection (Google Gemini)](#6-optional-ai-detection-google-gemini)
-7. [Optional: Local AI proxy (`/api/proxy?type=pillama`)](#7-optional-local-ai-proxy)
-8. [Development](#8-development)
+5. [Porting outline - SQLite (not supported as-is)](#5-porting-outline---sqlite-not-supported-by-this-repository-as-is)
+6. [Optional: AI detection with Google Gemini](#6-optional-ai-detection-with-google-gemini)
+7. [Development](#development-section-below)
 9. [Production build & deployment](#9-production-build--deployment)
 10. [Updating & migrations](#10-updating--migrations)
 11. [Backups & data export](#11-backups--data-export)
@@ -40,12 +39,12 @@ into a custom backend.
 
 ## 1. Prerequisites
 
-- **Node.js** 18.18+ (Node 20 LTS recommended)
+- **Node.js** 20.9+ (Node 22 or 24 LTS recommended)
 - **npm** 10+ (or pnpm / yarn / bun, but `package.json` is npm-flavoured)
 - **Git**
-- One of:
-  - A free [Supabase](https://supabase.com) project (recommended), **or**
-  - Your own database server (PostgreSQL or SQLite) plus a custom auth layer
+- A [Supabase](https://supabase.com) project for the current Auth and sync code.
+- A custom database and authentication backend only if you plan to replace the
+  Supabase client integration in the application.
 
 For deployment you can use:
 
@@ -68,17 +67,18 @@ npm install
 
 ## 3. Environment variables
 
-Create a `.env.local` file in the project root. **Never commit it.**
+Create a `.env.local` file in the project root (or use the tracked
+`.env.example` as a template). **Never commit actual credentials.**
 
 ```env
 # Required - Supabase project URL and publishable / anon key.
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR-PUBLISHABLE-OR-ANON-KEY
 
-# Optional - override the local AI proxy used by /api/proxy?type=pillama.
-# Defaults to http://127.0.0.1:11434/v1/completions (Ollama on the same host).
-OLLAMA_PROXY_URL=
 ```
+
+The full current variable list and the server-only account-delete key are
+documented in [`.env.example`](.env.example).
 
 Both Supabase values can be found in your Supabase project at
 **Settings → API**. Use the *publishable* (anon) key - the `service_role`
@@ -96,9 +96,14 @@ key must **never** be exposed to the browser.
 
 ### 4.2. SQL schema & RLS policies
 
-Open **SQL editor → New query** and run the following script. It creates the
-four tables HealthSync uses and locks them down with Row Level Security so
-each authenticated user can only read or modify their own rows.
+For a new or isolated project, prefer the ordered CLI migrations under
+`supabase/migrations/`; the production/test commands are in
+`docs/security-migration.md`. The SQL block below remains a manual reference
+for creating the base schema. The security migration installs owner-scoped,
+MFA-aware policies, table and column grants, and the data reset function. For
+an existing project, follow
+`docs/security-migration.md` and inspect its actual schema and existing access
+rules first.
 
 ```sql
 -- =========================================================
@@ -135,10 +140,6 @@ create index if not exists calsync_entries_user_ts_idx
 
 alter table calsync_entries enable row level security;
 
-create policy "calsync_entries: users access own rows"
-  on calsync_entries for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
 
 -- ---------- Drink entries (DropSync) ----------
 create table if not exists dropsync_entries (
@@ -161,10 +162,6 @@ create index if not exists dropsync_entries_user_ts_idx
 
 alter table dropsync_entries enable row level security;
 
-create policy "dropsync_entries: users access own rows"
-  on dropsync_entries for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
 
 -- ---------- User settings (goals + workout routines) ----------
 create table if not exists user_settings (
@@ -180,10 +177,6 @@ create table if not exists user_settings (
 
 alter table user_settings enable row level security;
 
-create policy "user_settings: users access own row"
-  on user_settings for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
 
 -- ---------- Workout sessions ----------
 create table if not exists workout_sessions (
@@ -205,10 +198,16 @@ create index if not exists workout_sessions_user_start_idx
 
 alter table workout_sessions enable row level security;
 
-create policy "workout_sessions: users access own rows"
-  on workout_sessions for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+
+-- ---------- Profile (only the owner can read/write after migration) ----------
+create table if not exists profiles (
+  id           uuid primary key references auth.users on delete cascade,
+  display_name text,
+  full_name    text,
+  avatar_url   text,
+  latest_version text
+);
+alter table profiles enable row level security;
 
 -- ---------- Auto-update updated_at on user_settings ----------
 create or replace function tg_user_settings_set_updated_at()
@@ -243,15 +242,27 @@ Email confirmation can be enabled under **Authentication → Providers → Email
 
 HealthSync's login flow supports TOTP via Supabase Auth. Enable it under
 **Authentication → Multi-factor authentication** in the Supabase dashboard.
-The app handles enrolment and challenge from `src/app/login/page.tsx` and
-remembers trusted devices locally via `mfa_trusted_emails` in localStorage.
+The app handles enrolment and challenge from `src/app/login/page.tsx`. A
+verified factor requires a code before access. The app checks assurance during
+session restore and in protected API routes; the database migration also
+enforces it for table access. Apply the migration before deploying this code.
+No trusted-device list is stored in the browser.
+
+The app uses `public.profiles` for the signed-in user's `display_name`,
+`full_name`, `avatar_url`, and `latest_version` (the last changelog version
+acknowledged). Its primary key is `id`, linked to
+`auth.users(id)` with `ON DELETE CASCADE`. The migration restricts profile
+reads and writes to the owner and grants access only to these fields. The
+additive `20261001010000_profile_latest_version.sql` migration grants the
+changelog field separately. It does not expose profiles as a directory.
 
 ---
 
-## 5. Option B - SQLite (DIY backend)
+## 5. Porting outline - SQLite (not supported by this repository as-is)
 
-HealthSync's client code assumes the Supabase JavaScript SDK. If you want to
-run **without** Supabase you have to provide your own thin backend that mimics
+HealthSync's current client code assumes the Supabase JavaScript SDK. This
+section is a design starting point only. To run **without** Supabase you must
+implement and maintain a backend that mimics
 the relevant calls (auth + the few `from(...).select/insert/upsert/delete`
 operations in [`src/app/_lib/sync.ts`](src/app/_lib/sync.ts)). The schema
 below maps the same tables to SQLite so you can use it with, for example,
@@ -261,7 +272,6 @@ Express / Fastify / Hono API.
 > SQLite has no built-in row-level security. The equivalent is **always**
 > filtering every query by the authenticated `user_id` in your backend code,
 > and never trusting `user_id` values sent from the client.
-Sc
 ```sql
 -- =========================================================
 -- HealthSync - SQLite schema (DIY backend)
@@ -288,6 +298,13 @@ CREATE TABLE IF NOT EXISTS sessions (
   user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   expires_at  TEXT NOT NULL,
   created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS profiles (
+  id           TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  display_name TEXT,
+  full_name    TEXT,
+  avatar_url   TEXT
 );
 
 CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(user_id);
@@ -412,22 +429,7 @@ notice reflects that AI Detection is opt-in and uses the user's own key.
 
 ---
 
-## 7. Optional: Local AI proxy
-
-The file `src/app/api/proxy/route.ts` exposes a tiny POST endpoint at
-`/api/proxy?type=pillama`. It forwards the request body to a local AI server
-(by default `http://127.0.0.1:11434/v1/completions`, i.e. [Ollama](https://ollama.com)).
-This is an experimental hook and is not required for HealthSync to function.
-
-Set `OLLAMA_PROXY_URL` in your environment to point at a different completion
-endpoint. Leave it unset to use the default. The route is **disabled by
-default** and returns `404` unless you explicitly set `ENABLE_OLLAMA_PROXY=true`
-(e.g. for local development). Do not enable it on a public deployment without
-adding authentication first.
-
----
-
-## 8. Development
+#### Development (added as §7) - `npm run dev`, `npx playwright test` etc
 
 ```bash
 npm run dev          # next dev (Turbopack)
@@ -440,7 +442,7 @@ use Chrome DevTools' device toolbar for a realistic preview.
 
 ---
 
-## 9. Production build & deployment
+## 8. Production build &amp; deployment
 
 ### Vercel (default)
 
@@ -502,7 +504,7 @@ docker run --rm -p 3000:3000 \
 
 ---
 
-## 10. Updating & migrations
+## 9. Updating &amp; migrations
 
 Pull the latest code, reinstall dependencies and run any newly added SQL
 fragments. The schema in §4.2 / §5 is idempotent (`if not exists`), so you
@@ -549,12 +551,12 @@ your jurisdiction requires Art. 20 GDPR (data portability) self-service.
 
 - [ ] `.env.local` is in `.gitignore` and never committed.
 - [ ] You use the **publishable / anon** Supabase key in the client, **never** the `service_role` key.
-- [ ] Every Supabase table has RLS **enabled** and a policy that ties access to `auth.uid()` (see §4.2).
+- [ ] All five app tables have RLS **enabled** and owner-scoped policies; accounts with a verified MFA factor require `aal2` (see §4.2 and `docs/security-migration.md`).
 - [ ] Supabase **Site URL** and **Redirect URLs** include only the origins you control.
 - [ ] HTTPS is terminated in front of HealthSync; HTTP requests are redirected to HTTPS.
 - [ ] Email confirmations and a sensible password policy are enabled in Supabase Auth.
 - [ ] MFA / TOTP is enabled for accounts that hold real health data.
-- [ ] The `/api/proxy` route is either removed or protected if you do not actually use a local AI server.
+<!-- /api/proxy route was removed in favor of direct Gemini API calls. -->
 - [ ] Your hosting provider's privacy policy, your cookie banner config and the in-app legal pages reflect your real setup.
 
 ---
@@ -578,8 +580,10 @@ Open the browser console. `sync.ts` logs every backend error prefixed with
 or a stale RLS policy.
 
 **MFA QR code does not render**
-Ensure `src/app/login/layout.tsx` is loading the QRCode.js script and that
-your CSP allows the CDN it loads from.
+The QR code is rendered in `src/app/login/page.tsx` using the global
+`QRCode` library loaded from the CDN allowed by the CSP in `src/proxy.ts`.
+If the library fails to load it falls back to a plain "Open in
+authenticator" link - make sure your CSP allows that CDN.
 
 **AI Detection does nothing**
 The feature is disabled by default. Enable it in *Settings → AI Detection*,

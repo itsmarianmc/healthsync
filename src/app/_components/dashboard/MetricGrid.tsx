@@ -29,7 +29,7 @@ export default function MetricGrid({ totalCal, totalWater, calGoal, waterGoal, c
                 <div className="dashboard-metric-value"><span id="dashboardCalories">{Math.round(totalCal)}</span><small>kcal</small></div>
                 <div className="dashboard-metric-sub" id="dashboardCalLeft">{calLeft}</div>
                 <div className="dashboard-card-progress">
-                <div id="dashboardCalProgress" className="progress-bar" style={{ width: Math.max(0, Math.min(100, calPercent * 100)) + '%' }} />
+                <div id="dashboardCalProgress" className="progress-bar" role="progressbar" aria-valuenow={Math.round(calPercent * 100)} aria-valuemin={0} aria-valuemax={100} aria-label={`Calories: ${Math.round(calPercent * 100)}% of goal`} style={{ width: Math.max(0, Math.min(100, calPercent * 100)) + '%' }} />
                 </div>
                 <div className="dashboard-metric-goal" id="dashboardCalGoal">Goal {calGoal} kcal</div>
             </div>
@@ -41,7 +41,7 @@ export default function MetricGrid({ totalCal, totalWater, calGoal, waterGoal, c
                 <div className="dashboard-metric-value"><span id="dashboardWater">{Math.round(totalWater)}</span><small>ml</small></div>
                 <div className="dashboard-metric-sub" id="dashboardWaterLeft">{waterLeft}</div>
                 <div className="dashboard-card-progress">
-                    <div id="dashboardWaterProgress" className="progress-bar" style={{ width: Math.max(0, Math.min(100, waterPercent * 100)) + '%' }} />
+                    <div id="dashboardWaterProgress" className="progress-bar" role="progressbar" aria-valuenow={Math.round(waterPercent * 100)} aria-valuemin={0} aria-valuemax={100} aria-label={`Hydration: ${Math.round(waterPercent * 100)}% of goal`} style={{ width: Math.max(0, Math.min(100, waterPercent * 100)) + '%' }} />
                 </div>
                 <div className="dashboard-metric-goal" id="dashboardWaterGoal">Goal {formatMl(waterGoal)}</div>
             </div>

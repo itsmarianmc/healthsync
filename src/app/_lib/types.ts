@@ -17,7 +17,21 @@ export interface FoodEntry {
   isDrink?: boolean;
   isBarcode?: boolean;
   barcode?: string;
+  status?: 'pending' | 'confirmed';
 }
+
+export interface PendingFoodDraft {
+  id: string;
+  food: FoodSearchResult;
+  amount: number;
+  unit: 'g' | 'ml' | 'pcs';
+  ts: number;
+}
+
+export type DraftChange =
+  | { type: 'create'; draft: PendingFoodDraft }
+  | { type: 'delete'; draftId: string }
+  | { type: 'update'; draftId: string; amount: number; unit: 'g' | 'ml' | 'pcs' };
 
 export interface DrinkEntry {
   id: string;
@@ -55,6 +69,7 @@ export interface UserSettings {
   workout_routines?: WorkoutRoutines | null;
   status?: ActivityStatusRecord | null;
   updated_at?: string;
+  data_reset_at?: string | null;
 }
 
 export interface WorkoutExercise {

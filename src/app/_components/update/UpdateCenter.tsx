@@ -1,17 +1,24 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, Fragment } from 'react';
 import { usePathname } from 'next/navigation';
 import { Serwist } from '@serwist/window';
 import { useAppShell } from '../../_context/AppShellContext';
 import { useAuth } from '../../_context/AuthContext';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
-import { compareVersions, type ChangelogEntry } from '../../_lib/changelog';
+import {
+    compareVersions,
+    fetchLastSeenChangelogVersion,
+    syncLastSeenVersion,
+    storeLastSeenChangelogVersion,
+    readLocalLastSeen,
+    writeLocalLastSeen,
+    type ChangelogEntry,
+} from '../../_lib/changelog';
 import { APP_VERSION } from '../../_lib/release';
 
 const UPDATE_AVAILABLE_STORAGE_KEY = 'healthsync_update_available';
 const DISMISSED_BANNER_STORAGE_KEY = 'healthsync_dismissed_banner';
-const LAST_SEEN_CHANGELOG_VERSION_STORAGE_KEY = 'healthsync_last_seen_changelog_version';
 const PENDING_RELOAD_AFTER_UPDATE_STORAGE_KEY = 'healthsync_pending_reload_after_update';
 const UPDATE_CENTER_ALLOWED_ROUTES = ['/dash', '/food', '/drinks'];
 
@@ -22,7 +29,7 @@ type SerwistWindow = Window & {
 function readDismissedBanner(): boolean {
     try {
         return localStorage.getItem(DISMISSED_BANNER_STORAGE_KEY) === 'true';
-    } catch (error) {
+    } catch {
         return false;
     }
 }
@@ -30,13 +37,13 @@ function readDismissedBanner(): boolean {
 function writeDismissedBanner(dismissed: boolean): void {
     try {
         localStorage.setItem(DISMISSED_BANNER_STORAGE_KEY, String(dismissed));
-    } catch (error) {}
+    } catch {}
 }
 
 function readUpdateAvailable(): boolean {
     try {
         return localStorage.getItem(UPDATE_AVAILABLE_STORAGE_KEY) === 'true';
-    } catch (error) {
+    } catch {
         return false;
     }
 }
@@ -44,28 +51,14 @@ function readUpdateAvailable(): boolean {
 function writeUpdateAvailable(available: boolean): void {
     try {
         localStorage.setItem(UPDATE_AVAILABLE_STORAGE_KEY, String(available));
-    } catch (error) {}
+    } catch {}
     window.dispatchEvent(new CustomEvent('healthsync:update-available-changed', { detail: available }));
-}
-
-function readLocalLastSeen(): string | null {
-    try {
-        return localStorage.getItem(LAST_SEEN_CHANGELOG_VERSION_STORAGE_KEY);
-    } catch (error) {
-        return null;
-    }
-}
-
-function writeLocalLastSeen(version: string): void {
-    try {
-        localStorage.setItem(LAST_SEEN_CHANGELOG_VERSION_STORAGE_KEY, version);
-    } catch (error) {}
 }
 
 function readPendingReloadAfterUpdate(): boolean {
     try {
         return localStorage.getItem(PENDING_RELOAD_AFTER_UPDATE_STORAGE_KEY) === 'true';
-    } catch (error) {
+    } catch {
         return false;
     }
 }
@@ -73,16 +66,7 @@ function readPendingReloadAfterUpdate(): boolean {
 function writePendingReloadAfterUpdate(pending: boolean): void {
     try {
         localStorage.setItem(PENDING_RELOAD_AFTER_UPDATE_STORAGE_KEY, String(pending));
-    } catch (error) {}
-}
-
-function sortEntries(entries: ChangelogEntry[]): ChangelogEntry[] {
-    return [...entries].sort((left, right) => {
-        const versionDelta = compareVersions(right.version, left.version);
-        if (versionDelta !== 0) return versionDelta;
-
-        return right.title.localeCompare(left.title, undefined, { sensitivity: 'base' });
-    });
+    } catch {}
 }
 
 function isUpdateCenterAllowedRoute(pathname: string | null): boolean {
@@ -126,13 +110,21 @@ export default function UpdateCenter() {
     const reloadAfterUpdateRef = useRef(false);
     const bootstrapRef = useRef(false);
     const profileSeenVersionRef = useRef<string | null>(null);
+    const openedOwnerRef = useRef<string | null>(null);
     const expandTimerRef = useRef<number | null>(null);
 
     const sheet = useDraggableSheet({
         onClose: () => {
             closeUpdateCenter();
-            const seenVersion = profileSeenVersionRef.current ?? APP_VERSION;
-            writeLocalLastSeen(seenVersion);
+            if (!isUpdateCenterAllowedRoute(window.location.pathname) ||
+                document.visibilityState === 'hidden' || openedOwnerRef.current !== (user?.id ?? null)) return;
+            profileSeenVersionRef.current = APP_VERSION;
+            writeLocalLastSeen(user?.id ?? null, APP_VERSION);
+            if (user?.id) {
+                void storeLastSeenChangelogVersion(user.id, APP_VERSION).catch(() => {
+                    console.error('[updates] Could not save the latest version for this account.');
+                });
+            }
         },
         transitionDurationMs: 500,
         transitionEasing: 'cubic-bezier(0.16, 1, 0.3, 1)',
@@ -186,7 +178,7 @@ export default function UpdateCenter() {
                     setUpdateAvailable(false);
                     writeUpdateAvailable(false);
                 }
-            } catch (error) { }
+            } catch { }
         });
 
         return () => {
@@ -197,6 +189,7 @@ export default function UpdateCenter() {
 
     useEffect(() => {
         let cancelled = false;
+        profileSeenVersionRef.current = null;
 
         const loadChangelog = async () => {
             setLoadingEntries(true);
@@ -206,38 +199,61 @@ export default function UpdateCenter() {
                 const response = await fetch('/changelog.json');
 
                 if (!response.ok) {
-                    throw new Error(`Failed to fetch changelog: ${response.status}`);
+                    throw new Error('changelog_unavailable');
                 }
 
                 const jsonData = await response.json();
 
                 if (cancelled) return;
+                setHasPendingChangelog(false);
 
                 const allEntries = convertJsonToChangelogEntries(jsonData);
 
-                const localSeenVersion = readLocalLastSeen();
+                const localSeenVersion = readLocalLastSeen(user?.id ?? null);
+                let supabaseSeenVersion: string | null = null;
+                let profileReadSucceeded = false;
+                if (user?.id) {
+                    try {
+                        supabaseSeenVersion = await fetchLastSeenChangelogVersion(user.id);
+                        profileReadSucceeded = true;
+                    } catch {
+                        console.error('[updates] Could not read the account update version.');
+                    }
+                }
+
+                if (cancelled) return;
+
+                let latestSeenVersion = localSeenVersion;
+                if (user?.id && profileReadSucceeded) {
+                    try {
+                        latestSeenVersion = await syncLastSeenVersion(user.id, supabaseSeenVersion);
+                    } catch {
+                        console.error('[updates] Could not synchronize the account update version.');
+                        latestSeenVersion = localSeenVersion;
+                    }
+                }
+
+                if (cancelled) return;
+
+                profileSeenVersionRef.current = latestSeenVersion ?? '0.0.0';
 
                 const currentEntries = allEntries.filter((entry) =>
                     compareVersions(entry.version, APP_VERSION) <= 0
                 );
 
                 const unseenEntries = currentEntries.filter((entry) => {
-                    if (!localSeenVersion) return true;
-                    return compareVersions(entry.version, localSeenVersion) > 0;
+                    if (!latestSeenVersion) return true;
+                    return compareVersions(entry.version, latestSeenVersion) > 0;
                 });
 
                 if (currentEntries.length > 0) {
                     setEntries(currentEntries);
-                    if (unseenEntries.length > 0) {
-                        setHasPendingChangelog(true);
-                    }
-                    if (!localSeenVersion) {
-                        writeLocalLastSeen(APP_VERSION);
-                    }
+                    setHasPendingChangelog(unseenEntries.length > 0);
                 } else {
-                    writeLocalLastSeen(APP_VERSION);
+                    setEntries([]);
+                    setHasPendingChangelog(false);
                 }
-            } catch (error) {
+            } catch {
                 if (!cancelled) {
                     setLoadError('Could not load the latest updates.');
                 }
@@ -251,14 +267,15 @@ export default function UpdateCenter() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [user?.id]);
 
     useEffect(() => {
         if (hasPendingChangelog && isAllowedRoute && !updateCenterOpen && profileSeenVersionRef.current !== null) {
+            openedOwnerRef.current = user?.id ?? null;
             openUpdateCenter();
             setHasPendingChangelog(false);
         }
-    }, [hasPendingChangelog, isAllowedRoute, updateCenterOpen, openUpdateCenter]);
+    }, [hasPendingChangelog, isAllowedRoute, updateCenterOpen, openUpdateCenter, user?.id]);
 
     useEffect(() => {
         if (updateCenterOpen && !isAllowedRoute) {
@@ -273,6 +290,7 @@ export default function UpdateCenter() {
         }
 
         if (updateCenterOpen) {
+            if (stateRef.current === 'closed') openedOwnerRef.current = user?.id ?? null;
             open();
             expandTimerRef.current = window.setTimeout(() => {
                 if (stateRef.current !== 'closed') {
@@ -289,16 +307,24 @@ export default function UpdateCenter() {
                 expandTimerRef.current = null;
             }
         };
-    }, [close, open, snapToExpanded, stateRef, updateCenterOpen]);
+    }, [close, open, snapToExpanded, stateRef, updateCenterOpen, user?.id]);
 
     const applyUpdate = async () => {
         const globalWindow = window as SerwistWindow;
         let registration: ServiceWorkerRegistration | undefined;
         try {
             registration = await navigator.serviceWorker.getRegistration();
-        } catch (error) {}
+        } catch {}
 
-        writeLocalLastSeen(APP_VERSION);
+        writeLocalLastSeen(user?.id ?? null, APP_VERSION);
+        profileSeenVersionRef.current = APP_VERSION;
+        if (user?.id) {
+            try {
+                await storeLastSeenChangelogVersion(user.id, APP_VERSION);
+            } catch {
+                console.error('[updates] Could not save the latest version for this account.');
+            }
+        }
 
         if (!registration?.waiting) {
             writePendingReloadAfterUpdate(false);
@@ -334,15 +360,16 @@ export default function UpdateCenter() {
                 </div>
             )}
 
-            <div className="app-overlay whats-new-overlay" ref={setOverlayRef} onClick={(event) => { if (event.target === event.currentTarget) closeUpdateCenter(); }}>
+            <div className="app-overlay whats-new-overlay" ref={setOverlayRef} onClick={(event) => { if (event.target === event.currentTarget) closeUpdateCenter(); }}
+                role="dialog" aria-modal="true" aria-label="What's new">
                 <div className="modal whats-new-modal" ref={setModalRef} id="whatsNewModal">
                     <div className="modal-handle-zone" id="ws-handleZone" {...handleProps}>
                         <div className="modal-handle" />
                     </div>
                     <div className="modal-header">
                         <div className="modal-btn">
-                            <button className="close-btn" id="backBtn" type="button" onClick={closeUpdateCenter} aria-label="Close update center">
-                                <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="#e3e3e3">
+                            <button className="close-btn" id="updateCenterBackBtn" type="button" onClick={closeUpdateCenter} aria-label="Close update center">
+                                <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="#e3e3e3" aria-hidden="true">
                                     <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
                                 </svg>
                             </button>
@@ -357,16 +384,21 @@ export default function UpdateCenter() {
                         )}
                         {!loadingEntries && !loadError && entries.length > 0 && (
                             <div className="whats-new-list">
-                                {entries.map((entry) => (
-                                    <article key={entry.id} className="whats-new-entry">
-                                        <div className="whats-new-entry-meta">
-                                            <span className="whats-new-entry-category">{entry.category}</span>
-                                            <span className="whats-new-entry-version">v{entry.version}</span>
-                                        </div>
-                                        <h3 className="whats-new-entry-title">{entry.title}</h3>
-                                        <p className="whats-new-entry-description">{entry.description}</p>
-                                    </article>
-                                ))}
+                                {entries.map((entry, index) => {
+                                    const isNewVersionGroup = index > 0 && entry.version !== entries[index - 1].version;
+                                    return (
+                                        <Fragment key={entry.id}>
+                                            {isNewVersionGroup && <div className="whats-new-divider" />}
+                                            <article className="whats-new-entry">
+                                                <div className="whats-new-entry-meta">
+                                                    <p className="whats-new-entry-title">{entry.title}</p>
+                                                    <span className="whats-new-entry-version">v{entry.version}</span>
+                                                </div>
+                                                <p className="whats-new-entry-description">{entry.description}</p>
+                                            </article>
+                                        </Fragment>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

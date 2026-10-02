@@ -1,30 +1,42 @@
 # HealthSync
 
-> HealthSync is a mobile-first Progressive Web App (PWA) for personal health tracking - calories, macros, and hydration - built with Next.js 15 (App Router) and TypeScript.
+> HealthSync is a mobile-first Progressive Web App (PWA) for personal health tracking - calories, macros, hydration, and workouts - built with Next.js 16 (App Router) and TypeScript. It works without an account (data stays in the browser) and optionally syncs to the cloud via a free account.
 
 ## Features
 
-- **Dashboard**: Daily overview of calories, water intake, and macronutrients with progress bars, a score ring (SVG), a 7-day bar chart, recent activity list, streak counter, and rule-based next-step tips.
-- **CalSync (Food Tracking)**: Log meals with a barcode scanner (ZXing), free-text search, or manual entry. Tracks calories, protein, carbohydrates, fat, and weight per entry. Cloud sync via Supabase.
-- **DropSync (Hydration Tracking)**: Log drinks via a drag-sheet modal with a draggable SVG glass for quantity input and snap-points at common ml values. Cloud sync via Supabase.
-- **Settings**: Configure calorie, water, and macro goals. Account management, theme, AI toggle, and privacy.
-- **Workout Module**: 4-day training plan (Pull/Push/Legs/Arms), active session with live timer and set logging.
-- **Onboarding**: Slide-based intro overlay with a tooltip tour shown on first launch.
-- **AI Tips**: Rule-based motivational tips and AI-assisted food detection (Gemini API or fallback rules).
-- **PWA**: Installable, offline-capable via manifest and service worker.
+- **Dashboard**: Daily overview of calories, water intake, and macronutrients with progress bars, a weighted health score ring, a 7-day activity chart, recent activity feed, and rule-based next-step suggestions.
+- **CalSync (Food Tracking)**: Log meals with a barcode scanner (ZXing / Open Food Facts), free-text search, or manual entry. Tracks calories, protein, carbohydrates, fat, and weight per entry. Optional AI photo/text nutrition estimation (Google Gemini, opt-in).
+- **DropSync (Hydration Tracking)**: Log drinks via a two-step bottom sheet with snap points at common volumes (100-1000 ml). History grouped by date.
+- **Workouts**: Built-in 4-day split (Pull / Push / Legs / Arms), editable routines, drag-to-reorder exercises, GIF previews, live session timer, and per-set weight/reps logging.
+- **Settings**: Configurable calorie, water, and macro goals, a built-in calorie calculator (Mifflin-St-Jeor), multiple themes (Dark, Light, Ocean, Forest, Sunset, Lavender), and user profiles.
+- **AI Tips**: Rule-based motivational tips on the dashboard, with an optional Gemini API key for richer suggestions.
+- **Authentication**: Email and password login with optional TOTP two-factor authentication (code required on every sign-in). Sessions stored in secure cookies.
+- **PWA**: Installable, offline-capable via a service worker (Serwist).
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 (App Router), TypeScript, React 19
-- **Auth & Database**: Supabase (`@supabase/ssr`)
-- **Styling**: Plain CSS (no Tailwind used for app components)
-- **State**: React Context + useState/useReducer, localStorage for persistence
-- **No external chart library** - all SVG and DOM charts are custom
+- **Framework**: Next.js 16 (App Router), TypeScript, React 19
+- **Auth & Database**: Supabase (`@supabase/ssr`) with Row Level Security
+- **Styling**: Plain CSS with CSS custom properties (no Tailwind for app components)
+- **State**: React Context + localStorage hooks for offline-first persistence
+- **Charts**: Custom SVG/DOM chart components (no external chart library)
 
 ## Data Storage
 
-- `localStorage` keys: `calsync_v1` (food entries), `dropsync_v3` (drink entries), `calsync_goal`, `dropsync_goal`, macro goals, workout data
-- Supabase tables: `food_entries`, `dropsync_entries`, `user_settings`, `workout_sessions`
+- `localStorage` keys: `calsync_v1` (food entries), `dropsync_v3` (drink entries), `calsync_goal` (kcal), `dropsync_goal` (ml), macro goals (`calsync_goal_protein/carbs/fat`), theme and AI preferences.
+- Supabase tables: `calsync_entries`, `dropsync_entries`, `user_settings`, `workout_sessions`
+
+## Important URLs
+
+- Landing page: https://healthsync.itsmarian.dev/
+- Dashboard: https://healthsync.itsmarian.dev/dash
+- Food tracking (CalSync): https://healthsync.itsmarian.dev/food
+- Hydration tracking (DropSync): https://healthsync.itsmarian.dev/drinks
+- Support: https://healthsync.itsmarian.dev/support
+- Privacy policy: https://healthsync.itsmarian.dev/legal/privacy
+- Cookie policy: https://healthsync.itsmarian.dev/legal/cookies
+- Terms of use: https://healthsync.itsmarian.dev/legal/terms
+- AI guidelines: https://healthsync.itsmarian.dev/legal/ai-guidelines
 
 ## Project URL
 

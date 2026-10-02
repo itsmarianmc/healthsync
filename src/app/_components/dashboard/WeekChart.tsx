@@ -19,17 +19,21 @@ export default function WeekChart({ weekData }: WeekChartProps) {
                 <span>7-day rhythm</span>
                 <small id="dashboardWeekSummary">{calAvg} kcal / {formatMl(waterAvg)} avg</small>
             </div>
-            <div className="dashboard-week-card" id="dashboardWeekCard">
+            <div className="dashboard-week-card" id="dashboardWeekCard" role="img" aria-label={`7-day chart: average ${calAvg} kcal and ${formatMl(waterAvg)} per day`}>
                 <div id="dashboardWeekChart" className="dashboard-week-chart">
                     {weekData.map(day => (
                         <div key={day.dateKey} className={`dashboard-week-day${day.dateKey === today ? ' today' : ''}`}>
                             <div className="dashboard-week-bars">
                                 <div
                                     className="dashboard-week-bar calories"
+                                    role="img"
+                                    aria-label={`${day.label}: ${day.calories} kcal`}
                                     style={{ height: Math.max(day.calPercent * 100, day.calories ? 6 : 0) + '%' }}
                                 />
                                 <div
                                     className="dashboard-week-bar water"
+                                    role="img"
+                                    aria-label={`${day.label}: ${formatMl(day.water)}`}
                                     style={{ height: Math.max(day.waterPercent * 100, day.water ? 6 : 0) + '%' }}
                                 />
                             </div>

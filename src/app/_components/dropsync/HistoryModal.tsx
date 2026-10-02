@@ -39,6 +39,7 @@ export default function HistoryModal({ entries, isOpen, onClose }: HistoryModalP
     const dragLastYRef = useRef(0);
     const lastTimeRef = useRef(0);
     const isCapturingRef = useRef(false);
+    const closingRef = useRef(false);
     const [modalState, setModalState] = useState<'closed' | 'open' | 'expanded'>('closed');
 
     const expandedHeight = () => window.innerHeight - SHEET_TOP_MARGIN;
@@ -73,7 +74,8 @@ export default function HistoryModal({ entries, isOpen, onClose }: HistoryModalP
     }, []);
 
     const snapToClosed = useCallback(() => {
-        if (!modalRef.current) return;
+        if (!modalRef.current || closingRef.current) return;
+        closingRef.current = true;
         setModalState('closed');
         const curH = modalRef.current.offsetHeight;
         setNoTransition();
@@ -91,12 +93,14 @@ export default function HistoryModal({ entries, isOpen, onClose }: HistoryModalP
             modalRef.current.style.height = '';
             modalRef.current.style.transition = '';
             naturalHeightRef.current = 0;
+            closingRef.current = false;
             onClose();
         }, 440);
     }, [onClose]);
 
     useEffect(() => {
         if (isOpen && modalState === 'closed') {
+            if (closingRef.current) return;
             if (!modalRef.current) return;
             setModalState('open');
             setNoTransition();

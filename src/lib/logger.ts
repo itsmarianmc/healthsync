@@ -1,7 +1,7 @@
 export const logger = {
-  error: (message: string, error?: unknown) => {
+  error: (message: string) => {
     if (process.env.NODE_ENV === 'development') {
-      console.error(message, error);
+      console.error(message);
     } else {
       console.error(message);
     }

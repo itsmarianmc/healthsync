@@ -4,8 +4,11 @@ import React, {
 	createContext,
 	useContext,
 	useState,
-	useRef
+	useRef,
+	useCallback
 } from 'react';
+
+export type FoodAction = 'methods' | 'describe' | 'import' | 'capture';
 
 interface AppShellContextType {
 	settingsOpen: boolean;
@@ -26,14 +29,14 @@ interface AppShellContextType {
 	supplementsOpen: boolean;
 	openSupplements: () => void;
 	closeSupplements: () => void;
-	scanModalOpen: boolean;
-	openScanModal: () => void;
-	closeScanModal: () => void;
-	calScanValue: string | null;
-	setCalScanValue: (v: string | null) => void;
 	extraMenuOpen: boolean;
 	setExtraMenuOpen: (v: boolean) => void;
 	extraBtnRef: React.RefObject < HTMLDivElement | null > ;
+	barcodeSearchOpen: boolean;
+	setBarcodeSearchOpen: (v: boolean) => void;
+	foodAction: FoodAction | null;
+	openFoodAction: (action: FoodAction) => void;
+	closeFoodAction: () => void;
 }
 
 const AppShellContext = createContext < AppShellContextType | null > (null);
@@ -49,9 +52,11 @@ export function AppShellProvider({
 	const [workoutOpen, setWorkoutOpen] = useState(false);
 	const [workoutHistoryOpen, setWorkoutHistoryOpen] = useState(false);
 	const [supplementsOpen, setSupplementsOpen] = useState(false);
-	const [scanModalOpen, setScanModalOpen] = useState(false);
-	const [calScanValue, setCalScanValue] = useState < string | null > (null);
 	const [extraMenuOpen, setExtraMenuOpen] = useState(false);
+	const [barcodeSearchOpen, setBarcodeSearchOpen] = useState(false);
+	const [foodAction, setFoodAction] = useState<FoodAction | null>(null);
+	const openFoodAction = useCallback((action: FoodAction) => setFoodAction(action), []);
+	const closeFoodAction = useCallback(() => setFoodAction(null), []);
 	const extraBtnRef = useRef < HTMLDivElement | null > (null);
 
 	return (
@@ -74,14 +79,14 @@ export function AppShellProvider({
 			supplementsOpen,
 			openSupplements: () => setSupplementsOpen(true),
 			closeSupplements: () => setSupplementsOpen(false),
-			scanModalOpen,
-			openScanModal: () => setScanModalOpen(true),
-			closeScanModal: () => setScanModalOpen(false),
-			calScanValue,
-			setCalScanValue,
 			extraMenuOpen,
 			setExtraMenuOpen,
 			extraBtnRef,
+			barcodeSearchOpen,
+			setBarcodeSearchOpen,
+			foodAction,
+			openFoodAction,
+			closeFoodAction,
 			}} >
             {children}
         </AppShellContext.Provider>

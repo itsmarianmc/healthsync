@@ -27,10 +27,10 @@ Goals for calories, water and macros. A built-in calorie calculator using the Mi
 Optional Google Gemini integration inside CalSync to estimate nutrition from a photo, camera capture or text description. Disabled by default, uses the user's own API key, never proxies through the HealthSync backend. See the in-app [AI Guidelines](https://healthsync.itsmarian.dev/legal/ai-guidelines) for details.
 
 **Update Center**
-In-app update notifications and changelog browser. Shows what's new in each version and allows seamless one-tap updates when using the PWA. Powered by Supabase-backed changelog.
+In-app update notifications and changelog browser. Shows what's new in each version and allows seamless one-tap updates when using the PWA. Powered by a local JSON changelog.
 
 **Auth**
-Email and password login with optional TOTP two-factor authentication. Register, forgot password, and change password flows. "Remember this device" skips the 2FA step on trusted devices. Session tokens are stored in secure cookies (not localStorage).
+Email and password login with optional TOTP two-factor authentication. Register, forgot password, and change password flows. When 2FA is enabled, the code is required on every sign-in. Session tokens are stored in secure cookies (not localStorage).
 
 **Offline & PWA**
 Installable on mobile via the browser's add-to-home-screen prompt. Fully usable without an account - entries then live only in your browser's local storage. Cloud sync is opt-in via a free user account.
@@ -53,14 +53,14 @@ Native-feeling pull-to-refresh from the top of the dashboard, drag-to-dismiss / 
 | Icons | Font Awesome 7 |
 | Barcode | ZXing |
 | AI (opt-in) | Google Gemini API (BYO key, called directly from the browser) |
-| Testing | Playwright (E2E), Vitest |
+| Testing | Node.js test runner (unit), Playwright (E2E) |
 | Deployment | Vercel (default) - any Node.js host works |
 
 ---
 
 ## Legal & Compliance
 
-HealthSync ships with full GDPR-aligned legal pages, all reachable from the in-app footer:
+HealthSync includes legal pages reachable from the in-app footer. Operators should review them against their actual deployment, processing activities and applicable law:
 
 - [Privacy Policy](https://healthsync.itsmarian.dev/legal/privacy) - includes a dedicated **Health data (Art. 9 GDPR)** section.
 - [Cookie Policy](https://healthsync.itsmarian.dev/legal/cookies) - documents cookies, browser storage and Google Consent Mode v2.
@@ -69,57 +69,34 @@ HealthSync ships with full GDPR-aligned legal pages, all reachable from the in-a
 
 HealthSync is **not** a medical device. It does not provide medical advice and must not be used as a substitute for professional health consultation.
 
+Run `npm test` for the local data and policy unit tests, `npm run test:watch` to watch them, and `npm run test:e2e` for the Playwright browser suite. Run `npm run lint`, `npx tsc --noEmit` and `npm run build` as separate checks.
+
 ---
 
 ## Project Structure
 
 ```
-app/
-├── layout.tsx              # Root layout: AuthProvider, global CSS, splash, GA Consent Mode v2
-├── page.tsx                # App shell: view switching, all modals
-├── styles.css              # Global styles + theme tokens
-├── login/
-│   ├── layout.tsx          # Loads QRCode.js for 2FA setup
-│   └── page.tsx            # Full login, register, MFA, reset flows
-├── legal/
-│   ├── components/         # LegalLayout, LegalSection, LegalList, LegalEnumeration, Linkout, BackToTop, LegalScroller
-│   ├── legal.css           # HealthSync-tokenised legal stylesheet
-│   ├── privacy/page.tsx    # Privacy Policy
-│   ├── cookies/page.tsx    # Cookie Policy
-│   ├── terms/page.tsx      # Terms of Use
-│   └── ai-guidelines/page.tsx  # AI Guidelines
-├── api/
-│   └── proxy/route.ts      # Edge-style proxy for the optional local AI endpoint
-├── _lib/
-│   ├── camera.ts           # Back-camera selection helpers for barcode scanning
-│   ├── supabase.ts         # Supabase browser client
-│   ├── types.ts            # TypeScript interfaces
-│   └── sync.ts             # All Supabase CRUD functions
-├── _context/
-│   ├── AuthContext.tsx     # Auth state, user, settings, syncEnabled
-│   └── AppShellContext.tsx # Cross-cutting UI state for the shell
-├── _hooks/
-│   ├── useDashboardData.ts # Dashboard calculations
-│   ├── useDraggableSheet.ts # Shared sheet drag logic
-│   ├── useLocalStorage.ts  # SSR-safe localStorage hook
-│   └── useOnboarding.ts    # Onboarding state
-└── _components/
-    ├── shared/             # Toast, Tooltip, SplashScreen, PullToRefresh, CookieBanner, Footer
-    ├── navigation/         # BottomNav with animated slider
-    ├── dashboard/          # ScoreRing, MetricGrid, MacroGrid, WeekChart, RecentList, NextWidget, AiTips, WeatherWidget, ActivityStatus
-    ├── calsync/            # CalSync view, modal, food list, barcode scanner, extra scanner
-    ├── dropsync/           # DropSync view, modal, drink picker, glass input, history
-    ├── settings/           # Settings sheet, goals, account, AI section, workout, supplements, notes
-    ├── notes/              # Notes modal
-    ├── onboarding/         # Onboarding slides and tooltip tour
-    └── update/             # Update Center component for in-app updates and changelog
+src/app/
+├── layout.tsx              # Root layout and providers
+├── page.tsx                # Redirects / to /dash
+├── dash/ food/ drinks/     # Separate feature routes
+├── login/ onboarding/      # Account and first-run flows
+├── legal/ support/         # Public information routes
+├── api/                    # Session verification and account deletion
+├── _components/            # Shared shell, dashboard and feature UI
+├── _context/ _hooks/ _lib/ # State, reusable hooks, local data and integrations
+└── sw.ts                   # Serwist Service Worker
+supabase/migrations/        # Versioned SQL changes
+tests/                      # Node.js unit tests
+e2e/                        # Playwright browser tests
+docs/                       # Technical architecture and operational guide
 ```
 
 ---
 
 ## Self-Hosting
 
-HealthSync can be self-hosted on Vercel, any Node.js host, or in Docker, with either Supabase or a SQLite-backed DIY backend. The full setup walkthrough - prerequisites, environment variables, SQL schema, Row Level Security policies, authentication, optional AI integrations, deployment, backups and a hardening checklist - lives in a dedicated guide:
+HealthSync can be self-hosted on Vercel, any Node.js host, or in Docker. The current application code uses Supabase Auth and the Supabase client; SQLite would require implementing and wiring a separate backend. `hosting.md` documents Supabase setup and includes an illustrative SQLite porting outline.
 
 > See [hosting.md](./hosting.md) for the complete self-hosting and deployment guide.
 
@@ -127,8 +104,10 @@ HealthSync can be self-hosted on Vercel, any Node.js host, or in Docker, with ei
 
 ## Documentation
 
-- [hosting.md](./hosting.md) - full self-hosting guide (Supabase + SQLite, RLS, deployment, AI setup, testing).
-- [FUNCTIONALITY.md](./FUNCTIONALITY.md) - detailed breakdown of the app's functionality, component structure, database schema, localStorage keys, and implementation notes.
+- [AGENTS.md](./AGENTS.md) - canonical repository orientation for coding agents.
+- [docs/README.md](./docs/README.md) - current technical documentation index.
+- [hosting.md](./hosting.md) - Supabase schema/RLS setup, deployment, backups and hardening.
+- [FUNCTIONALITY.md](./FUNCTIONALITY.md) - historical feature reference; some sections describe the former Vanilla-JS app and may be outdated.
 
 ---
 

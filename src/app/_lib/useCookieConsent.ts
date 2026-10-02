@@ -9,15 +9,7 @@ export interface CookieSettings {
     analytics: boolean;
     preferences: boolean;
     thirdparty: boolean;
-    marketing: boolean;
 }
-
-let globalSettings: CookieSettings = {
-    analytics: false,
-    preferences: false,
-    thirdparty: false,
-    marketing: false,
-};
 
 const settingsChangeListeners: Array<(settings: CookieSettings) => void> = [];
 
@@ -38,7 +30,6 @@ function loadSettingsFromStorage(): CookieSettings | null {
                 analytics: !!parsed.analytics,
                 preferences: !!parsed.preferences,
                 thirdparty: !!parsed.thirdparty,
-                marketing: !!parsed.marketing,
             };
         }
         return null;
@@ -51,7 +42,6 @@ function saveSettingsToStorage(settings: CookieSettings) {
     if (typeof localStorage === 'undefined') return;
     localStorage.setItem(COOKIE_SETTINGS_KEY, JSON.stringify(settings));
     localStorage.setItem(BANNER_ACCEPTED_KEY, 'true');
-    globalSettings = settings;
     notifyListeners(settings);
     window.dispatchEvent(new StorageEvent('storage', {
         key: COOKIE_SETTINGS_KEY,
@@ -60,13 +50,9 @@ function saveSettingsToStorage(settings: CookieSettings) {
 }
 
 export function useCookieConsent() {
-    const [settings, setSettings] = useState<CookieSettings>(() => {
-        const loaded = loadSettingsFromStorage();
-        if (loaded) {
-            globalSettings = loaded;
-            return loaded;
-        }
-        return { analytics: false, preferences: false, thirdparty: false, marketing: false };
+    // Server and first client render must match. Restore browser consent after mount.
+    const [settings, setSettings] = useState<CookieSettings>({
+        analytics: false, preferences: false, thirdparty: false,
     });
 
     const updateSettings = useCallback((newSettings: CookieSettings) => {
@@ -75,12 +61,16 @@ export function useCookieConsent() {
     }, []);
 
     useEffect(() => {
+        const initial = loadSettingsFromStorage();
+        let initialTimer: ReturnType<typeof setTimeout> | undefined;
+        if (initial) {
+            initialTimer = setTimeout(() => setSettings(initial), 0);
+        }
         const handler = (event: StorageEvent) => {
             if (event.key === COOKIE_SETTINGS_KEY) {
                 const loaded = loadSettingsFromStorage();
                 if (loaded) {
                 setSettings(loaded);
-                globalSettings = loaded;
                 }
             }
         };
@@ -90,7 +80,6 @@ export function useCookieConsent() {
         const loaded = loadSettingsFromStorage();
         if (loaded) {
             setSettings(loaded);
-            globalSettings = loaded;
         }
         };
         window.addEventListener('cookieSettingsChanged', customHandler);
@@ -101,6 +90,7 @@ export function useCookieConsent() {
         settingsChangeListeners.push(listener);
 
         return () => {
+            if (initialTimer) clearTimeout(initialTimer);
             window.removeEventListener('storage', handler);
             window.removeEventListener('cookieSettingsChanged', customHandler);
             const idx = settingsChangeListeners.indexOf(listener);
@@ -112,7 +102,6 @@ export function useCookieConsent() {
         canUseAnalytics: settings.analytics,
         canUsePreferences: settings.preferences,
         canUseThirdParty: settings.thirdparty,
-        canUseMarketing: settings.marketing,
         settings,
         updateSettings,
     };

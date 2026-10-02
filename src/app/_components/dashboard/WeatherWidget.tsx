@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { version } from '../../../../package.json';
+import { useEffect, useState, useRef } from 'react';
 import { reverseGeocodeLocation } from '../../_lib/location';
 import { useCookieConsent } from '../../_lib/useCookieConsent';
 
@@ -47,26 +46,36 @@ interface WeatherData {
 }
 
 const WEATHER_STORAGE_KEYS = {
-  enabled: ['healthsync_weather_enabled', 'weather_widget_enabled'],
-  latitude: ['healthsync_weather_lat', 'weather_latitude'],
-  longitude: ['healthsync_weather_lon', 'weather_longitude'],
-  locationName: ['healthsync_weather_name', 'weather_location_name'],
+    enabled: 'healthsync_weather_enabled',
+    latitude: 'healthsync_weather_lat',
+    longitude: 'healthsync_weather_lon',
+    locationName: 'healthsync_weather_name',
 } as const;
 
-function getStoredValue(keys: readonly string[], fallback = ''): string {
-  for (const key of keys) {
+const LEGACY_WEATHER_KEYS: Record<string, string> = {
+    enabled: 'weather_widget_enabled',
+    latitude: 'weather_latitude',
+    longitude: 'weather_longitude',
+    locationName: 'weather_location_name',
+};
+
+function getStoredValue(key: string, fallback = ''): string {
     const value = localStorage.getItem(key);
-    if (value !== null) {
-      return value;
+    if (value !== null) return value;
+    const legacyKey = LEGACY_WEATHER_KEYS[key];
+    if (legacyKey) {
+        const legacy = localStorage.getItem(legacyKey);
+        if (legacy !== null) {
+            localStorage.setItem(key, legacy);
+            localStorage.removeItem(legacyKey);
+            return legacy;
+        }
     }
-  }
-  return fallback;
+    return fallback;
 }
 
-function setStoredValue(keys: readonly string[], value: string): void {
-  for (const key of keys) {
+function setStoredValue(key: string, value: string): void {
     localStorage.setItem(key, value);
-  }
 }
 
 export default function WeatherWidget() {
@@ -168,9 +177,9 @@ export default function WeatherWidget() {
 
         setInitialized(true);
         setLoading(false);
-      } catch (err) {
+      } catch {
         if (!cancelled) {
-          setError('Failed to get location');
+          setError('Location unavailable. Check location permission and try again.');
           setLoading(false);
         }
       }
@@ -206,17 +215,11 @@ export default function WeatherWidget() {
         });
 
         const response = await fetch(
-          `https://api.itsmarian.dev/api/proxy?type=weather&path=/v1/forecast&${params.toString()}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
+          `https://api.open-meteo.com/v1/forecast?${params.toString()}`
         );
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch weather: ${response.status}`);
+          throw new Error('weather_unavailable');
         }
 
         const data: WeatherData = await response.json();
@@ -225,10 +228,10 @@ export default function WeatherWidget() {
           setWeatherData(data);
           setLoading(false);
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) {
-          console.error('Error fetching weather:', err);
-          setError('Failed to load weather data');
+          console.warn('Weather data could not be loaded.');
+          setError('Weather unavailable. Check your connection and try again later.');
           setWeatherData(null);
           setLoading(false);
         }

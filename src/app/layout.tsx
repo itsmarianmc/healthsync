@@ -6,8 +6,10 @@ import './cookiebanner.css'
 import { AuthProvider } from './_context/AuthContext';
 import { AppShellProvider } from './_context/AppShellContext';
 import CookieBanner from '@/app/_components/shared/CookieBanner'
+import AnalyticsTracker from '@/app/_components/shared/AnalyticsTracker'
 import AppShell from './_components/AppShell';
 import Tooltip from './_components/onboarding/Tooltip';
+import { GA_MEASUREMENT_ID } from './_lib/analytics';
 
 const dmSans = DM_Sans({
     subsets: ['latin'],
@@ -27,7 +29,7 @@ export const metadata: Metadata = {
         type: 'website',
         title: 'HealthSync - Calorie, Drink & Workout Tracker',
         description: 'Track your daily calories, protein, carbs and fat. Log food by name, barcode or AI photo. Sync across devices.',
-        url: 'https://projects.itsmarian.dev/healthsync/',
+        url: 'https://healthsync.itsmarian.dev/',
     },
 };
 
@@ -35,6 +37,7 @@ export const viewport: Viewport = {
     themeColor: '#0F0F10',
     width: 'device-width',
     initialScale: 1,
+    viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -46,13 +49,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <link rel="stylesheet" href="https://static.itsmarian.dev/global/colors.css" />
                 <meta name="mobile-web-app-capable" content="yes" />
                 <link rel="icon" href="/favicon.ico" sizes="any" />
-                <link rel="apple-touch-icon" href="/favicon.png" />
+                <link rel="icon" href="/favicon.png" sizes="192x192" type="image/png" />
+                <link rel="icon" href="/favicon.png" sizes="512x512" type="image/png" />
+                <link rel="apple-touch-icon" href="/favicon.png" sizes="180x180" />
+                <link rel="apple-touch-icon" href="/favicon.png" sizes="192x192" />
+                <link rel="apple-touch-icon" href="/favicon.png" sizes="512x512" />
                 <Script
-                    src="https://www.googletagmanager.com/gtag/js?id=G-EHN4P1ET7W"
-                    strategy="lazyOnload"
-                />
-                <Script id="google-analytics" strategy="lazyOnload">
-                    {`
+                    id="google-analytics-consent"
+                    strategy="beforeInteractive"
+                    dangerouslySetInnerHTML={{
+                        __html: `
                         window.dataLayer = window.dataLayer || [];
                         function gtag(){dataLayer.push(arguments);}
                         gtag('js', new Date());
@@ -65,8 +71,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                             'personalization_storage': 'denied',
                             'security_storage': 'granted'
                         });
-                    `}
-                </Script>
+                        `,
+                    }}
+                />
+                <Script
+                    src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+                    strategy="afterInteractive"
+                />
             </head>
             <body suppressHydrationWarning>
                 <Script
@@ -158,6 +169,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 </AuthProvider>
                 <Tooltip />
                 <CookieBanner />
+                <AnalyticsTracker />
                 <script
                     src="https://unpkg.com/@zxing/browser@0.2.1"
                     integrity="sha384-HRtzk9lZgkbSgvUyQrnfC/GxiXZgwaNyD7hC9wcXlsBpDhkS80ISl73juef2FRuf"

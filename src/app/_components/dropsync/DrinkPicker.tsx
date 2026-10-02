@@ -29,7 +29,7 @@ interface DrinkPickerProps {
 export default function DrinkPicker({ selected, onSelect }: DrinkPickerProps) {
     return (
         <div id="ds-step1" className="modal-step active">
-            <div className="drink-grid">
+            <div className="drink-grid" role="radiogroup" aria-label="Select a drink">
                 {DRINK_OPTIONS.map(drink => (
                     <div
                         key={drink.name}
@@ -37,10 +37,32 @@ export default function DrinkPicker({ selected, onSelect }: DrinkPickerProps) {
                         data-drink={drink.name}
                         data-emoji={drink.emoji}
                         data-color={drink.color}
+                        role="radio"
+                        aria-checked={selected?.name === drink.name}
+                        tabIndex={selected?.name === drink.name || (!selected && drink.name === 'Water') ? 0 : -1}
                         onClick={() => onSelect(drink)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                onSelect(drink);
+                            }
+                            const currentIdx = DRINK_OPTIONS.findIndex(d => d.name === drink.name);
+                            let nextIdx = -1;
+                            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                                nextIdx = (currentIdx + 1) % DRINK_OPTIONS.length;
+                            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                                nextIdx = (currentIdx - 1 + DRINK_OPTIONS.length) % DRINK_OPTIONS.length;
+                            }
+                            if (nextIdx >= 0) {
+                                e.preventDefault();
+                                onSelect(DRINK_OPTIONS[nextIdx]);
+                                const nextEl = (e.currentTarget as HTMLElement).parentElement?.children[nextIdx] as HTMLElement | undefined;
+                                nextEl?.focus();
+                            }
+                        }}
                     >
                         <div className="drink-option-icon">
-                        <i className={drink.emoji} style={{ color: drink.color }} />
+                        <i className={drink.emoji} style={{ color: drink.color }} aria-hidden="true" />
                         </div>
                         <div className="drink-option-name">{drink.name}</div>
                     </div>

@@ -11,4 +11,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
     );
 }
 
-export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    cookieOptions: {
+        secure: true,
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30,
+    },
+});

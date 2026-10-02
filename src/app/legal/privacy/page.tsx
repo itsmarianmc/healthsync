@@ -6,7 +6,7 @@ import Linkout from '@/app/legal/components/Linkout'
 export const metadata: Metadata = {
     title: 'Privacy Policy - HealthSync',
     description:
-        'Privacy policy for HealthSync, a personal health-tracking app by itsmarian. Learn how your account data, health metrics, food, hydration and workout entries are collected, processed and protected in compliance with the GDPR.',
+        'Privacy policy for HealthSync, a personal health-tracking app by itsmarian. Learn how account data, health metrics, food, hydration and workout entries are collected, processed and protected, including information about health data under the GDPR.',
     robots: {
         index: false,
         follow: true,
@@ -45,7 +45,7 @@ export default function PrivacyPage() {
                     The terms used herein are not gender-specific.
                 </div>
                 <div className="text-section">
-                    Last updated: 18 June 2026
+                    Last updated: 18 August 2026
                 </div>
             </section>
 
@@ -175,6 +175,13 @@ export default function PrivacyPage() {
                     used due to its broader geographical scope and comprehensibility.
                 </div>
                 <div className="text-section">
+                    <strong>Supervisory authority: </strong>
+                    Der Landesbeauftragte für den Datenschutz und die Informationsfreiheit
+                    Rheinland-Pfalz (LfDI RL-P), poststelle@datenschutz.rlp.de.
+                    You may also lodge a complaint with the supervisory authority of your habitual
+                    residence, place of work or place of the alleged infringement.
+                </div>
+                <div className="text-section">
                     <strong>Legal bases at a glance: </strong>
                     Performance of a contract and pre-contractual enquiries (Art. 6(1)(b) GDPR); legitimate
                     interests (Art. 6(1)(f) GDPR); consent (Art. 6(1)(a) GDPR); legal obligation
@@ -237,7 +244,8 @@ export default function PrivacyPage() {
                     These measures include, in particular: TLS/SSL encryption for all traffic to and from
                     the app and its backend; access protection for the production database; row-level
                     security (RLS) policies in our database backend so that each user can only read and
-                    modify their own data; optional Two-Factor Authentication (TOTP) for account login;
+                    modify their own data; verified Two-Factor Authentication (TOTP) is required before
+                    protected data access for accounts that enable it;
                     storage of authentication tokens in secure HTTP cookies; and the principle of data
                     minimisation in our database schema.
                 </div>
@@ -351,6 +359,10 @@ export default function PrivacyPage() {
                     {
                         label: 'Right to lodge a complaint with a supervisory authority',
                         text: 'Without prejudice to any other administrative or judicial remedy, you have the right to lodge a complaint with a supervisory authority, in particular in the Member State of your habitual residence, place of work or place of the alleged infringement.',
+                    },
+                    {
+                        label: 'Right not to be subject to automated individual decision-making (Art. 22 GDPR)',
+                        text: 'HealthSync does not use any form of automated individual decision-making, including profiling, within the meaning of Art. 22 GDPR. The AI Detection feature (Google Gemini) is strictly opt-in and only processes data when you actively trigger a request; it does not produce decisions that similarly affect you.',
                     },
                 ]} />
             </section>
@@ -562,11 +574,11 @@ export default function PrivacyPage() {
                     },
                     {
                         label: 'User profiles are not publicly visible',
-                        text: 'HealthSync has no social feed or public profile feature. Your data is visible only to you.',
+                        text: 'HealthSync has no social feed or public profile feature. Database policies restrict profile and health records to the account owner; verified MFA accounts must complete the second factor before accessing protected records.',
                     },
                     {
                         label: 'Erasure on account deletion',
-                        text: 'When you delete your account, all rows in our database that are associated with your user ID are removed without undue delay, subject only to statutory retention obligations.',
+                        text: 'After account deletion succeeds, associated cloud records are removed through the database cascade. A deletion request can fail if the database is not configured correctly; the app reports that failure instead of confirming deletion. Some separately deleted food and drink records remain as hidden tombstones until Delete All Data or account deletion removes them.',
                     },
                     {
                         label: 'No obligation to retain data',
@@ -586,10 +598,13 @@ export default function PrivacyPage() {
                     from your authenticator app, which is verified server-side.
                 </div>
                 <div className="text-section">
-                    If you choose &quot;Remember this device&quot;, your e-mail address is added to a
-                    locally stored list (<code>mfa_trusted_emails</code> in your browser&apos;s
-                    localStorage) so that the MFA step is skipped on this device for future logins. You
-                    can revoke this trust at any time by clearing the app&apos;s site data or signing out.
+                    Once a TOTP factor is verified, the code is required and verified by Supabase Auth
+                    on each sign-in. Protected database and API actions also require the stronger
+                    authenticated session level. Accounts without a verified factor can continue to use
+                    password-only sign-in.
+                    HealthSync does not store a list of &quot;trusted&quot; devices in your browser, because such
+                    a client-side list could be tampered with and would silently bypass the second
+                    factor. You can revoke access at any time by signing out.
                 </div>
                 <div className="text-section">
                     <strong>Legal basis: </strong>
@@ -639,6 +654,41 @@ export default function PrivacyPage() {
                     For details on how AI is used inside HealthSync, the risks it brings and your
                     responsibilities, please refer to our{' '}
                     <Linkout item="/legal/ai-guidelines" type="internal" className="linkout nodecoration">AI Guidelines</Linkout>.
+                </div>
+            </section>
+
+            <section className="section" id="m-weather">
+                <div className="text-section">
+                    <span className="legal-h1">Weather Widget &amp; Geolocation (Open-Meteo, Nominatim)</span>
+                </div>
+                <div className="text-section">
+                    HealthSync offers an optional weather widget on the dashboard. When you enable it,
+                    your device&apos;s browser Geolocation API is used to obtain your approximate latitude
+                    and longitude. This coordinate is sent to the public Open-Meteo API to retrieve current
+                    weather data, and to the public Nominatim (OpenStreetMap) API to resolve a human-readable
+                    location name.
+                </div>
+                <div className="text-section">
+                    Service providers: Open-Meteo (open-source weather API, no personal data retained);
+                    Nominatim / OpenStreetMap Foundation. Legal basis: your consent (Art. 6(1)(a) GDPR)
+                    obtained via the cookie banner. You can disable the weather widget at any time in
+                    Settings. Neither service receives your IP address directly from HealthSync; standard
+                    request metadata (IP, user agent) may be logged by the services.
+                </div>
+            </section>
+
+            <section className="section" id="m-support-api">
+                <div className="text-section">
+                    <span className="legal-h1">Support Form (api.itsmarian.dev)</span>
+                </div>
+                <div className="text-section">
+                    When you submit a support request through the in-app support form, your message
+                    content, e-mail address and standard request metadata (IP address, user agent) are
+                    transmitted to{' '}
+                    <code>api.itsmarian.dev</code>, an API endpoint operated by us. The data is processed
+                    solely to respond to your enquiry and is not shared with third parties.
+                    Legal basis: pre-contractual measures and performance of a contract (Art. 6(1)(b) GDPR);
+                    legitimate interests (Art. 6(1)(f) GDPR) in responding to user enquiries.
                 </div>
             </section>
 
@@ -701,7 +751,7 @@ export default function PrivacyPage() {
                     },
                     {
                         label: 'Retention and erasure',
-                        text: 'Cookies are stored for up to two years (or shorter, depending on type). Erasure of cookies takes place automatically or via your browser settings.',
+                        text: 'Cookies are stored for up to 14 months (or shorter, depending on type). Erasure of cookies takes place automatically or via your browser settings.',
                     },
                     {
                         label: 'Legal bases',

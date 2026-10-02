@@ -31,7 +31,7 @@ export default function LegalLayout({ title, eyebrow = 'HealthSync', children }:
                                 <img height={42.5} alt="GitHub" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/available/github_vector.svg" />
                                 </a>
                             </td>
-                            <td style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'center', verticalAlign: 'middle', width: '52.5%' }}>
+                            <td style={{ borderLeft: '1px solid var(--border)', textAlign: 'center', verticalAlign: 'middle', width: '52.5%' }}>
                                 <a className="link" href="https://ko-fi.com/itsmarian" target="_blank" rel="noopener">
                                 <img height={42.5} alt="Ko-fi" src="https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/donate/kofi-singular_vector.svg" />
                                 </a>

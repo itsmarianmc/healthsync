@@ -5,6 +5,112 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
+## [4.0.0] - 2026-10-02
+
+### Added
+- **Guest-data import into an account**: Settings can explicitly import guest food, drink, and workout history into the signed-in account. Entries are deduplicated by ID, and guest preferences remain in the guest workspace.
+- **Delete All Data**: Settings can clear the signed-in user's synced HealthSync data and local workspace without deleting the account; guest users can clear their local workspace.
+- **Workout history cloud sync**: Completed workout sessions now upload and download alongside workout routines, with pending local sessions retained for retry.
+- **Toast merging test control**: Settings now includes a small test action for verifying that consecutive notifications merge correctly, and its delayed callback is cleaned up when the settings view unmounts.
+- **Text notes now inform photo/camera AI detection**: `AiDetectionContext.runDetection` forwards `input.text` as `textContext` to `analyzeWithGemini` for `import`/`capture` modes, so the description you type in the AI modal is now included as context when scanning a photo (previously only `describe` mode used it). `CalSyncModal.tsx`'s `handleNextClick` already passes `aiTextValue` alongside the file, and `handleCameraFile` routes capture through the same description step, so the note reaches Gemini for both flows.
+- **Prompt-injection guard for user notes**: `analyzeWithGemini` wraps `textContext` in a `===USER_NOTES===` block instructing the model to treat it as plain text only and ignore any embedded instructions, formatting, or overrides.
+- **Better error screens**: If something goes wrong, you now see a clear message with a "Try again" button instead of a blank page.
+- **Pending food drafts**: AI-detected foods now appear as pending drafts in your history with a clear indicator, so you can review and confirm them before they're saved.
+- **AI detection survives app reloads**: New `usePendingFoodDraft()` hook (`src/app/_hooks/usePendingFoodDraft.ts`) persists the active AI detection as a single-slot draft under the `calsync_active_draft` localStorage key (7-day TTL) as soon as the result completes while the CalSync modal is open. On next mount, `CalSync.tsx` restores the draft into the modal (prefill + auto-open) with a "Restored pending AI detection" toast, and clears it in `handleModalClose` so logging or dismissing removes it. A shared `resultToFoodSearchResult()` helper dedupes the food-mapping logic between `handleDetectionResolved` and the auto-save path.
+- **Legal pages redesign**: Privacy, Terms, Cookies, and AI Guidelines pages have been completely redesigned with better readability, per-theme accent colors, and a scroll-linked table of contents.
+- **Account deletion**: Settings now has a "Delete Account" button backed by a new `POST /api/account/delete` route (in `src/app/api/account/delete/route.ts`). The route verifies the requesting user via the anon client with their `accessToken`, then uses the Supabase service-role key to purge `calsync_entries`, `dropsync_entries`, `user_settings`, and `workout_sessions` for the user before deleting the auth account.
+- **Sign-out confirmation**: `AuthContext.logout()` now accepts an optional `clearData: boolean` flag and a new `.logout-modal` sheet (`SettingsModal.tsx`) drives the flow. A checkbox lets the user clear every HealthSync localStorage key (25 keys total) on - **SPA page view tracking**: New `AnalyticsTracker.tsx` (mounted in `layout.tsx` next to `CookieBanner`) fires `gtag('event', 'page_view', { page_path })` on every client-side route change, so in-app navigation is visible in GA4 again. It skips the first mount to avoid double-firing the consent-time `page_view` that `gtag('config', …)` already sends.
+the device as part of signing out.
+- **AI Detection gating**: New `AiDetectionProvider` (`src/app/_context/AiDetectionContext.tsx`) exposes an `isAiDetectionUsable` flag derived from `calsync_ai_enabled` plus the presence of `calsync_ai_api_key`. When the key is missing or invalid, AI entry points are visually disabled with `aria-disabled` in:
+  - the dashboard Quick Add grid (Describe Food / Import Food / Capture Food) in `AppShell.tsx`,
+  - the CalSync AI button in `CalSync.tsx`,
+  - the new `AiMethodModal.tsx` option cards.
+- **Gemini key validation on save**: New `validateApiKey()` in `src/app/_lib/gemini.ts` calls `GET https://generativelanguage.googleapis.com/v1/models?key=…` to verify the key before `SettingsModal.handleSaveApiKey` persists it. Invalid keys now show "Invalid API key – please check and try again." and are not stored.
+- **`POST /api/sync/verify`**: New server-side endpoint that accepts an `accessToken` + `userId`, validates the session with the anon client, and returns `{ ok: true }`. `src/app/_lib/sync.ts` adds a new `assertUserAuthorized(userId)` helper that all cloud push/pull/delete functions now call before issuing a Supabase request - `pushFoodEntriesToCloud`, `deleteFoodFromCloud`, `pullFoodFromCloud`, `syncDrinkToCloud`, etc.
+- **`AiMethodModal.tsx` + `BarcodeSearchPopup.tsx`**: New components. `AiMethodModal` centralizes the photo / camera / text-description picker previously scattered across the CalSync modal; `BarcodeSearchPopup` replaces the old `BarcodeScanModal` + `ExtraScanner` pair (both deleted) and supports both free-text search and live camera scan. A new custom event `extra:openBarcodeSearch` (`{ mode: 'search' | 'camera' }`) drives the popup from anywhere in the app shell.
+- **`AiDetectionIndicator.tsx`**: A small floating pill at the bottom of the screen that surfaces any active AI detection so the user can tap it to open the result. Mounted from `AppShell.tsx`.
+- **`POST /api/account/delete`** infrastructure (see Account deletion above).
+- **Report a Bug from Settings**: New `ReportBugModal.tsx` plus a "Report a Bug" button in the System section of `SettingsModal.tsx`. The modal embeds `https://itsmarian.dev/report` in an `<iframe>`, pre-filled via query params (`cnt_src=healthsync`, `user_id`, `app_version` from `APP_VERSION`, current path as `ref`, plus `hide_header`/`hide_footer`) and auto-expands via `sheet.snapToExpanded()`.
+
+### Changed
+- **Regression coverage for local data and account security**: Added Node test suites for workspace isolation and workout-history sync, plus Playwright coverage for local security behavior, login accessibility, and related settings/onboarding flows.
+- **Account-scoped local workspaces**: Food, drinks, workouts, goals, and health preferences are saved separately for guest use and each signed-in account. Switching identities restores only that workspace; guest entries move to an account only after an explicit import.
+- **Retryable local-first cloud sync**: Food, drink, workout, and settings writes stay queued locally when cloud operations fail. Sync checks the active account before applying results, preserves deletion and reset markers, and treats failed cloud reads separately from successful empty results.
+- **Two-factor checks during password recovery**: Accounts with a verified authenticator must confirm a current code before HealthSync sends a password-reset link.
+- **Photo and camera AI detection optimisation**: `gemini.ts` now downscales large food images to a maximum 1280 px edge before upload and uses a JPEG quality of 0.82, reducing upload and analysis time without changing small images. Gemini requests now use a constrained nutrition response schema, lower temperature, and a smaller output budget for consistently structured results.
+- **Clearer and more accessible notifications**: Rapid toast messages now merge into one readable multiline notification instead of stacking. Toasts expose status semantics for screen readers, adapt their width to the message, wrap cleanly, stay centered, and respect mobile safe-area spacing.
+- **Expanded technical documentation**: Added detailed German and English documentation covering architecture, routing and contracts, data models and storage, feature behavior, operations and testing, agent/rebuild guidance, file inventory, and known gaps.
+- **Dependency metadata cleanup**: Removed a duplicate nested `@swc/helpers` lockfile entry and corrected the `fsevents` metadata.
+- **Hardened Gemini response handling**: `gemini.ts` now runs every response through `sanitizeGeminiResponse()` - coerces numeric fields with `toFiniteNumber()` (drops negatives/NaN, defaults to `0`), trims/sanitizes strings with `toSafeString()`, and normalizes `unit` to `g`/`ml`. `extractFirstJson()` strips code fences and extracts the first `{…}` (or `[…]`) object, replacing the previous brittle regex grab. Malformed/garbage output now yields a cleaned result instead of throwing `no_json`.
+- **Unified food-mapping helper**: `resultToFoodSearchResult` logic duplicated across `CalSync.tsx` and `CalSyncModal.tsx` is extracted into a single `toGeminiFoodSearchResult(result, fallback)` export in `gemini.ts`. Per-100 values now use a shared `safePer100()` (guards non-finite/`<=0` amounts); missing `name` falls back to `fallback.name` (`'Unknown'` in `CalSync.tsx`, the category name in `CalSyncModal.tsx`) and `servingSize`/`amount` defaults to `100` when missing or `0` instead of producing a `0` serving.
+- **Stronger account protection**: Two-factor authentication is now always required when you sign in - it can no longer be skipped on a device. Your synced data is also verified on the server before it is read or saved, ensuring only you can access it.
+- **Updated Design for Supplements**: The supplements page has been redesigned for better usability and aesthetics and visual issues have been removed.
+- **Quick Add now opens AI Detection**: The "+" button on the dashboard now opens the AI Detection menu (photo, camera, text) instead of directly opening the food log.
+- **Legal pages use app theme colors**: Legal pages now adapt to your selected theme (Dark, Ocean, Forest, Sunset, Lavender, Light) with matching accent colors.
+- **Improved onboarding tour**: The tour now highlights the AI Detection feature in the Quick Add menu.
+- **Removed self-hosted LLM proxy**: The optional Ollama proxy for self-hosted AI has been removed.
+- **Cookie preferences simplified**: The "Marketing" category is gone from `useCookieConsent.CookieSettings`, the Cookie Banner UI (`src/app/_components/shared/CookieBanner.tsx`) and `globalSettings` initial state. Google Consent Mode v2 fields `ad_storage`, `ad_user_data`, and `ad_personalization` are now hardcoded to `'denied'`. The `'canUseMarketing'` export was also removed.
+- **Privacy policy refresh** (18 Aug 2026): new disclosures for Open-Meteo (weather provider), Nominatim (reverse geocoding), and `api.itsmarian.dev` (support API) added to `src/app/legal/privacy/page.tsx`; new `Right not to be subject to automated individual decision-making (Art. 22 GDPR)` section clarifying that the AI Detection feature is opt-in; new Supervisory authority note pointing at LfDI Rhineland-Palatinate; new Cookie Inventory table; GA4 retention lowered to "14 months". The "trusted devices" client-side list was removed entirely.
+- **Cookie policy refresh** (18 Aug 2026): `src/app/legal/cookies/page.tsx` adds a Cookie Inventory table and matches the simplified preferences.
+- **Weather widget goes direct to Open-Meteo**: `src/app/_components/dashboard/WeatherWidget.tsx` now `fetch()`es `https://api.open-meteo.com/v1/forecast?…` directly instead of routing through `api.itsmarian.dev/api/proxy`. Legacy `weather_*` localStorage keys are transparently migrated to the new `healthsync_weather_*` keys on first load.
+- **Number-only validation on goal inputs**: New `sanitizeNumericSetting()` helper in `SettingsModal.tsx` rejects empty or non-numeric entries on the calorie/water goal fields and reverts the input to the previous value with a toast.
+- **Settings sync uses partial payload**: `SettingsModal.syncSettings` builds a payload that only contains fields with a valid `parseInt` result. `_lib/sync.ts:ensureSettings` now does a check-then-insert against `user_settings` before issuing an upsert.
+- **Cloud-to-local goal guards tightened**: `AuthContext.applySettingsToLocalStorage` switches all five goal fields (`calorie_goal`, `protein_goal`, `carbs_goal`, `fat_goal`, `goal_ml`) from `!== undefined && !== null` to `> 0`, so `NaN`/0/empty cloud values no longer clobber valid local settings.
+- **Sync toast suppressed on `/login` and `/onboarding`**: `AuthContext.applySettingsToLocalStorage` checks the current pathname and skips the "Syncing…" toast when no user is signed in.
+- **`@supabase/ssr` cookie hardening**: `_lib/supabase.ts`'s `createBrowserClient` now configures `cookieOptions: { secure: true, sameSite: 'lax', maxAge: 60*60*24*30 }`.
+- **Middleware CSP allows Open-Meteo**: `src/proxy.ts` (Next.js 16 Turbopack middleware, the `proxy` named export) adds `https://api.open-meteo.com` to the `connect-src` allow-list and continues to set `Content-Security-Policy`, `Referrer-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, and `Permissions-Policy` on every response.
+- **Settings shows the running version**: the `App is up to date` line in `SettingsModal.tsx` now reads `App is up to date (v{APP_VERSION})`.
+- **Tour copy update**: `DEFAULT_TOUR_STEPS` in `src/app/_lib/tour.ts` describes the Quick Add button as opening the "AI Detection menu". Tour steps whose target element is missing now log `[tour] step N element 'X' not found - skipping` and continue instead of silently aborting.
+- **Settings stays open behind sub-windows**: `AppShell.tsx`'s `handleOpenNotesFromSettings` no longer calls `closeSettings()` before `openNotes()`, so "About & Licenses" opens on top of Settings instead of closing it. `SettingsModal.tsx` adds a `MutationObserver` that toggles `has-sub-modal` on the settings overlay whenever another `.app-overlay` becomes visible, and the new `.app-overlay.has-sub-modal .modal` rule in `styles.css` scales the sheet down (`scale: 0.92; translate: 0 10px`) behind the modal above it.
+- **Collapsible About & Licenses sections**: `NotesModal.tsx` license-section titles are now clickable - `handleLicenseToggle` toggles a `.collapsed` class and animates the section body smoothly via `max-height` (measured with `body.scrollHeight`, released to `none` after expand) over `0.35s var(--ease)`; a chevron icon (`.license-arrow`) rotates over `0.15s` to reflect the collapsed state. `.license-section-title` gets `cursor: pointer; user-select: none`.
+- **Lockfile housekeeping**: resolved duplicate `@swc/helpers` entry under `@serwist/turbopack` and marked `fsevents` as an optional dev dependency in `package-lock.json` (no runtime effect).
+
+### Fixed
+- **Safer CSV exports and user-facing errors**: CSV cells beginning with spreadsheet formula characters are escaped, and authentication/provider errors are mapped to actionable messages without displaying raw provider responses.
+- **Barcode scanner recovery and lifecycle**: `BarcodeScanner.tsx` now progressively falls back from a selected device to the rear camera, generic video, and front camera when hardware IDs are stale or unsupported. It stops streams and decoder instances reliably, ignores duplicate scan callbacks, and refreshes the device list when cameras change.
+- **Barcode scan feedback and focus**: barcode scans request continuous focus where the browser supports it, and the embedded search popup now exposes live, actionable camera status messages including permission, availability, and in-use errors.
+- **AI modal reveals immediately**: `revealModal()` in `CalSyncModal.tsx` is now called before branching on the `openWithAi` mode, so the sheet opens without waiting for the per-mode handlers to run first.
+- **Hidden file inputs excluded from a11y tree**: the image/camera `<input type=file>` controls in `CalSyncModal.tsx` are now `tabIndex={-1}` + `aria-hidden="true"` and visually clipped (instead of `display:none`), so screen readers no longer announce dead controls.
+- **Safer safe-area gaps on notched phones**: The previous beta added `env(safe-area-inset-*)` padding to fix notch/cutout clipping, but it was applied inconsistently-some places used `padding: calc(X + env(...))` (double-gap with already-padded parents) and the custom `getSafeAreaTop()` helper in `CalSyncModal.tsx`, `DropSyncModal.tsx`, `HistoryModal.tsx`, and `useDraggableSheet.ts` was removed in favor of relying on the CSS-only approach. Safe-area clearance now uses `margin-bottom: env(safe-area-inset-bottom, 0px)` only on `.modal-footer` and the onboarding footer (where it correctly sits *outside* the element), and remaining `calc(…) + env(safe-area-inset-*)` rules that duplicated existing padding have been reverted. Affected files: `public/offline.html`, `src/app/_components/calsync/CalSyncModal.tsx`, `src/app/_components/dropsync/DropSyncModal.tsx`, `src/app/_components/dropsync/HistoryModal.tsx`, `src/app/_hooks/useDraggableSheet.ts`, `src/app/legal/legal.css`, `src/app/login/styles.css`, `src/app/styles.css`, `src/app/support/page.tsx`.
+- **Settings modal spacing**: Removed the forced generic `.modal-body` top padding so `.extra-modal` can use its intended inset-aware spacing without an additional empty gap.
+- **Expanded sheets stop below the notch**: `CalSyncModal.tsx`, `DropSyncModal.tsx`, `HistoryModal.tsx`, and `useDraggableSheet.ts` share a new `getSafeAreaTop()` helper (reads the `--sat` custom property, falling back to `env(safe-area-inset-top)`). Expanded sheet height is now `window.innerHeight - SHEET_TOP_MARGIN - safeAreaTop`, so fully-expanded sheets no longer push their content underneath the status bar / camera cutout.
+- **Inset-aware modal layout in `styles.css`**: `.modal` max-height switches to `100dvh - env(safe-area-inset-top)`; `.sheet-handle` grows by the top inset (`height: calc(30px + env(...))` + matching `padding-top`); sheet header and `.modal-header` offset their padding/`top` by the inset; `.modal-body` gets `overflow-y: auto` plus `padding-top: calc(70px + env(safe-area-inset-top))`, so long content scrolls instead of clipping under the floating header; `.modal-footer` pins to the bottom via `margin-top: auto` with `padding-bottom: max(16px, env(safe-area-inset-bottom))`.
+- **`.extra-modal .modal-body` spacing**: now a flex column with a 16px gap and inset-aware top padding; the AI-method option grid compensates by dropping its own top padding (24px → 0).
+- **`.license-section` overflow containment**: `overflow: hidden` moved off the shared rule onto `.license-section` only, so collapsible license bodies clip correctly during the expand animation.
+- **Install banner hidden on `/login` and `/onboarding`**: `AppShell.tsx` gates the PWA install banner behind a new `showInstallBanner` flag, so it no longer covers the sign-in and onboarding screens.
+- **AI Detection disabled notice now actually displays**: `isAiDetectionUsable` was never passed to `AiMethodModal` (the prop defaulted to `true`), so the disabled message never rendered. `CalSync.tsx` now forwards the flag from `useAiDetection()`, and the notice (`#aiMethodDisabledNote`) was moved into the option grid with a dedicated "Open Settings" button (`#aiMethodOpenSettingsBtn`).
+- **Settings no longer overlaps the AI Detection modal**: `AppShell.closeSettings` is now invoked when `AiMethodModal` opens (a `wasOpen` ref guards the transition so it only fires on closed→open), and explicit z-index layering was added in `styles.css` (`#settingsOverlay` `10001` → `#aiMethodOverlay` `10002`). The "Open Settings" button defers opening via a `pendingOpenSettings` ref inside the sheet's `onClose`, so the two overlays never coexist on screen.
+- **Toasts stay above the AI Detection modal**: `.toast` z-index raised from `10001` to `10003`.
+- **AI tip icons**: Dashboard tips now show their icons correctly instead of raw text.
+- **Faster sign-in**: Signing in now takes you straight to your dashboard without extra page reloads.
+- **Improved 2FA code entry**: Entering your six-digit authenticator code is now more reliable, especially on mobile.
+- **Error Logging**: Fixed error logging for the AI detection feature.
+- **Duplicate food entries from AI detection**: Fixed a bug where logging a food item via AI detection could create two identical entries instead of one.
+- **Deleting pending AI drafts**: Fixed a bug where removing a pending AI detection draft would incorrectly remove other pending drafts that weren't selected.
+- **Support page text size**: Increased font size for better readability on the support page.
+- **AI text detection cleanup**: Closing the "Describe Food" text input without analyzing now properly closes the modal instead of leaving "Analyzing..." visible.
+- **Barcode scanner camera release**: The camera now properly stops when closing the barcode scanner modal or switching away from the camera tab.
+- **Barcode scanner console spam**: Fixed continuous "No MultiFormat Readers" error messages in the console when the scanner is idle.
+- **Weather data source**: Updated to use Open-Meteo for weather information.
+- **Drink "Clear all" now syncs to cloud**: `src/app/_components/dropsync/DropSync.tsx:handleClearAll` now `await`s `deleteDrinkFromCloud(e.id, user.id)` for every cleared entry. Previously only local state was cleared and the cloud kept the deleted entries.
+- **GA4 measurement ID mismatch**: The gtag loader requested `G-EHN4P1ET7W` while the consent-time `gtag('config', …)` call targeted `G-2E9SPPVJFL`, silently sending analytics data to the wrong property. Both now share a single `GA_MEASUREMENT_ID` constant in `src/app/_lib/analytics.ts` (overridable via `NEXT_PUBLIC_GA_ID`, default `G-EHN4P1ET7W`).
+- **Consent Mode `security_storage` override**: `CookieBanner.tsx` re-issued `gtag('consent', 'default', …)` with `security_storage: 'denied'`, overriding the `granted` default from `layout.tsx`. The redundant default calls were removed so the default now lives only in `layout.tsx` and fires `beforeInteractive` (the gtag loader moved to `afterInteractive`).
+- **Charts and progress bars are screen-reader-friendly**: `WeekChart.tsx` chart container gets `role="img"` + summary `aria-label`; each bar gets its own `role="img"` and `aria-label`. `MetricGrid.tsx` calorie/water bars and `MacroGrid.tsx` protein/carbs/fat bars now expose `role="progressbar"` + `aria-valuenow`/`min`/`max` + `aria-label`. `ScoreRing.tsx` SVG gets `role="img"` + `aria-label="Daily progress: X%"`.
+- **Settings toggles behave like switches**: All `app-toggle-switch` buttons in `SettingsModal.tsx` (`AI Detection`, `Weather`, `Delete warning`, `Splash screen`, `Open menus expanded`, `Track supplements`, `Display name on start`) now use `role="switch"` with `aria-checked` and a per-control `aria-label`.
+- **Modals are real `role="dialog"` overlays**: `WorkoutModal.tsx`, `WorkoutHistoryModal.tsx`, `ActivityStatus.tsx`, `UpdateCenter.tsx`, and `SettingsModal.tsx`'s new logout + delete-account sheets now declare `aria-modal="true"` with a meaningful `aria-label`. Decorative icons/SVGs across these components get `aria-hidden="true"`.
+- **Workout History log headers keyboard-operable**: `WorkoutHistoryModal.tsx`'s date-header previously became a `<button>` (element-type change); reverted to a `<div role="button" tabIndex={0} aria-expanded aria-controls onKeyDown>` so it stays keyboard-accessible without an element-type change.
+- **Drink picker is keyboard-navigable**: `src/app/_components/dropsync/DrinkPicker.tsx` grid is now `role="radiogroup"` with Arrow-key navigation; each drink is `role="radio"` `aria-checked={…}` and icons get `aria-hidden="true"`.
+- **Sheets close on Escape**: `useDraggableSheet` adds a `keydown` listener that calls `close()` when `Escape` is pressed and the sheet is open.
+- **Focus-visible outline on form inputs**: `.form-input:focus-visible` in `src/app/styles.css` adds a 2px accent outline.
+- **Better dark-theme contrast for dim text**: `--text3` raised from `rgba(255, 255, 255, 0.25)` to `rgba(255, 255, 255, 0.45)` (passes WCAG AA on the dark surface).
+- **Save weather location now persists immediately**: `SettingsModal.tsx`'s location-fill handler writes `healthsync_weather_lat`/`lon`/`name` to localStorage directly, so the next Save doesn't drop the picked spot.
+- **`Sync…` toast no longer leaks to `/login` or `/onboarding`**: the new `suppressToast` flag in `AuthContext.applySettingsToLocalStorage` keeps the toast off when there's no signed-in user.
+- **Duplicate `id="backBtn"` resolved**: Modal back-buttons in `ActivityStatus.tsx`, `WorkoutHistoryModal.tsx`, and `UpdateCenter.tsx` were sharing the same DOM id. Renamed to `activityStatusBackBtn`, `keepStatusBackBtn`, `customDateBackBtn`, `updateCenterBackBtn` respectively.
+- **AI Detection entry buttons no longer open a broken Gemini flow silently**: the Quick Add grid + CalSync AI button are now visibly disabled (with a tooltip-style explanation in `AiMethodModal`) when the API key is missing or invalid, instead of routing the user into a flow that would fail.
+- **Invalid Gemini keys are no longer saved**: `SettingsModal.handleSaveApiKey` is now `async`, runs `validateApiKey()`, and returns early on validation failure.
+- **Build & lint**: project still builds cleanly (`npm run build`, `tsc --noEmit`); lint baseline lifted from 229 → 236 by the seven `aria-*` attribute hooks introduced for the new `role="switch"` widgets (zero errors introduced).
+- **Safe-area insets on notched devices**: Fixed UI now respects `env(safe-area-inset-*)` so nothing is hidden behind the notch, rounded corners, or home indicator on phones with a display cutout. Touched: cookie banner (`cookiebanner.css`), legal pages (`legal/legal.css` - `main` padding + back-to-top button), login screen (`login/styles.css`), app views, app-shell header, `.modal`/`.modal-footer` bottom padding, toast top, onboarding header (`styles.css`), and the support page inline padding (`src/app/support/page.tsx`). Each rule keeps a fallback value so browsers without `env()` support render as before.
+
 ## [3.1.2] - 2026-08-06
 
 ### Changed
@@ -30,11 +136,23 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [3.0.0] - 2026-07-09
 
+### Added
+- **More exercises available**: Many new exercises have been added to the workout library.
+- **Better exercise instructions**: Each exercise now includes detailed step-by-step instructions and form tips.
+- **Support page**: Added a support page where you can report bugs or ask questions directly from the app settings.
+- **Manual update option**: You can now manually check for and install updates from the settings menu.
+
 ### Changed
-- Improved the in-app update flow and removed the redundant update button from the update popup for a cleaner update experience.
-- Updated secondary-muscle tracking for workout exercises.
+- **Improved update flow**: The update process is now smoother with fewer prompts and better reliability. Removed the redundant update button from the update popup for a cleaner update experience.
+- **Clearer muscle targeting**: Workouts now clearly show which muscles are primarily worked and which are secondary (updated secondary-muscle tracking).
+- **Weather shows location names**: The weather widget now displays your location name instead of just coordinates (reverse geocoding).
+- **Redesigned workout interface**: Workout browsing and exercise selection has been redesigned for easier use.
+- **Cleaner settings and interface**: The settings menu and barcode scanner have been simplified and streamlined.
+- **Customizable privacy settings**: You can now control which features use cookies and tracking in settings.
+- **Faster and smoother performance**: The app launches quicker and animations run more smoothly.
 
 ### Fixed
+- **Calorie tracker scrolling**: Fixed an issue where the calorie tracking screen would scroll unexpectedly.
 - Barcode scanner camera improvements for more reliable code detection.
 - Various bug fixes, style adjustments, and proxy / Playwright test updates.
 
@@ -48,8 +166,6 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 ### Added
 - **Food Favourites**: You can now save and favourite foods. A new modal gives you quick access to previously logged meals.
 - **New Logo**: The logo has been redesigned to better reflect the design and goals of the project.
-
-### Added
 - **Break Timer for Workouts**: A break timer is now integrated into workouts. You can add or remove 15 seconds from your rest time or skip breaks entirely.
 - **PR Tracking**: The app now automatically notifies you when you hit a personal record during a workout.
 

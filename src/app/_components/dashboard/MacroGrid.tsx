@@ -14,10 +14,9 @@ interface MacroCardProps {
     goal: number;
     color: string;
     icon: string;
-    idPrefix: string;
 }
 
-function MacroCard({ name, label, value, goal, color, icon, idPrefix }: MacroCardProps) {
+function MacroCard({ name, label, value, goal, color, icon }: MacroCardProps) {
     const pct = goal > 0 ? Math.max(0, Math.min(100, (value / goal) * 100)) : 0;
     const goalText = goal > 0 ? `${Math.round(value)} / ${goal} g` : 'No goal';
     return (
@@ -26,7 +25,7 @@ function MacroCard({ name, label, value, goal, color, icon, idPrefix }: MacroCar
             <div className="dashboard-macro-value"><span id={`dashboard${name}`}>{Math.round(value)}</span> g</div>
             <div className="dashboard-macro-goal" id={`dashboard${name}Goal`}>{goalText}</div>
             <div className="dashboard-macro-track">
-                <div id={`dashboard${name}Progress`} style={{ width: pct + '%' }} />
+                <div id={`dashboard${name}Progress`} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={`${label}: ${Math.round(pct)}% of goal`} style={{ width: pct + '%' }} />
             </div>
         </div>
     );
@@ -41,9 +40,9 @@ export default function MacroGrid({ totalProtein, totalCarbs, totalFat, macroGoa
                 <small id="dashboardMacroSummary">{totalMacro} g total</small>
             </div>
             <div className="dashboard-macro-grid" id="dashboardMacroGrid">
-                <MacroCard name="Protein" label="Protein" value={totalProtein} goal={macroGoals.protein} color="#30D158" icon="fa-solid fa-dumbbell" idPrefix="protein" />
-                <MacroCard name="Carbs" label="Carbs" value={totalCarbs} goal={macroGoals.carbs} color="#FFD60A" icon="fa-solid fa-wheat-awn" idPrefix="carbs" />
-                <MacroCard name="Fat" label="Fat" value={totalFat} goal={macroGoals.fat} color="#FF6B35" icon="fa-solid fa-oil-can" idPrefix="fat" />
+                <MacroCard name="Protein" label="Protein" value={totalProtein} goal={macroGoals.protein} color="#30D158" icon="fa-solid fa-dumbbell" />
+                <MacroCard name="Carbs" label="Carbs" value={totalCarbs} goal={macroGoals.carbs} color="#FFD60A" icon="fa-solid fa-wheat-awn" />
+                <MacroCard name="Fat" label="Fat" value={totalFat} goal={macroGoals.fat} color="#FF6B35" icon="fa-solid fa-oil-can" />
             </div>
         </>
     );

@@ -1,28 +1,54 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '../_lib/supabase';
 import './styles.css';
+import { hasVerifiedMfaFactor, needsMfaVerification } from '../_lib/mfaPolicy';
+import { authErrorMessage } from '../_lib/userFacingErrors';
 
 type View = 'login' | 'register' | 'mfa' | 'setup2fa' | 'reset' | 'resetMfa' | 'confirm' | 'loggedIn';
 
 interface AlertState { msg: string; type: 'error' | 'success' | 'info' | '' }
 const EMPTY_ALERT: AlertState = { msg: '', type: '' };
 
-function OtpInput({ id, onComplete }: { id: string; onComplete?: (code: string) => void }) {
+function OtpInput({ id, onComplete, disabled = false }: { id: string; onComplete?: (code: string) => void; disabled?: boolean }) {
     const refs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null),
         useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
 
     const getCode = () => refs.map(r => r.current?.value || '').join('');
 
+    const distributeCode = (raw: string) => {
+        const digits = raw.replace(/\D/g, '').slice(0, 6);
+        if (!digits) return;
+        refs.forEach((ref, index) => {
+            if (ref.current) ref.current.value = digits[index] || '';
+        });
+        refs[Math.min(digits.length - 1, 5)].current?.focus();
+        if (digits.length === 6 && onComplete) onComplete(digits);
+    };
+
     const handleInput = (idx: number) => {
-        const val = refs[idx].current!.value.replace(/\D/g, '').slice(-1);
-        refs[idx].current!.value = val;
-        if (val && idx < 5) refs[idx + 1].current?.focus();
+        const input = refs[idx].current!;
+        const digits = input.value.replace(/\D/g, '');
+        if (digits.length > 1) {
+            distributeCode(digits);
+            return;
+        }
+        input.value = digits;
+        if (digits && idx < 5) refs[idx + 1].current?.focus();
         if (getCode().length === 6 && onComplete) onComplete(getCode());
     };
 
     const handleKeyDown = (idx: number, e: React.KeyboardEvent) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+            e.preventDefault();
+            refs.forEach(ref => { if (ref.current) ref.current.value = ''; });
+            refs[0].current?.focus();
+            return;
+        }
         if (e.key === 'Backspace' && !refs[idx].current?.value && idx > 0) refs[idx - 1].current?.focus();
         if (e.key === 'ArrowLeft' && idx > 0) refs[idx - 1].current?.focus();
         if (e.key === 'ArrowRight' && idx < 5) refs[idx + 1].current?.focus();
@@ -32,20 +58,20 @@ function OtpInput({ id, onComplete }: { id: string; onComplete?: (code: string) 
         const text = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
         if (text.length === 6) {
             e.preventDefault();
-            refs.forEach((r, i) => { if (r.current) r.current.value = text[i] || ''; });
-            refs[5].current?.focus();
-            if (onComplete) onComplete(text);
+            distributeCode(text);
         }
     };
 
     return (
-        <div className="otp-wrap" id={id}>
+        <div className="otp-wrap" id={id} role="group" aria-label="Six-digit authenticator code">
             {refs.map((ref, i) => (
-                <input key={i} ref={ref} type="number" maxLength={1} min={0} max={9}
+                <input key={i} ref={ref} type="text" inputMode="numeric" pattern="[0-9]*"
+                aria-label={`Authenticator code, digit ${i + 1} of 6`}
+                disabled={disabled}
                 autoComplete={i === 0 ? 'one-time-code' : undefined}
                 onInput={() => handleInput(i)}
                 onKeyDown={e => handleKeyDown(i, e)}
-                onPaste={i === 0 ? handlePaste : undefined}
+                onPaste={handlePaste}
                 />
             ))}
         </div>
@@ -54,10 +80,11 @@ function OtpInput({ id, onComplete }: { id: string; onComplete?: (code: string) 
 
 function Alert({ alert }: { alert: AlertState }) {
     if (!alert.msg) return <div className="alert" />;
-    return <div className={`alert ${alert.type} show`}>{alert.msg}</div>;
+    return <div className={`alert ${alert.type} show`} role={alert.type === 'error' ? 'alert' : 'status'}>{alert.msg}</div>;
 }
 
 export default function LoginPage() {
+    const router = useRouter();
     const [view, setView] = useState<View>('login');
     const [loading, setLoading] = useState(false);
     const [loginAlert, setLoginAlert] = useState<AlertState>(EMPTY_ALERT);
@@ -73,7 +100,6 @@ export default function LoginPage() {
     const [showLoginPw, setShowLoginPw] = useState(false);
     const [showRegPw, setShowRegPw] = useState(false);
     const [showRegConfirmPw, setShowRegConfirmPw] = useState(false);
-    const [mfaRemember, setMfaRemember] = useState(false);
     const [qrUri, setQrUri] = useState<string | null>(null);
     const [totpSecret, setTotpSecret] = useState('');
     const [setup2FAMode, setSetup2FAMode] = useState<'setup' | 'test'>('setup');
@@ -90,53 +116,67 @@ export default function LoginPage() {
     const pendingEmailRef = useRef<string | null>(null);
     const resetMfaChallengeRef = useRef<string | null>(null);
     const resetMfaFactorRef = useRef<string | null>(null);
-    const changePwChallengeRef = useRef<string | null>(null);
-    const changePwFactorRef = useRef<string | null>(null);
-    const qrRef = useRef<HTMLDivElement>(null);
-    const otpMfaRef = useRef<{ getCode: () => string }>(null);
     const mfaInputRef = useRef<HTMLDivElement>(null);
+    const mfaVerifyInFlightRef = useRef(false);
+    const secondaryVerifyInFlightRef = useRef(false);
+
+    const verifyOnce = async (verify: () => Promise<void>): Promise<void> => {
+        if (secondaryVerifyInFlightRef.current) return;
+        secondaryVerifyInFlightRef.current = true;
+        try { await verify(); }
+        finally { secondaryVerifyInFlightRef.current = false; }
+    };
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        supabase.auth.getSession().then(async ({ data: { session } }) => {
         if (session?.user) {
-            const params = new URLSearchParams(window.location.search);
-            if (params.get('keep_login_page') === 'true') {
-            handleLoggedIn(session.user);
-            } else {
-            handleLoggedIn(session.user);
-            }
+            const { data: level, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+            const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+            if (error || factorsError || !level || !factors) return setLoginAlert({ msg: 'Unable to verify your session. Please try again.', type: 'error' });
+            if (needsMfaVerification(level.currentLevel, hasVerifiedMfaFactor(factors.all))) {
+                setMfaAlert({ msg: 'Enter your authenticator code to finish signing in.', type: 'info' });
+                await startMFAChallenge();
+            } else await handleLoggedIn(session.user);
         }
         });
     }, []);
 
-    const getMfaTrustedEmails = () => {
-        try { return JSON.parse(localStorage.getItem('mfa_trusted_emails') || '[]'); } catch { return []; }
-    };
-    const isMfaTrusted = (email: string) => getMfaTrustedEmails().includes(email.toLowerCase());
-    const setMfaTrusted = (email: string) => {
-        const list = getMfaTrustedEmails();
-        const key = email.toLowerCase();
-        if (!list.includes(key)) { list.push(key); localStorage.setItem('mfa_trusted_emails', JSON.stringify(list)); }
-    };
-
     const handleLoggedIn = useCallback(async (user: { id?: string; email?: string; user_metadata?: Record<string, string> } | null) => {
+        const { data: level, error: levelError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (levelError || factorsError || !level || !factors) {
+            setLoginAlert({ msg: 'Unable to check your authenticator status. Please try again.', type: 'error' });
+            setView('login');
+            return;
+        }
+        if (needsMfaVerification(level.currentLevel, hasVerifiedMfaFactor(factors.all))) {
+            setMfaAlert({ msg: 'Complete two-factor authentication before continuing.', type: 'error' });
+            setView('mfa');
+            await startMFAChallenge();
+            return;
+        }
         const name = user?.user_metadata?.display_name || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
         setLoggedInUser(name);
-        setView('loggedIn');
 
         if (user?.id) {
             const profilePayload: Record<string, string> = { id: user.id };
             if (user.user_metadata?.display_name) profilePayload.display_name = user.user_metadata.display_name;
             if (user.user_metadata?.full_name)    profilePayload.full_name    = user.user_metadata.full_name;
             if (user.user_metadata?.avatar_url)   profilePayload.avatar_url   = user.user_metadata.avatar_url;
-            supabase.from('profiles').upsert(profilePayload, { onConflict: 'id' }).then(() => {});
+            const { error: profileError } = await supabase.from('profiles').upsert(profilePayload, { onConflict: 'id' });
+            if (profileError) {
+                setLoginAlert({ msg: 'Signed in, but profile setup could not finish. Your account is still signed in; try again later or contact support.', type: 'error' });
+                setView('login');
+                return;
+            }
         }
+        setView('loggedIn');
 
         const params = new URLSearchParams(window.location.search);
         if (params.get('keep_login_page') === 'true') return;
 
-        setTimeout(() => { window.location.href = '/dash?reload=true'; }, 2200);
-    }, []);
+        setTimeout(() => { router.push('/dash'); }, 2200);
+    }, [router]);
 
     const doLogin = async () => {
         setLoginAlert(EMPTY_ALERT);
@@ -146,42 +186,69 @@ export default function LoginPage() {
 
         setLoading(true);
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) { setLoading(false); return setLoginAlert({ msg: error.message, type: 'error' }); }
+        if (error) { setLoading(false); return setLoginAlert({ msg: authErrorMessage(error, 'Sign-in failed. Check your email and password, then try again.'), type: 'error' }); }
 
-        const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
-        if (isMfaTrusted(email)) { setLoading(false); await handleLoggedIn(data.user); return; }
-        setLoading(false);
-        pendingEmailRef.current = email;
-        await startMFAChallenge();
-        return;
+        const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (aalError || factorsError || !aal || !factors) {
+            setLoading(false);
+            return setLoginAlert({ msg: 'Unable to check your authenticator status. Please try again.', type: 'error' });
+        }
+        if (needsMfaVerification(aal.currentLevel, hasVerifiedMfaFactor(factors.all))) {
+            setLoading(false);
+            pendingEmailRef.current = email;
+            await startMFAChallenge();
+            return;
         }
         setLoading(false);
         await handleLoggedIn(data.user);
     };
 
     const startMFAChallenge = async () => {
-        const { data: factors } = await supabase.auth.mfa.listFactors();
-        const totp = factors?.totp?.[0];
-        if (!totp) { await handleLoggedIn((await supabase.auth.getUser()).data.user); return; }
+        setView('mfa');
+        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (factorsError || !factors) { setMfaAlert({ msg: 'Unable to load your authenticator. Please try again.', type: 'error' }); return; }
+        const totp = factors?.totp?.find(factor => factor.status === 'verified');
+        if (!totp) { setMfaAlert({ msg: 'No verified authenticator is available. Contact support.', type: 'error' }); setView('mfa'); return; }
         const { data: challenge, error } = await supabase.auth.mfa.challenge({ factorId: totp.id });
-        if (error) { setMfaAlert({ msg: error.message, type: 'error' }); return; }
+        if (error) { setMfaAlert({ msg: authErrorMessage(error, 'Could not start two-factor verification. Try again.'), type: 'error' }); return; }
         mfaChallengeRef.current = challenge.id;
         mfaFactorRef.current = totp.id;
         setView('mfa');
     };
 
     const doMFAVerify = async (code: string) => {
+        if (mfaVerifyInFlightRef.current) return;
         if (code.length < 6) return setMfaAlert({ msg: 'Enter all 6 digits.', type: 'error' });
+        if (!mfaFactorRef.current || !mfaChallengeRef.current) {
+            return setMfaAlert({ msg: 'Verification is not ready. Please try again.', type: 'error' });
+        }
+        mfaVerifyInFlightRef.current = true;
         setLoading(true);
-        const { error } = await supabase.auth.mfa.verify({
-        factorId: mfaFactorRef.current!, challengeId: mfaChallengeRef.current!, code,
-        });
-        setLoading(false);
-        if (error) return setMfaAlert({ msg: error.message, type: 'error' });
-        if (mfaRemember && pendingEmailRef.current) setMfaTrusted(pendingEmailRef.current);
-        const { data: { user } } = await supabase.auth.getUser();
-        await handleLoggedIn(user);
+        setMfaAlert(EMPTY_ALERT);
+        const resetCodeForRetry = () => {
+            const inputs = mfaInputRef.current?.querySelectorAll<HTMLInputElement>('.otp-wrap input');
+            inputs?.forEach(input => { input.value = ''; });
+            requestAnimationFrame(() => inputs?.[0]?.focus());
+        };
+        try {
+            const { error } = await supabase.auth.mfa.verify({
+                factorId: mfaFactorRef.current, challengeId: mfaChallengeRef.current, code,
+            });
+            if (error) {
+                setMfaAlert({ msg: authErrorMessage(error, 'That verification code could not be confirmed. Check the current code and try again.'), type: 'error' });
+                resetCodeForRetry();
+                return;
+            }
+            const { data: { user } } = await supabase.auth.getUser();
+            await handleLoggedIn(user);
+        } catch {
+            setMfaAlert({ msg: 'Verification could not finish. Check your connection and try again.', type: 'error' });
+            resetCodeForRetry();
+        } finally {
+            mfaVerifyInFlightRef.current = false;
+            setLoading(false);
+        }
     };
 
     const doRegister = async () => {
@@ -203,9 +270,9 @@ export default function LoginPage() {
         if (!/[0-9]/.test(password)) return setRegisterAlert({ msg: 'Password needs at least one number.', type: 'error' });
         if (password !== confirm) return setRegisterAlert({ msg: 'Passwords do not match.', type: 'error' });
         setLoading(true);
-        const { data: signUpData, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName || displayName, display_name: displayName, ...(avatarUrl ? { avatar_url: avatarUrl } : {}) } } });
+        const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName || displayName, display_name: displayName, ...(avatarUrl ? { avatar_url: avatarUrl } : {}) } } });
         setLoading(false);
-        if (error) return setRegisterAlert({ msg: error.message, type: 'error' });
+        if (error) return setRegisterAlert({ msg: authErrorMessage(error, 'Could not create your account. Check the details and try again.'), type: 'error' });
         setView('confirm');
     };
 
@@ -214,99 +281,186 @@ export default function LoginPage() {
         const email = (document.getElementById('resetEmail') as HTMLInputElement).value.trim();
         if (!email) return setResetAlert({ msg: 'Please enter your email.', type: 'error' });
         setLoading(true);
-        const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        if (aal?.nextLevel === 'aal2') {
-        pendingEmailRef.current = email;
-        const { data: factors } = await supabase.auth.mfa.listFactors();
-        const totp = factors?.totp?.[0];
-        if (totp) {
-            const { data: challenge, error: ce } = await supabase.auth.mfa.challenge({ factorId: totp.id });
-            if (!ce) { resetMfaChallengeRef.current = challenge.id; resetMfaFactorRef.current = totp.id; }
+        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (factorsError || !factors) {
+            setLoading(false);
+            return setResetAlert({ msg: 'Unable to check your authenticator status. Please try again.', type: 'error' });
         }
-        setLoading(false);
-        setView('resetMfa');
-        return;
+        const verifiedTotp = factors.totp.find((factor) => factor.status === 'verified');
+        if (verifiedTotp) {
+            pendingEmailRef.current = email;
+            const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: verifiedTotp.id });
+            if (challengeError) {
+                setLoading(false);
+                return setResetAlert({ msg: authErrorMessage(challengeError, 'Could not start verification. Try again.'), type: 'error' });
+            }
+            resetMfaChallengeRef.current = challenge.id;
+            resetMfaFactorRef.current = verifiedTotp.id;
+            setLoading(false);
+            setView('resetMfa');
+            return;
         }
         const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/login` });
         setLoading(false);
-        if (error) return setResetAlert({ msg: error.message, type: 'error' });
+        if (error) return setResetAlert({ msg: authErrorMessage(error, 'Could not send a reset link. Check your email address and try again.'), type: 'error' });
         setResetAlert({ msg: 'Reset link sent! Check your inbox.', type: 'success' });
     };
 
     const doResetMFAVerify = async (code: string) => {
         if (code.length < 6) return setResetMfaAlert({ msg: 'Enter all 6 digits.', type: 'error' });
-        setLoading(true);
-        const { error } = await supabase.auth.mfa.verify({
-        factorId: resetMfaFactorRef.current!, challengeId: resetMfaChallengeRef.current!, code,
+        await verifyOnce(async () => {
+            setLoading(true);
+            try {
+                const { error } = await supabase.auth.mfa.verify({
+                    factorId: resetMfaFactorRef.current!, challengeId: resetMfaChallengeRef.current!, code,
+                });
+                if (error) return setResetMfaAlert({ msg: authErrorMessage(error, 'That verification code could not be confirmed. Check the current code and try again.'), type: 'error' });
+                const { error: resetErr } = await supabase.auth.resetPasswordForEmail(pendingEmailRef.current || '', { redirectTo: `${window.location.origin}/login` });
+                if (resetErr) return setResetMfaAlert({ msg: authErrorMessage(resetErr, 'Could not send a reset link. Try again shortly.'), type: 'error' });
+                setResetMfaAlert({ msg: 'Reset link sent! Check your inbox.', type: 'success' });
+            } finally {
+                setLoading(false);
+            }
         });
-        if (error) { setLoading(false); return setResetMfaAlert({ msg: error.message, type: 'error' }); }
-        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(pendingEmailRef.current || '', { redirectTo: `${window.location.origin}/login` });
-        setLoading(false);
-        if (resetErr) return setResetMfaAlert({ msg: resetErr.message, type: 'error' });
-        setResetMfaAlert({ msg: 'Reset link sent! Check your inbox.', type: 'success' });
     };
 
     const show2FASetupOffer = async () => {
         setSetup2faAlert(EMPTY_ALERT);
         setQrUri(null);
+        setTotpSecret('');
+        setSetupFactorId(null);
         setView('setup2fa');
-        const { data: existingFactors } = await supabase.auth.mfa.listFactors();
-        const existingTotp = existingFactors?.totp?.find(f => f.status === 'verified');
-        if (existingTotp) {
-        setSetupFactorId(existingTotp.id);
-        setSetup2FAMode('test');
-        setSetup2faAlert({ msg: '2FA is already set up. You can test your code here.', type: 'info' });
-        return;
+        setLoading(true);
+        try {
+            const { data: existingFactors, error: listError } = await supabase.auth.mfa.listFactors();
+            if (listError) throw listError;
+
+            const existingTotp = existingFactors.totp.find(factor => factor.status === 'verified');
+            if (existingTotp) {
+                setSetupFactorId(existingTotp.id);
+                setSetup2FAMode('test');
+                setSetup2faAlert({ msg: '2FA is already set up. You can test your code here.', type: 'info' });
+                return;
+            }
+
+            // An interrupted enrollment leaves an unverified factor behind.
+            // Check every cleanup result instead of silently trying to enroll
+            // another factor with the same (possibly empty) friendly name.
+            const unverifiedFactors = existingFactors.all.filter(
+                factor => factor.factor_type === 'totp' && factor.status === 'unverified',
+            );
+            for (const factor of unverifiedFactors) {
+                const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id });
+                if (error) throw error;
+            }
+
+            const { data, error } = await supabase.auth.mfa.enroll({
+                factorType: 'totp',
+                issuer: 'HealthSync',
+                friendlyName: 'HealthSync Authenticator',
+            });
+            if (error) throw error;
+
+            setSetupFactorId(data.id);
+            setSetup2FAMode('setup');
+            setTotpSecret(data.totp.secret);
+            setQrUri(data.totp.uri);
+        } catch (error) {
+            const message = authErrorMessage(error, 'Could not load authenticator settings. Check your connection and try again.');
+            setSetup2faAlert({ msg: message, type: 'error' });
+        } finally {
+            setLoading(false);
         }
-        const unverified = existingFactors?.totp?.filter(f => f.status !== 'verified') || [];
-        for (const f of unverified) await supabase.auth.mfa.unenroll({ factorId: f.id });
-        const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', issuer: 'HealthSync' });
-        if (error) { setSetup2faAlert({ msg: error.message, type: 'error' }); return; }
-        setSetupFactorId(data.id);
-        setSetup2FAMode('setup');
-        setTotpSecret(data.totp.secret);
-        setQrUri(data.totp.uri);
     };
 
     const doSetup2FA = async (code: string) => {
         if (code.length < 6) return setSetup2faAlert({ msg: 'Enter all 6 digits.', type: 'error' });
-        setLoading(true);
-        const { data: challenge } = await supabase.auth.mfa.challenge({ factorId: setupFactorId! });
-        const { error } = await supabase.auth.mfa.verify({ factorId: setupFactorId!, challengeId: challenge!.id, code });
-        setLoading(false);
-        if (error) { setSetup2faAlert({ msg: error.message, type: 'error' }); return; }
-        setSetup2faAlert({ msg: setup2FAMode === 'test' ? 'Code correct! 2FA is working. ✅' : '2FA enabled successfully! 🎉', type: 'success' });
+        await verifyOnce(async () => {
+            setLoading(true);
+            try {
+                const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: setupFactorId! });
+                if (challengeError) throw challengeError;
+                const { error } = await supabase.auth.mfa.verify({ factorId: setupFactorId!, challengeId: challenge.id, code });
+                if (error) throw error;
+                setSetup2FAMode('test');
+                setQrUri(null);
+                setTotpSecret('');
+                setSetup2faAlert({ msg: setup2FAMode === 'test' ? 'Code correct! 2FA is working.' : '2FA enabled successfully!', type: 'success' });
+            } catch (error) {
+                const message = authErrorMessage(error, 'That verification code could not be confirmed. Check the current code and try again.');
+                setSetup2faAlert({ msg: message, type: 'error' });
+            } finally {
+                setLoading(false);
+            }
+        });
+    };
+
+    const leave2FASetup = async () => {
+        if (loading) return;
+        if (setup2FAMode === 'setup' && setupFactorId) {
+            setLoading(true);
+            try {
+                const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
+                if (listError || !factors) throw listError || new Error('Could not check the setup status.');
+                const factor = factors.all.find((item) => item.id === setupFactorId);
+                if (factor?.status === 'unverified') {
+                    const { error } = await supabase.auth.mfa.unenroll({ factorId: setupFactorId });
+                    if (error) throw error;
+                }
+            } catch (error) {
+                const message = authErrorMessage(error, 'The unfinished authenticator could not be removed. Try again or contact support.');
+                setSetup2faAlert({ msg: `Setup is not active until a code is confirmed. ${message}`, type: 'error' });
+                setLoading(false);
+                return;
+            }
+            setLoading(false);
+        }
+        setQrUri(null);
+        setTotpSecret('');
+        setSetupFactorId(null);
+        setSetup2faAlert(EMPTY_ALERT);
+        setView('loggedIn');
     };
 
     const confirmDisable2FA = async (code: string) => {
         if (!setupFactorId || code.length < 6) return;
-        setLoading(true);
-        const { data: challenge, error: ce } = await supabase.auth.mfa.challenge({ factorId: setupFactorId });
-        if (ce) { setDisableAlert({ msg: ce.message, type: 'error' }); setLoading(false); return; }
-        const { error: ve } = await supabase.auth.mfa.verify({ factorId: setupFactorId, challengeId: challenge!.id, code });
-        if (ve) { setDisableAlert({ msg: 'Invalid code. Please try again.', type: 'error' }); setLoading(false); return; }
-        const { error: ue } = await supabase.auth.mfa.unenroll({ factorId: setupFactorId });
-        setLoading(false);
-        if (ue) { setDisableAlert({ msg: 'Failed to disable 2FA: ' + ue.message, type: 'error' }); return; }
-        setSetupFactorId(null);
-        setShowDisableModal(false);
-        setSetup2faAlert({ msg: '2FA has been disabled successfully.', type: 'success' });
-        setTimeout(() => show2FASetupOffer(), 2000);
+        await verifyOnce(async () => {
+            setLoading(true);
+            try {
+                const { data: challenge, error: ce } = await supabase.auth.mfa.challenge({ factorId: setupFactorId });
+                if (ce) { setDisableAlert({ msg: authErrorMessage(ce, 'Could not start verification. Try again.'), type: 'error' }); return; }
+                const { error: ve } = await supabase.auth.mfa.verify({ factorId: setupFactorId, challengeId: challenge!.id, code });
+                if (ve) { setDisableAlert({ msg: 'Invalid code. Please try again.', type: 'error' }); return; }
+                const { error: ue } = await supabase.auth.mfa.unenroll({ factorId: setupFactorId });
+                if (ue) { setDisableAlert({ msg: authErrorMessage(ue, 'Could not disable 2FA. Try again or contact support.'), type: 'error' }); return; }
+                setSetupFactorId(null);
+                setShowDisableModal(false);
+                setSetup2faAlert({ msg: '2FA has been disabled successfully.', type: 'success' });
+                setTimeout(() => show2FASetupOffer(), 2000);
+            } finally {
+                setLoading(false);
+            }
+        });
     };
 
     const doChangePassword = async (code: string) => {
         if (code.length < 6) return setChangePwAlert({ msg: 'Enter all 6 digits.', type: 'error' });
-        const { data: factors } = await supabase.auth.mfa.listFactors();
-        const totp = factors?.totp?.find(f => f.status === 'verified');
-        if (!totp) { setChangePwStep(2); return; }
-        setLoading(true);
-        const { data: challenge, error: ce } = await supabase.auth.mfa.challenge({ factorId: totp.id });
-        if (ce) { setChangePwAlert({ msg: ce.message, type: 'error' }); setLoading(false); return; }
-        const { error: ve } = await supabase.auth.mfa.verify({ factorId: totp.id, challengeId: challenge!.id, code });
-        setLoading(false);
-        if (ve) { setChangePwAlert({ msg: 'Invalid code.', type: 'error' }); return; }
-        setChangePwStep(2);
-        setChangePwAlert(EMPTY_ALERT);
+        await verifyOnce(async () => {
+            const { data: factors } = await supabase.auth.mfa.listFactors();
+            const totp = factors?.totp?.find(f => f.status === 'verified');
+            if (!totp) { setChangePwStep(2); return; }
+            setLoading(true);
+            try {
+                const { data: challenge, error: ce } = await supabase.auth.mfa.challenge({ factorId: totp.id });
+                if (ce) { setChangePwAlert({ msg: authErrorMessage(ce, 'Could not start verification. Try again.'), type: 'error' }); return; }
+                const { error: ve } = await supabase.auth.mfa.verify({ factorId: totp.id, challengeId: challenge!.id, code });
+                if (ve) { setChangePwAlert({ msg: 'Invalid code.', type: 'error' }); return; }
+                setChangePwStep(2);
+                setChangePwAlert(EMPTY_ALERT);
+            } finally {
+                setLoading(false);
+            }
+        });
     };
 
     const doChangePasswordSubmit = async () => {
@@ -317,7 +471,7 @@ export default function LoginPage() {
         setLoading(true);
         const { error } = await supabase.auth.updateUser({ password: newPw });
         setLoading(false);
-        if (error) return setChangePwAlert({ msg: error.message, type: 'error' });
+        if (error) return setChangePwAlert({ msg: authErrorMessage(error, 'Could not change your password. Check the new password and try again.'), type: 'error' });
         setChangePwAlert({ msg: 'Password changed successfully!', type: 'success' });
         setTimeout(() => { setShowChangePw(false); setChangePwStep(1); setChangePwAlert(EMPTY_ALERT); }, 2000);
     };
@@ -339,25 +493,12 @@ export default function LoginPage() {
     const pwScore = [pwStrength.len, pwStrength.upper, pwStrength.num].filter(Boolean).length;
     const pwCls = ['', 'weak', 'medium', 'strong'][pwScore] || '';
 
-    useEffect(() => {
-        if (qrUri && qrRef.current) {
-        qrRef.current.innerHTML = '';
-        if (typeof window !== 'undefined' && (window as typeof window & { QRCode?: new (el: HTMLElement, opts: Record<string, unknown>) => void }).QRCode) {
-            new (window as typeof window & { QRCode: new (el: HTMLElement, opts: Record<string, unknown>) => void }).QRCode(qrRef.current, {
-            text: qrUri, width: 160, height: 160, correctLevel: 1
-            });
-        } else {
-            const link = document.createElement('a');
-            link.href = qrUri;
-            link.textContent = 'Open in authenticator';
-            link.style.color = 'var(--accent)';
-            qrRef.current.appendChild(link);
-        }
-        }
-    }, [qrUri]);
-
-    const goToApp = () => { window.location.href = '/dash?reload=true'; };
-    const logoutUser = async () => { await supabase.auth.signOut(); setView('login'); setActiveTab('login'); };
+    const goToApp = () => { router.push('/dash'); };
+    const logoutUser = async () => {
+        await supabase.auth.signOut();
+        setView('login');
+        setActiveTab('login');
+    };
 
     const eyeIcon = (
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -479,16 +620,12 @@ export default function LoginPage() {
             )}
 
             {view === 'mfa' && (
-            <div className="view active" id="viewMFA">
+            <div className="view active" id="viewMFA" ref={mfaInputRef}>
                 <button className="back-link" onClick={() => setView('login')}>{backArrow}Back</button>
                 <div className="view-title">Two-factor authentication</div>
                 <div className="view-subtitle">Enter the 6-digit code from your authenticator app.</div>
                 <Alert alert={mfaAlert} />
-                <OtpInput id="otpWrap" onComplete={doMFAVerify} />
-                <label className="remember-me-row">
-                    <input type="checkbox" id="mfaRememberMe" checked={mfaRemember} onChange={e => setMfaRemember(e.target.checked)} />
-                    <span>Don&apos;t ask again on this device</span>
-                </label>
+                <OtpInput id="otpWrap" onComplete={doMFAVerify} disabled={loading} />
                 <button className={`btn--primary${loading ? ' loading' : ''}`} id="mfaBtn" onClick={() => {
                     const inputs = document.querySelectorAll<HTMLInputElement>('#otpWrap input');
                     doMFAVerify([...inputs].map(i => i.value).join(''));
@@ -500,30 +637,32 @@ export default function LoginPage() {
 
             {view === 'setup2fa' && (
             <div className="view active" id="viewSetup2FA">
-                <button className="back-link" onClick={() => setView('loggedIn')}>{backArrow}Back</button>
+                <button className="back-link" onClick={() => void leave2FASetup()} disabled={loading}>{backArrow}Back</button>
                 <div className="view-title">
                     {setup2FAMode === 'test' ? <>Manage 2FA <span className="mfa-badge">Active</span></> : <>Set up 2FA <span className="mfa-badge">Recommended</span></>}
                 </div>
                 <div className="view-subtitle">
-                    {setup2FAMode === 'test'
+                    {loading && !setupFactorId
+                        ? 'Checking your authenticator settings…'
+                        : setup2FAMode === 'test'
                         ? '2FA is already active. Enter your current code to test it, or disable 2FA below.'
-                        : 'Scan the QR code with your authenticator app (e.g. Google Authenticator, Authy).'}
+                        : 'Scan the QR code with your authenticator app, then confirm a code. 2FA stays off until confirmation.'}
                 </div>
                 <Alert alert={setup2faAlert} />
                 {qrUri && (
                     <div id="qrCodeContainer">
-                        <div className="qr-wrapper"><div className="qr-container"><div id="qrCode" ref={qrRef} /></div></div>
+                        <div className="qr-wrapper"><div className="qr-container"><QRCodeSVG id="qrCode" value={qrUri} size={160} level="M" title="Scan to set up HealthSync two-factor authentication" /></div></div>
                         <div className="secret-key" id="totpSecret" title="Click to copy" onClick={() => navigator.clipboard.writeText(totpSecret)}>{totpSecret}</div>
                     </div>
                 )}
                 {qrUri && <div style={{ fontSize: '0.85rem', color: 'var(--text2)', textAlign: 'center', marginBottom: '1rem' }}>Then enter the code to confirm:</div>}
-                <OtpInput id="otpSetupWrap" onComplete={doSetup2FA} />
-                <button className={`btn--primary${loading ? ' loading' : ''}`} id="setup2faBtn" onClick={() => {
+                {setupFactorId && <OtpInput id="otpSetupWrap" onComplete={doSetup2FA} />}
+                {setupFactorId && <button className={`btn--primary${loading ? ' loading' : ''}`} id="setup2faBtn" onClick={() => {
                     const inputs = document.querySelectorAll<HTMLInputElement>('#otpSetupWrap input');
                     doSetup2FA([...inputs].map(i => i.value).join(''));
                     }} disabled={loading}>
                     <span className="btn-text">{setup2FAMode === 'test' ? 'Test code' : 'Enable 2FA'}</span><div className="btn-loader" />
-                </button>
+                </button>}
                 <button className="btn-ghost" onClick={openChangePw} style={{ marginTop: '0.5rem' }}>
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                     Change password
@@ -602,7 +741,9 @@ export default function LoginPage() {
         </div>
 
         <div className="card-footer" id="mainFooter">
-            <a href="/" style={{ color: 'var(--text2)', fontSize: '0.88rem', textDecoration: 'none' }}>Back to app</a>
+            {view === 'setup2fa'
+                ? <button type="button" onClick={() => void leave2FASetup()} disabled={loading} style={{ color: 'var(--text2)', fontSize: '0.88rem', textDecoration: 'none', background: 'none', border: 0, cursor: loading ? 'default' : 'pointer' }}>Back to app</button>
+                : <Link href="/" style={{ color: 'var(--text2)', fontSize: '0.88rem', textDecoration: 'none' }}>Back to app</Link>}
         </div>
 
         {showDisableModal && (

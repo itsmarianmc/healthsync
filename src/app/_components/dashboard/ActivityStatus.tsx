@@ -3,7 +3,7 @@
 import { JSX, useEffect, useState } from 'react';
 import { useAuth } from '../../_context/AuthContext';
 import { useCookieConsent } from '../../_lib/useCookieConsent';
-import { pushSettings } from '../../_lib/sync';
+import { queueSettings } from '../../_lib/localData';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
 export type ActivityStatus = 'active' | 'sick' | 'injured' | 'on_a_break';
@@ -268,7 +268,7 @@ function RadioMark({ selected }: { selected: boolean }) {
 }
 
 export default function ActivityStatus() {
-    const { user } = useAuth();
+    const { user, retrySync } = useAuth();
     const { canUsePreferences } = useCookieConsent();
 
     const [savedState, setSavedState] = useState<ActivityStatusState>(DEFAULT_STATE);
@@ -424,7 +424,7 @@ export default function ActivityStatus() {
         setDraftCustomEndDate(nextState.customEndDate);
         saveState(nextState);
         if (user) {
-            void pushSettings(user.id, {
+            queueSettings({
                 status: {
                     status: nextState.status,
                     duration: nextState.duration,
@@ -435,7 +435,8 @@ export default function ActivityStatus() {
                         ? nextState.customEndDate.toISOString()
                         : null,
                 },
-            }).catch(() => {});
+            });
+            void retrySync();
         }
         if (isCustomDateOpen) {
             setIsCustomDateOpen(false);
@@ -470,7 +471,7 @@ export default function ActivityStatus() {
                     <span className="activity-status-trigger-title">{currentStatusMeta.label}</span>
                     <span className="activity-status-trigger-subtitle">{subtitleText}</span>
                 </span>
-                <ChevronDownIcon className="activity-status-trigger-chevron" />
+                <ChevronDownIcon className="activity-status-trigger-chevron" aria-hidden="true" />
             </button>
 
             <div
@@ -479,6 +480,9 @@ export default function ActivityStatus() {
                 onClick={(event) => {
                     if (event.target === event.currentTarget) closeMain();
                 }}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Activity Status"
             >
                 <div
                     className="modal activity-status-modal"
@@ -490,7 +494,7 @@ export default function ActivityStatus() {
                     </div>
                     <div className="modal-header">
                         <div className="modal-btn">
-                            <button className="back-btn" id="backBtn" style={{ opacity: 0 }}>
+                            <button className="back-btn" id="activityStatusBackBtn" style={{ opacity: 0 }}>
                                 <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
                                     <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
                                 </svg>
@@ -501,7 +505,7 @@ export default function ActivityStatus() {
                         </div>
                     </div>
                     <div className="activity-status-modal-body modal-body">
-                        <div className="activity-status-option-list">
+                        <div className="activity-status-option-list" role="radiogroup" aria-label="Select status">
                             {STATUS_ORDER.map((status) => {
                                 const meta = STATUS_META[status];
                                 const selected = draftStatus === status;
@@ -528,7 +532,7 @@ export default function ActivityStatus() {
 
                         <button type="button" className="activity-status-keep-row" onClick={openKeep}>
                             <span className="activity-status-keep-left">
-                                <ClockIcon className="activity-status-keep-icon" />
+                                <ClockIcon className="activity-status-keep-icon" aria-hidden="true" />
                                 <span>Keep status</span>
                             </span>
                             <span className="activity-status-keep-right">
@@ -539,7 +543,7 @@ export default function ActivityStatus() {
                                         draftDuration === 'custom' ? draftCustomEndDate : undefined
                                     )}
                                 </span>
-                                <ChevronRightIcon className="activity-status-keep-chevron" />
+                                <ChevronRightIcon className="activity-status-keep-chevron" aria-hidden="true" />
                             </span>
                         </button>
                     </div>
@@ -557,6 +561,9 @@ export default function ActivityStatus() {
                 onClick={(event) => {
                     if (event.target === event.currentTarget) closeKeep();
                 }}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Keep status"
             >
                 <div
                     className="modal activity-status-modal activity-status-modal--keep"
@@ -568,7 +575,7 @@ export default function ActivityStatus() {
                     </div>
                     <div className="modal-header">
                         <div className="modal-btn">
-                            <button className="back-btn" id="backBtn" style={{ opacity: 0 }}>
+                            <button className="back-btn" id="keepStatusBackBtn" style={{ opacity: 0 }}>
                                 <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
                                     <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
                                 </svg>
@@ -579,7 +586,7 @@ export default function ActivityStatus() {
                         </div>
                     </div>
                     <div className="activity-status-modal-body activity-status-modal-body--keep modal-body">
-                        <div className="activity-status-duration-list">
+                        <div className="activity-status-duration-list" role="radiogroup" aria-label="Select duration">
                             {DURATION_OPTIONS.map((option) => {
                                 const selected = draftDuration === option.value;
                                 const OptionIcon = option.icon;
@@ -623,6 +630,9 @@ export default function ActivityStatus() {
                 onClick={(event) => {
                     if (event.target === event.currentTarget) closeCustomDate();
                 }}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Custom date range"
             >
                 <div
                     className="modal activity-status-modal activity-status-modal--keep activity-status-modal--custom"
@@ -634,7 +644,7 @@ export default function ActivityStatus() {
                     </div>
                     <div className="modal-header">
                         <div className="modal-btn">
-                            <button className="back-btn" id="backBtn" style={{ opacity: 0 }}>
+                            <button className="back-btn" id="customDateBackBtn" style={{ opacity: 0 }}>
                                 <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
                                     <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
                                 </svg>
@@ -649,7 +659,7 @@ export default function ActivityStatus() {
                             <label className="activity-status-range-field">
                                 <span className="activity-status-range-label">Start date</span>
                                 <div className="activity-status-range-input-row">
-                                    <CalendarIcon className="activity-status-range-icon" />
+                                    <CalendarIcon className="activity-status-range-icon" aria-hidden="true" />
                                     <input
                                         type="date"
                                         value={toDateInputValue(draftCustomStartDate)}
@@ -664,7 +674,7 @@ export default function ActivityStatus() {
                             <label className="activity-status-range-field">
                                 <span className="activity-status-range-label">End date</span>
                                 <div className="activity-status-range-input-row">
-                                    <CalendarIcon className="activity-status-range-icon" />
+                                    <CalendarIcon className="activity-status-range-icon" aria-hidden="true" />
                                     <input
                                         type="date"
                                         value={toDateInputValue(draftCustomEndDate)}

@@ -1,13 +1,44 @@
 {
 	"name": "HealthSync",
 	"short_name": "HealthSync",
+	"id": "/",
+	"description": "Track your daily calories, hydration, and workouts in a single PWA.",
 	"start_url": "/dash",
 	"display": "standalone",
+	"orientation": "portrait",
 	"background_color": "#0F0F10",
 	"theme_color": "#0F0F10",
-	"icons": [{
-		"src": "/favicon.png",
-		"sizes": "192x192",
-		"type": "image/png"
-	}]
+	"categories": ["health", "fitness", "food"],
+	"icons": [
+		{
+			"src": "/favicon.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/favicon.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/favicon.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	],
+	"shortcuts": [
+		{
+			"name": "Log Food",
+			"url": "/food?openModal=true",
+			"icons": [{ "src": "/favicon.png", "sizes": "192x192" }]
+		},
+		{
+			"name": "Log Drink",
+			"url": "/drinks?openModal=true",
+			"icons": [{ "src": "/favicon.png", "sizes": "192x192" }]
+		}
+	]
 }
