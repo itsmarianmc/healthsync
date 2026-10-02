@@ -1,6 +1,6 @@
 # HealthSync – Technical Documentation
 
-This documentation describes the HealthSync codebase as it exists in the repository on **September 17, 2026**. It is intended for developers, maintainers, rebuilds, and coding agents.
+This documentation describes the HealthSync codebase as it exists in the repository on **October 1, 2026**. It is intended for developers, maintainers, rebuilds, and coding agents. The maintainer reports that the security/sync migration was applied successfully to the cloned development project and that checks performed so far pass; a later Delete All Data run exposed a `supplements_taken` constraint mismatch, for which an additive SQL hotfix is documented. This is not evidence of a production rollout or completion of every account-isolation acceptance test.
 
 ## Purpose
 
@@ -16,13 +16,16 @@ The app is offline-first: domain data is written to the browser first. Signed-in
 
 ## Recommended reading order
 
-1. [Architecture and runtime](./architecture.md)
-2. [Routing, navigation and contracts](./routing-and-contracts.md)
-3. [Data model and storage](./data-model-and-storage.md)
-4. [Feature behavior](./features.md)
-5. [Agent and rebuild guide](./agent-guide.md)
-6. [Operations, development and tests](./operations-and-testing.md)
-7. [Known gaps and technical notes](./known-gaps.md)
+1. [`AGENTS.md`](../AGENTS.md) — concise repository guide for all agents.
+2. [Architecture and runtime](./architecture.md)
+3. [Routing, navigation and contracts](./routing-and-contracts.md)
+4. [Data model and storage](./data-model-and-storage.md)
+5. [Feature behavior](./features.md)
+6. [Agent and rebuild guide](./agent-guide.md)
+7. [Operations, development and tests](./operations-and-testing.md)
+8. [Security migration runbook](./security-migration.md)
+9. [Known gaps and technical notes](./known-gaps.md)
+10. [Quality audit status](./quality-audit.md)
 
 The [file inventory](./file-inventory.md) is a quick index for concrete files.
 
@@ -32,7 +35,7 @@ When documentation and implementation differ, use this order:
 
 1. current code under `src/`
 2. `package.json`, `next.config.ts`, `playwright.config.ts` and `.env.example`
-3. `hosting.md` for the current Supabase schema and deployment notes
+3. `supabase/migrations/` for versioned SQL changes and `hosting.md` for the base Supabase schema and deployment notes
 4. this documentation
 5. older documents such as `FUNCTIONALITY.md` when they describe the former Vanilla-JS structure
 
@@ -47,7 +50,7 @@ cp .env.example .env
 npm run dev
 ```
 
-The app is normally available at `http://localhost:3000`. The actually available npm scripts are listed in [operations-and-testing.md](./operations-and-testing.md); older documents mention test scripts that are not currently defined in `package.json`.
+The app is normally available at `http://localhost:3000`. The actual npm scripts are listed in [operations-and-testing.md](./operations-and-testing.md) and `package.json`.
 
 ## Main routes
 

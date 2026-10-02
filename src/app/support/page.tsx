@@ -21,14 +21,6 @@ const REASON_LABELS: Record<SupportReason, string> = {
     other: 'Other',
 };
 
-const REASON_COLORS: Record<SupportReason, string> = {
-    bug: '#FF453A',
-    improvement: '#FFD60A',
-    feature: '#30D158',
-    question: '#5AC8FA',
-    other: '#8E8E93',
-};
-
 const REASON_DESCRIPTIONS: Record<SupportReason, string> = {
     bug: 'Something isn\'t working as expected.',
     improvement: 'I have an idea to make something better.',
@@ -74,21 +66,24 @@ export default function SupportPage() {
                     }),
                 });
 
-                const data = await response.json();
-
                 if (!response.ok) {
-                    throw new Error(data.message || 'Failed to send support request');
+                    if (response.status === 429) {
+                        throw new Error('rate_limit');
+                    }
+                    throw new Error(response.status >= 500 ? 'service_unavailable' : 'request_failed');
                 }
 
                 setIsSuccess(true);
                 showToast('Support request sent successfully!', 3000);
                 setTimeout(() => router.push('/dash'), 2000);
             } catch (error) {
-                console.error('Support submission error:', error);
-                showToast(
-                    error instanceof Error ? error.message : 'Failed to send. Please try again.',
-                    4000
-                );
+                const message = error instanceof Error && error.message === 'rate_limit'
+                    ? 'Too many support requests. Wait a few minutes and try again.'
+                    : error instanceof Error && error.message === 'service_unavailable'
+                        ? 'Support is temporarily unavailable. Your message was not sent; please try again later.'
+                        : 'Could not send your message. Check your connection and try again.';
+                console.warn('[support] request could not be completed');
+                showToast(message, 4000);
             } finally {
                 setIsSubmitting(false);
             }
@@ -135,7 +130,7 @@ export default function SupportPage() {
                     <div style={{ fontSize: 48 }}>✅</div>
                     <h2 style={{ fontSize: 22, fontWeight: 700 }}>Thank you!</h2>
                     <p style={{ color: 'var(--text2)', fontSize: 14, maxWidth: 300 }}>
-                        Your support request has been sent. We'll get back to you as soon as
+                        Your support request has been sent. We&apos;ll get back to you as soon as
                         possible.
                     </p>
                     <button
@@ -225,7 +220,7 @@ export default function SupportPage() {
                                 autoCorrect="off"
                             />
                             <p style={{ color: 'var(--text3)', fontSize: 12, marginTop: 6 }}>
-                                If you're logged in, your email is pre-filled. You can change it.
+                                If you&apos;re logged in, your email is pre-filled. You can change it.
                             </p>
                         </div>
                     </div>

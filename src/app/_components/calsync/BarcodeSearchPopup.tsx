@@ -72,9 +72,10 @@ interface BarcodeSearchPopupProps {
     isOpen: boolean;
     onClose: () => void;
     initialMode?: 'search' | 'camera';
+    onLog: (entry: FoodEntry) => Promise<void>;
 }
 
-export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'search' }: BarcodeSearchPopupProps) {
+export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'search', onLog }: BarcodeSearchPopupProps) {
     const { canUseThirdParty } = useCookieConsent();
     const { showToast } = useAuth();
     const sheet = useDraggableSheet({ onClose });
@@ -84,6 +85,7 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
     const [results, setResults] = useState<FoodSearchResult[]>([]);
     const [status, setStatus] = useState('');
     const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
 
     const [cameraKey, setCameraKey] = useState(0);
     const [cameraStatus, setCameraStatus] = useState('Scanning...');
@@ -158,7 +160,7 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
         try {
             const url = `https://search.openfoodfacts.org/search?q=${encodeURIComponent(q)}&page_size=10&fields=product_name,product_name_en,brands,nutriments,serving_size,serving_quantity,quantity,categories_tags,code`;
             const res = await fetch(url, { signal: controller.signal });
-            if (!res.ok) throw new Error(`http_${res.status}`);
+            if (!res.ok) throw new Error('product_search_failed');
             const data = await res.json();
             if (controller.signal.aborted) return;
             const products = (data.products || []) as Record<string, unknown>[];
@@ -219,8 +221,8 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
     const calcCarb = selFood ? Math.round(selFood.carbPer100 * ratio * 10) / 10 : 0;
     const calcFat = selFood ? Math.round(selFood.fatPer100 * ratio * 10) / 10 : 0;
 
-    const logFood = () => {
-        if (!selFood) return;
+    const logFood = async () => {
+        if (!selFood || saving) return;
         const entry: FoodEntry = {
             id: generateEntryId(),
             food: selFood.name,
@@ -239,9 +241,15 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
             isBarcode: !!selFood.isBarcode,
             barcode: selFood.barcode,
         };
-        try { window.dispatchEvent(new CustomEvent('sym:logFood', { detail: entry })); } catch {}
-        showToast(`${calcKcal} kcal logged`);
-        handleClose();
+        setSaving(true);
+        try {
+            await onLog(entry);
+            handleClose();
+        } catch {
+            showToast('Could not save food locally. Please try again.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const titles: Record<Step, string> = { search: 'Search Food', camera: 'Scan Barcode', confirm: 'Set Amount' };
@@ -439,7 +447,7 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
                 <div className="modal-footer" id="barcodeSearchFooter">
                     <button
                         className="confirm-btn"
-                        disabled={step !== 'confirm' || !selFood}
+                        disabled={step !== 'confirm' || !selFood || saving}
                         onClick={() => { if (step === 'confirm' && selFood) logFood(); }}
                     >
                         <svg viewBox="0 -960 960 960" fill="currentColor" height="22" width="22">

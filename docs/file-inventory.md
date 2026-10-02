@@ -7,7 +7,7 @@ This inventory describes the currently relevant files. Historical copies under `
 | File | Purpose |
 |---|---|
 | `AGENTS.md` | agent work rules and project description |
-| `CLAUDE.md` | additional agent/project instructions |
+| `CLAUDE.md` | compatibility pointer to canonical `AGENTS.md` |
 | `README.md` | user and developer overview |
 | `FUNCTIONALITY.md` | detailed, partly historical feature description |
 | `hosting.md` | self-hosting, Supabase SQL, RLS, Docker and operations |
@@ -22,6 +22,15 @@ This inventory describes the currently relevant files. Historical copies under `
 | `eslint.config.mjs` | ESLint configuration |
 | `postcss.config.mjs` | PostCSS configuration |
 | `playwright.config.ts` | Playwright browser, base URL and web server setup |
+| `.github/workflows/playwright.yml` | Playwright workflow (currently disabled with `if: false`) |
+| `supabase/config.toml` | Supabase CLI project configuration for ordered migrations |
+| `supabase/migrations/20260929000000_initial_schema.sql` | reproducible base tables, indexes, RLS enablement and settings trigger |
+| `supabase/migrations/20260930000000_security_sync.sql` | owner/MFA RLS, grants, sync markers, unique keys and data-reset RPC |
+| `supabase/migrations/20261001010000_profile_latest_version.sql` | add owner-readable/writable changelog version to profiles |
+| `supabase/migrations/20261001000000_fix_data_reset_defaults.sql` | ensures reset RPC writes valid defaults for required settings columns |
+| `tests/localData.test.mjs` | Node.js unit tests for local workspace and sync-policy helpers |
+| `tests/syncWorkouts.test.mjs` | workout-routine sync authorization, read-failure and empty-state contract tests |
+| `e2e/login-a11y.spec.ts` | login remembered-device copy and reduced-motion browser check |
 
 ## `src/app` – Next App Router
 
@@ -81,6 +90,7 @@ This inventory describes the currently relevant files. Historical copies under `
 | File | Purpose |
 |---|---|
 | `calsync/CalSync.tsx` | food state, Local Storage, delete/undo and drafts |
+| `calsync/GlobalFoodActions.tsx` | food and AI input sheets on Dashboard and DropSync routes |
 | `calsync/CalSyncModal.tsx` | manual/search/AI input and amount confirmation |
 | `calsync/FoodList.tsx` | daily list and draft/delete actions |
 | `calsync/CalHistoryModal.tsx` | food history |
@@ -133,8 +143,8 @@ This inventory describes the currently relevant files. Historical copies under `
 
 | File | Contract |
 |---|---|
-| `AuthContext.tsx` | `user`, `syncEnabled`, `loading`, settings, logout, toast queue and cloud sync |
-| `AppShellContext.tsx` | open/close state for Settings, Update, Notes, Workouts, Supplements, Barcode and extra menu |
+| `AuthContext.tsx` | `user`, MFA-gated `mfaUser`, `syncEnabled`, `loading`, settings, logout, toast queue and cloud sync |
+| `AppShellContext.tsx` | open/close state for Settings, Update, Notes, Workouts, Supplements, Barcode, food actions and extra menu |
 | `AiDetectionContext.tsx` | detection lifecycle, results, resume and pending auto-open |
 
 ## `_hooks` – reusable logic
@@ -153,8 +163,15 @@ This inventory describes the currently relevant files. Historical copies under `
 |---|---|
 | `types.ts` | central TypeScript domain types |
 | `sync.ts` | Supabase auth verification, CRUD, merge and workout sync |
+| `localData.ts` | guest/user workspace partitioning, read/write and migration helpers |
+| `foodLog.ts` | shared local-first food logging and optional drink mirror/cloud sync |
+| `syncPolicy.ts` | pending upload selection, deletion and reset conflict rules |
+| `mfaPolicy.ts` | small, shared MFA assurance-level decision helper |
+| `serverAuthorization.ts` | server verification of token/user identity and MFA assurance |
+| `csv.ts` | CSV export formatting/escaping |
 | `supabase.ts` | browser Supabase client |
 | `gemini.ts` | image preparation, Gemini request, JSON sanitizing and mapping |
+| `userFacingErrors.ts` | concise, actionable mappings for provider authentication errors |
 | `analytics.ts` | Google Analytics measurement ID |
 | `camera.ts` | camera constraints and friendly errors |
 | `location.ts` | Nominatim reverse geocoding |
@@ -195,6 +212,12 @@ This inventory describes the currently relevant files. Historical copies under `
 | `onboarding.spec.ts` | onboarding flow |
 | `onboarding-steps.spec.ts` | onboarding steps |
 | `settings.spec.ts` | Settings behavior |
+| `security-local.spec.ts` | guest/account workspace and local security invariants |
 | `pull-to-refresh.spec.ts` | pull-to-refresh |
 | `not-found.spec.ts` | 404 behavior |
+
+`security-local.spec.ts` exercises client/local policy behavior; it does not
+prove Supabase RLS enforcement. The database migration and real-account
+authorization matrix require the isolated-project procedure in
+[`security-migration.md`](security-migration.md).
 

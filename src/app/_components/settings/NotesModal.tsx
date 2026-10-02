@@ -81,7 +81,7 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                         <p>HealthSync does not provide personalized fitness, nutrition, or medical advice. The application is a self-tracking tool designed to help you monitor your health metrics. It is not a substitute for professional medical, nutritional, or fitness guidance from a qualified healthcare provider, certified nutritionist, or personal trainer.</p>
                         <br />
                         <p><strong>Third-Party Services</strong></p>
-                        <p>HealthSync relies on external APIs and data sources, including but not limited to Open Food Facts and Supabase. We are not responsible for the availability, accuracy, or content of these third-party services. If these services experience outages or data corruption, HealthSync's functionality may be affected.</p>
+                        <p>HealthSync relies on external APIs and data sources, including but not limited to Open Food Facts and Supabase. We are not responsible for the availability, accuracy, or content of these third-party services. If these services experience outages or data corruption, HealthSync&apos;s functionality may be affected.</p>
                         <br />
                         <p><strong>User Responsibility & Assumption of Risk</strong></p>
                         <p>You use HealthSync entirely at your own risk. You are solely responsible for determining the appropriateness of the information provided for your specific situation. Any decisions you make based on data, recommendations, or calculations provided by HealthSync are made at your own discretion and risk.</p>
@@ -90,7 +90,7 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                         <p>To the fullest extent permitted by law, HealthSync and its developer shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from or related to your use of this application, including but not limited to: data loss, health complications, injuries sustained during workouts, or inaccurate nutritional information. This limitation applies even if we have been advised of the possibility of such damages.</p>
                         <br />
                         <p><strong>No Warranty</strong></p>
-                        <p>HealthSync is provided "as is" without any warranties, express or implied. We make no guarantee regarding the accuracy, completeness, reliability, or suitability of the application for any particular purpose. We do not warrant that the application will be error-free, uninterrupted, or free from malicious code.</p>
+                        <p>HealthSync is provided &quot;as is&quot; without any warranties, express or implied. We make no guarantee regarding the accuracy, completeness, reliability, or suitability of the application for any particular purpose. We do not warrant that the application will be error-free, uninterrupted, or free from malicious code.</p>
                         <br />
                         <p><strong>Data Privacy & Security</strong></p>
                         <p>Your health data is sensitive. While we implement reasonable security measures to protect your information, no system is completely secure. By using HealthSync, you acknowledge that you understand the inherent risks of storing personal health information online. For detailed information on how your data is collected, stored, and used, please refer to our Privacy Policy.</p>

@@ -9,8 +9,8 @@ export function useLocalStorage<T>(key: string, defaultValue: T): [T, (val: T) =
             const item = localStorage.getItem(key);
             if (item === null) return defaultValue;
             return JSON.parse(item) as T;
-        } catch (e) {
-            console.error(`Error parsing local storage key: ${key}`, e);
+        } catch {
+            console.error('Could not read saved browser data.');
             return defaultValue;
         }
     });
@@ -21,8 +21,8 @@ export function useLocalStorage<T>(key: string, defaultValue: T): [T, (val: T) =
             try {
                 localStorage.setItem(key, JSON.stringify(val));
                 window.dispatchEvent(new StorageEvent('storage', { key }));
-            } catch (e) {
-                console.error(`Error saving to local storage for key: ${key}`, e);
+            } catch {
+                console.error('Could not save browser data.');
             }
         }
     }, [key]);
@@ -33,8 +33,8 @@ export function useLocalStorage<T>(key: string, defaultValue: T): [T, (val: T) =
                 try {
                     const item = localStorage.getItem(key);
                     if (item !== null) setValue(JSON.parse(item) as T);
-                } catch (e) {
-                    console.error(`Error parsing storage event for key: ${key}`, e);
+                } catch {
+                    console.error('Could not refresh saved browser data.');
                 }
             }
         };

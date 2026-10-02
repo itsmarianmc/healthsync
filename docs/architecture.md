@@ -57,6 +57,7 @@ RootLayout
             ├── WorkoutHistoryModal
             ├── SupplementsModal
             ├── BarcodeSearchPopup
+            ├── GlobalFoodActions (outside /food)
             └── Toast
 ```
 
@@ -107,6 +108,8 @@ User action
 ```
 
 This is intentionally optimistic. A cloud failure normally does not roll back the local change. Sync functions are centralized in [sync.ts](../../src/app/_lib/sync.ts); some workout routine writes also use direct Supabase code in the workout modal.
+
+Food entry creation from the route sheet, global barcode search or global AI sheet goes through [foodLog.ts](../../src/app/_lib/foodLog.ts). The helper checks the active workspace, reads the latest local arrays and marks signed-in writes pending before cloud sync. The global barcode popup calls its save callback directly; it does not depend on the `/food` page being mounted.
 
 ## Internal events
 

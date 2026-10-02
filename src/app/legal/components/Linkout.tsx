@@ -22,7 +22,7 @@ export default function LinkOut({
     children,
 }: LinkOutProps) {
     const router = useRouter();
-    const [open, setOpen] = useState(false);
+    const [, setOpen] = useState(false);
     const [showPortal, setShowPortal] = useState(false);
     const [animateIn, setAnimateIn] = useState(false);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);

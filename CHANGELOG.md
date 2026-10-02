@@ -5,9 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-## [4.0.0] - 2026-08-29
+## [4.0.0] - 2026-10-02
 
 ### Added
+- **Guest-data import into an account**: Settings can explicitly import guest food, drink, and workout history into the signed-in account. Entries are deduplicated by ID, and guest preferences remain in the guest workspace.
+- **Delete All Data**: Settings can clear the signed-in user's synced HealthSync data and local workspace without deleting the account; guest users can clear their local workspace.
+- **Workout history cloud sync**: Completed workout sessions now upload and download alongside workout routines, with pending local sessions retained for retry.
 - **Toast merging test control**: Settings now includes a small test action for verifying that consecutive notifications merge correctly, and its delayed callback is cleaned up when the settings view unmounts.
 - **Text notes now inform photo/camera AI detection**: `AiDetectionContext.runDetection` forwards `input.text` as `textContext` to `analyzeWithGemini` for `import`/`capture` modes, so the description you type in the AI modal is now included as context when scanning a photo (previously only `describe` mode used it). `CalSyncModal.tsx`'s `handleNextClick` already passes `aiTextValue` alongside the file, and `handleCameraFile` routes capture through the same description step, so the note reaches Gemini for both flows.
 - **Prompt-injection guard for user notes**: `analyzeWithGemini` wraps `textContext` in a `===USER_NOTES===` block instructing the model to treat it as plain text only and ignore any embedded instructions, formatting, or overrides.
@@ -30,6 +33,10 @@ the device as part of signing out.
 - **Report a Bug from Settings**: New `ReportBugModal.tsx` plus a "Report a Bug" button in the System section of `SettingsModal.tsx`. The modal embeds `https://itsmarian.dev/report` in an `<iframe>`, pre-filled via query params (`cnt_src=healthsync`, `user_id`, `app_version` from `APP_VERSION`, current path as `ref`, plus `hide_header`/`hide_footer`) and auto-expands via `sheet.snapToExpanded()`.
 
 ### Changed
+- **Regression coverage for local data and account security**: Added Node test suites for workspace isolation and workout-history sync, plus Playwright coverage for local security behavior, login accessibility, and related settings/onboarding flows.
+- **Account-scoped local workspaces**: Food, drinks, workouts, goals, and health preferences are saved separately for guest use and each signed-in account. Switching identities restores only that workspace; guest entries move to an account only after an explicit import.
+- **Retryable local-first cloud sync**: Food, drink, workout, and settings writes stay queued locally when cloud operations fail. Sync checks the active account before applying results, preserves deletion and reset markers, and treats failed cloud reads separately from successful empty results.
+- **Two-factor checks during password recovery**: Accounts with a verified authenticator must confirm a current code before HealthSync sends a password-reset link.
 - **Photo and camera AI detection optimisation**: `gemini.ts` now downscales large food images to a maximum 1280 px edge before upload and uses a JPEG quality of 0.82, reducing upload and analysis time without changing small images. Gemini requests now use a constrained nutrition response schema, lower temperature, and a smaller output budget for consistently structured results.
 - **Clearer and more accessible notifications**: Rapid toast messages now merge into one readable multiline notification instead of stacking. Toasts expose status semantics for screen readers, adapt their width to the message, wrap cleanly, stay centered, and respect mobile safe-area spacing.
 - **Expanded technical documentation**: Added detailed German and English documentation covering architecture, routing and contracts, data models and storage, feature behavior, operations and testing, agent/rebuild guidance, file inventory, and known gaps.
@@ -59,6 +66,7 @@ the device as part of signing out.
 - **Lockfile housekeeping**: resolved duplicate `@swc/helpers` entry under `@serwist/turbopack` and marked `fsevents` as an optional dev dependency in `package-lock.json` (no runtime effect).
 
 ### Fixed
+- **Safer CSV exports and user-facing errors**: CSV cells beginning with spreadsheet formula characters are escaped, and authentication/provider errors are mapped to actionable messages without displaying raw provider responses.
 - **Barcode scanner recovery and lifecycle**: `BarcodeScanner.tsx` now progressively falls back from a selected device to the rear camera, generic video, and front camera when hardware IDs are stale or unsupported. It stops streams and decoder instances reliably, ignores duplicate scan callbacks, and refreshes the device list when cameras change.
 - **Barcode scan feedback and focus**: barcode scans request continuous focus where the browser supports it, and the embedded search popup now exposes live, actionable camera status messages including permission, availability, and in-use errors.
 - **AI modal reveals immediately**: `revealModal()` in `CalSyncModal.tsx` is now called before branching on the `openWithAi` mode, so the sheet opens without waiting for the per-mode handlers to run first.

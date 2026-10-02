@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { version } from '../../../../package.json';
+import { useEffect, useState, useRef } from 'react';
 import { reverseGeocodeLocation } from '../../_lib/location';
 import { useCookieConsent } from '../../_lib/useCookieConsent';
 
@@ -178,9 +177,9 @@ export default function WeatherWidget() {
 
         setInitialized(true);
         setLoading(false);
-      } catch (err) {
+      } catch {
         if (!cancelled) {
-          setError('Failed to get location');
+          setError('Location unavailable. Check location permission and try again.');
           setLoading(false);
         }
       }
@@ -220,7 +219,7 @@ export default function WeatherWidget() {
         );
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch weather: ${response.status}`);
+          throw new Error('weather_unavailable');
         }
 
         const data: WeatherData = await response.json();
@@ -229,10 +228,10 @@ export default function WeatherWidget() {
           setWeatherData(data);
           setLoading(false);
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) {
-          console.error('Error fetching weather:', err);
-          setError('Failed to load weather data');
+          console.warn('Weather data could not be loaded.');
+          setError('Weather unavailable. Check your connection and try again later.');
           setWeatherData(null);
           setLoading(false);
         }

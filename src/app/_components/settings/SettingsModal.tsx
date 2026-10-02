@@ -4,6 +4,8 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../../_context/AuthContext';
 import { useCookieConsent } from '../../_lib/useCookieConsent';
 import { pushSettings } from '../../_lib/sync';
+import { activeOwner, acknowledgeSettings, clearActiveHealthData, GUEST_OWNER, hasGuestData, importGuestData, queueSettings } from '../../_lib/localData';
+import { csvEscape } from '../../_lib/csv';
 import { supabase } from '../../_lib/supabase';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { calcSupplements, persistSupplementGoals } from '../../_lib/supplements';
@@ -80,7 +82,7 @@ const THEMES = [
 
 function runCalc(fields: CalcFields, w: number, h: number, age: number) {
     if (!w || !h || !age) return null;
-    let bmr = fields.gender === 'male' ? 10*w + 6.25*h - 5*age + 5 : 10*w + 6.25*h - 5*age - 161;
+    const bmr = fields.gender === 'male' ? 10*w + 6.25*h - 5*age + 5 : 10*w + 6.25*h - 5*age - 161;
     const actMap: Record<string, number> = { sedentary:1.2, light:1.375, moderate:1.55, active:1.725, very_active:1.9 };
     let tdee = bmr * (actMap[fields.activity] || 1.2);
     if (fields.goalType === 'lose') tdee -= 500; else if (fields.goalType === 'gain') tdee += 500;
@@ -100,7 +102,7 @@ function runCalc(fields: CalcFields, w: number, h: number, age: number) {
 }
 
 export default function SettingsModal({ isOpen, onClose, onOpenNotes }: SettingsModalProps) {
-    const { user, logout, showToast, syncEnabled } = useAuth();
+    const { user, logout, showToast, retrySync } = useAuth();
     const { canUsePreferences, canUseThirdParty } = useCookieConsent();
     const hasWeatherConsent = canUsePreferences && canUseThirdParty;
 
@@ -135,11 +137,14 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
     const [deleteAccountChecked, setDeleteAccountChecked] = useState(false);
     const [reportOpen, setReportOpen] = useState(false);
-    const toastTestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [guestImportAvailable, setGuestImportAvailable] = useState(false);
+    const settingsFlushRef = useRef(false);
 
-    useEffect(() => () => {
-        if (toastTestTimeoutRef.current) clearTimeout(toastTestTimeoutRef.current);
-    }, []);
+    useEffect(() => {
+        if (!isOpen || !user) return;
+        const timer = setTimeout(() => setGuestImportAvailable(hasGuestData()), 0);
+        return () => clearTimeout(timer);
+    }, [isOpen, user]);
 
     useEffect(() => {
         if (!canUsePreferences) {
@@ -178,7 +183,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         setWeatherLat(localStorage.getItem('healthsync_weather_lat') || '');
         setWeatherLon(localStorage.getItem('healthsync_weather_lon') || '');
         setWeatherName(localStorage.getItem('healthsync_weather_name') || '');
-    }, [canUsePreferences]);
+    }, [canUsePreferences, user?.id]);
 
     useEffect(() => {
         if (!canUseThirdParty) {
@@ -195,8 +200,8 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
     useEffect(() => {
         try {
             setUpdateAvailable(localStorage.getItem('healthsync_update_available') === 'true');
-        } catch (error) {
-            console.log('[settings] localStorage read error:', error);
+        } catch {
+            console.warn('[settings] update status could not be read.');
         }
 
         const handleStorage = (event: StorageEvent) => {
@@ -219,16 +224,19 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         if (!canUsePreferences) return;
         const storedW = parseFloat(localStorage.getItem('calsync_user_weight_kg') || '0') || 0;
         setSupplementGoals(calcSupplements(storedW));
-    }, [canUsePreferences]);
+    }, [canUsePreferences, user?.id]);
 
     useEffect(() => {
         if (!user) { setProfile(null); return; }
+        const ownerId = user.id;
+        let cancelled = false;
         supabase
         .from('profiles')
         .select('display_name, avatar_url')
-        .eq('id', user.id)
+        .eq('id', ownerId)
         .single()
         .then(({ data }) => {
+            if (cancelled || activeOwner() !== ownerId) return;
             setProfile(data ?? null);
             if (!canUsePreferences) return;
             const remoteName = (data?.display_name || '').trim();
@@ -239,6 +247,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
             setFirstName(remoteName);
             window.dispatchEvent(new Event('storage'));
         });
+        return () => { cancelled = true; };
     }, [user?.id, canUsePreferences]);
 
     const [calcFields, setCalcFields] = useState<CalcFields>({ gender: 'female', activity: 'sedentary', goalType: 'maintain', hydrationClimate: 'mild' });
@@ -302,28 +311,35 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         const goals = persistSupplementGoals(w);
         setSupplementGoals(goals);
         if (user) {
-            pushSettings(user.id, {
+            queueSettings({
                 weight_kg: w,
                 creatine_goal: goals?.creatine_g ?? null,
                 magnesium_goal: goals?.magnesium_mg ?? null,
-            }).catch(() => {});
+            });
+            void retrySync();
         }
-    }, [calcWeight, user, canUsePreferences]);
+    }, [calcWeight, user, canUsePreferences, retrySync]);
 
-    const syncSettings = async () => {
-        if (!user || !canUsePreferences) return;
-        const payload: Record<string, unknown> = { user_id: user.id };
-        const calorieGoal = parseInt(calGoal);
-        if (!isNaN(calorieGoal)) payload.calorie_goal = calorieGoal;
-        const protein = parseInt(macroProtein);
-        if (!isNaN(protein)) payload.protein_goal = protein;
-        const carbs = parseInt(macroCarbs);
-        if (!isNaN(carbs)) payload.carbs_goal = carbs;
-        const fat = parseInt(macroFat);
-        if (!isNaN(fat)) payload.fat_goal = fat;
-        const waterMl = parseInt(waterGoal);
-        if (!isNaN(waterMl)) payload.goal_ml = waterMl;
-        await pushSettings(user.id, payload);
+    const saveCloudSetting = (payload: Record<string, number>) => {
+        if (!user) return;
+        queueSettings(payload);
+        if (settingsFlushRef.current) return;
+        settingsFlushRef.current = true;
+        void (async () => {
+            try {
+                while (true) {
+                    if (activeOwner() !== user.id) break;
+                    const queued = JSON.parse(localStorage.getItem('healthsync_pending_settings') || '{}');
+                    if (!Object.keys(queued).length) break;
+                    await pushSettings(user.id, queued);
+                    if (activeOwner() !== user.id) break;
+                    acknowledgeSettings(queued);
+                }
+            } catch {
+                if (activeOwner() === user.id) showToast('Saved locally; cloud settings will retry');
+            }
+            finally { settingsFlushRef.current = false; }
+        })();
     };
 
     const setAndSaveGoal = (kcal: number) => {
@@ -331,7 +347,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         if (canUsePreferences) {
             localStorage.setItem('calsync_goal', String(kcal));
             window.dispatchEvent(new Event('storage'));
-            syncSettings();
+            saveCloudSetting({ calorie_goal: kcal });
         }
     };
     const setAndSaveWater = (ml: number) => {
@@ -339,13 +355,15 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         if (canUsePreferences) {
             localStorage.setItem('dropsync_goal', String(ml));
             window.dispatchEvent(new Event('storage'));
+            saveCloudSetting({ goal_ml: ml });
         }
     };
     const saveMacro = (key: string, val: string) => {
         if (canUsePreferences) {
             localStorage.setItem(key, val);
             window.dispatchEvent(new Event('storage'));
-            syncSettings();
+            const column = key === 'calsync_goal_protein' ? 'protein_goal' : key === 'calsync_goal_carbs' ? 'carbs_goal' : 'fat_goal';
+            if (val !== '' && Number.isFinite(Number(val))) saveCloudSetting({ [column]: Number(val) });
         }
     };
 
@@ -360,7 +378,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         if (canUsePreferences) {
             localStorage.setItem('calsync_track_supplements', String(n));
             window.dispatchEvent(new Event('storage'));
-            if (user) pushSettings(user.id, { track_supplements: n }).catch(() => {});
+            if (user) {
+                queueSettings({ track_supplements: n });
+                void retrySync();
+            }
         }
     };
     const handleSetFirstName = () => {
@@ -428,15 +449,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         showToast('Weather settings saved');
     };
 
-    const testToastMerging = () => {
-        if (toastTestTimeoutRef.current) clearTimeout(toastTestTimeoutRef.current);
-        showToast('First message is visible.', 4000);
-        toastTestTimeoutRef.current = setTimeout(() => {
-            showToast('Second message joined the same toast.', 4000);
-            toastTestTimeoutRef.current = null;
-        }, 1500);
-    };
-
     const exportAllData = () => {
         const calEntries = JSON.parse(localStorage.getItem('calsync_v1') || '[]');
         const dsEntries = JSON.parse(localStorage.getItem('dropsync_v3') || '[]');
@@ -461,12 +473,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         const dsEntries = JSON.parse(localStorage.getItem('dropsync_v3') || '[]') as Array<Record<string, unknown>>;
         const workoutLogs = JSON.parse(localStorage.getItem('healthsync_workout_logs') || '[]') as Array<Record<string, unknown>>;
 
-        const csvEscape = (v: unknown): string => {
-            if (v === null || v === undefined) return '';
-            const s = typeof v === 'string' ? v : String(v);
-            if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-            return s;
-        };
         const buildCsv = (headers: string[], rows: Array<Record<string, unknown>>): string => {
             const out = [headers.join(',')];
             for (const r of rows) out.push(headers.map(h => csvEscape(r[h])).join(','));
@@ -565,19 +571,19 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         let registration: ServiceWorkerRegistration | undefined;
         try {
             registration = await navigator.serviceWorker.getRegistration();
-        } catch (error) {
-            console.log('[settings] registration lookup error:', error);
+        } catch {
+            console.warn('[settings] update status could not be checked.');
         }
 
-        writeLocalLastSeen(APP_VERSION);
+        writeLocalLastSeen(user?.id ?? null, APP_VERSION);
 
         if (!registration?.waiting) {
             writePendingReloadAfterUpdate(false);
             setUpdateAvailable(false);
             try {
                 localStorage.setItem('healthsync_update_available', 'false');
-            } catch (error) {
-                console.log('[settings] localStorage write error:', error);
+            } catch {
+                console.warn('[settings] update status could not be saved.');
             }
             window.dispatchEvent(new CustomEvent('healthsync:update-available-changed', { detail: false }));
             window.location.reload();
@@ -588,20 +594,52 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
         globalWindow.serwist?.messageSkipWaiting();
     };
 
-    const deleteAllData = () => {
-        if (!confirm('Delete ALL data? This cannot be undone.')) return;
-        localStorage.removeItem('calsync_v1');
-        localStorage.removeItem('dropsync_v3');
-        window.dispatchEvent(new Event('storage'));
-        showToast('All data deleted');
-        sheet.close();
+    const deleteAllData = async () => {
+        const ownerId = user?.id ?? GUEST_OWNER;
+        const scope = user ? 'local data and synced food, drinks, workouts, goals and settings on all devices' : 'local food, drinks, workouts, goals and settings';
+        if (!confirm(`Permanently delete ${scope}? This cannot be undone.`)) return;
+        try {
+            if (user) {
+                const { error } = await supabase.rpc('clear_healthsync_data');
+                if (error) throw error;
+            }
+            if (activeOwner() !== ownerId) return;
+            clearActiveHealthData();
+            for (const key of ['calsync_ai_api_key', 'calsync_ai_enabled', 'calsync_ai_terms_accepted',
+                'calsync_first_name', 'calsync_theme', 'dropsync_theme', 'calsync_splash_enabled',
+                'healthsync_weather_enabled', 'healthsync_weather_lat', 'healthsync_weather_lon',
+                'healthsync_weather_name', 'dropsync_delete_warning', 'calsync_display_name',
+                'healthsync_modals_expanded']) localStorage.removeItem(key);
+            setCalGoal('2000');
+            setWaterGoal('2500');
+            setMacroProtein('0');
+            setMacroCarbs('0');
+            setMacroFat('0');
+            setTrackSupplements(false);
+            setCalcWeight('');
+            setCalcHeight('');
+            setCalcAge('');
+            setSupplementGoals(null);
+            setAiEnabled(false);
+            setAiTermsAccepted(false);
+            setAiApiKey('');
+            setTheme('dark');
+            setFirstName('');
+            setWeatherEnabled(false);
+            setWeatherLat('');
+            setWeatherLon('');
+            setWeatherName('');
+            localStorage.setItem('healthsync_last_cloud_sync', new Date().toISOString());
+            window.dispatchEvent(new Event('storage'));
+            showToast('Data deleted');
+            sheet.close();
+        } catch {
+            console.error('[settings] cloud data deletion failed.');
+            if (activeOwner() === ownerId) {
+                showToast('Cloud data could not be deleted. Nothing was removed; check your connection and try again.');
+            }
+        }
     };
-
-    const OptionGroup = ({ id, val, opts, onChange }: { id: string; val: string; opts: { label: string; v: string }[]; onChange: (v: string) => void }) => (
-        <div className="option-group" id={id}>
-            {opts.map(o => <button key={o.v} className={`option-btn${val === o.v ? ' active' : ''}`} data-val={o.v} onClick={() => onChange(o.v)}>{o.label}</button>)}
-        </div>
-    );
 
     return (
         <>
@@ -647,7 +685,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                 </button>
                                 <div className="divider">or</div>
                                 <button id="manageAccount" className="option-btn active" style={{ width: '100%', borderRadius: 'var(--radius-sm)', padding: '13px 16px' }}
-                                    onClick={() => { sheet.close(); window.location.href = '/login'; }}>
+                                    onClick={() => { sheet.close(); window.location.href = '/login?keep_login_page=true'; }}>
                                     <i className="fas fa-user" /> Manage Account
                                 </button>
                             </div>
@@ -670,14 +708,13 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                     role="switch"
                                     aria-checked={aiEnabled}
                                     aria-label="Enable AI Detection"
-                                    aria-pressed={String(aiEnabled) as 'true'|'false'}
                                     onClick={handleAiToggle}
                                     disabled={!canUseThirdParty}
                                 />
                             </div>
                             <div className="ai-info-box" id="aiInfoBox">
                                 <i className="fa-solid fa-circle-info" />
-                                <p>AI Detection uses Google's Gemini API to analyze food images and estimate nutrition values. This feature is experimental and requires your own API key. Important nutrition information should be verified. Results may be inaccurate or inconsistent. Use at your own risk.</p>
+                                <p>AI Detection uses Google&apos;s Gemini API to analyze food images and estimate nutrition values. This feature is experimental and requires your own API key. Important nutrition information should be verified. Results may be inaccurate or inconsistent. Use at your own risk.</p>
                             </div>
                             {aiEnabled && (
                                 <div id="aiSettings">
@@ -780,9 +817,9 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                                 localStorage.setItem('healthsync_weather_lon', String(lon));
                                                 localStorage.setItem('healthsync_weather_name', name);
                                                 showToast(`Location saved`);
-                                            } catch (err) {
-                                                console.warn('Use Location (settings) failed', err);
-                                                showToast('Unable to get location');
+                                            } catch {
+                                                console.warn('Location permission or lookup failed.');
+                                                showToast('Could not determine your location. Check location permission and try again.');
                                             }
                                         }}
                                         disabled={!hasWeatherConsent}
@@ -975,10 +1012,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                             <i className="fa-solid fa-bug" style={{ marginRight: 6 }} />
                             Report a Bug
                         </button>
-                        <button className="data-btn" id="testToastMergingBtn" onClick={testToastMerging}>
-                            <i className="fa-regular fa-message" style={{ marginRight: 6 }} />
-                            Test message merging
-                        </button>
                         {updateAvailable ? (
                             <button className="data-btn" id="updateNowBtn" onClick={applyUpdate} style={{ color: '#30D158', fontWeight: 600 }}>
                                 <i className="fa-solid fa-arrow-up-from-bracket"></i>
@@ -999,6 +1032,14 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                         Data
                     </div>
                     <div className="settings-section-body" style={{ gap:8, display:'flex', flexDirection:'column' }}>
+                        {user && guestImportAvailable && <button className="data-btn" onClick={() => {
+                            try {
+                                importGuestData(user.id);
+                                setGuestImportAvailable(false);
+                                void retrySync();
+                                showToast('Guest entries imported into this account');
+                            } catch { showToast('Guest import failed'); }
+                        }}>Import guest food, drinks and workouts into this account</button>}
                         <button className="data-btn" id="exportAllDataBtn" onClick={exportAllData}>
                             <i className="fas fa-download"></i>
                             Export All Data As JSON
@@ -1149,7 +1190,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                         <div className="modal-title" id="deleteAccountTitle">Delete HealthSync Account</div>
                     </div>
                     <div className="modal-body" id="deleteAccountModalBody">
-                        <p className="delete-account-warning">This action is permanent and cannot be undone. Deleting your account will erase everything you've built in HealthSync, including all your cloud data, every meal logged, your complete hydration history, all exercise and workout logs, your health metrics, and every progress you've made until now.</p>
+                        <p className="delete-account-warning">This action is permanent and cannot be undone. After deletion succeeds, your account and its cloud data will be removed, including meals, hydration history, workout logs, health metrics, and progress. Health data and personal settings on this device will also be cleared.</p>
                         <label className="custom-checkbox-label delete-account-checkbox-label" htmlFor="deleteAccountCheckbox">
                             <input
                                 type="checkbox"
@@ -1190,8 +1231,16 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ accessToken: token, userId: user.id }),
                                     });
-                                    const json = await res.json();
-                                    if (!json.ok) { showToast(json.error || 'Delete failed'); return; }
+                                    const result = await res.json().catch(() => ({}));
+                                    if (!res.ok || result?.ok !== true) {
+                                        const message = res.status === 401 || res.status === 403
+                                            ? 'Your session needs verification. Sign in again and retry account deletion.'
+                                            : res.status >= 500
+                                                ? 'Account deletion is temporarily unavailable. Your account was not deleted; try again later.'
+                                                : 'Could not delete your account. Your account and data remain unchanged; try again.';
+                                        showToast(message);
+                                        return;
+                                    }
                                     await logout(true);
                                     showToast('Account deleted');
                                     sheet.close();

@@ -1,5 +1,20 @@
 {
     "4.0.0": {
+        "Keep your data separate": [
+            "Your guest data and each signed-in account now stay in separate workspaces. You can choose when to import guest food, drinks, and workouts into an account."
+        ],
+        "Retry cloud sync": [
+            "When the connection or account check interrupts a sync, your changes stay saved on this device and can be sent again when syncing is available."
+        ],
+        "Delete all your health data": [
+            "Settings can now permanently clear your local and synced meals, drinks, workouts, goals, and preferences while keeping your account open."
+        ],
+        "Workout history on your devices": [
+            "Completed workouts now sync with your account, so your workout history is available when you sign in on another device."
+        ],
+        "Secure password recovery": [
+            "If your account has two-factor authentication enabled, you must confirm your authenticator code before a password-reset link is sent."
+        ],
         "Clearer notifications": [
             "When several notifications appear close together, HealthSync now combines them into one readable message instead of stacking multiple bubbles."
         ],
