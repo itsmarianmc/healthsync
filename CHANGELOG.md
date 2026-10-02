@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
+### [4.1.0] - 2026-10-02
+
+#### Added
+- **Account dashboard**: Added a protected `/account` page for viewing account details, changing passwords, and setting up, testing, or removing authenticator-based two-factor authentication. Signed-in users can reach it from the existing Manage Account entry; login and MFA redirects return users to the account page after verification.
+- **Newsletter preference**: Added an explicit, default-off email news preference on `profiles`, with opt-in and opt-out timestamps. The account page saves the preference only; no email delivery integration is configured.
+
+#### Changed
+- **Account controls and login navigation**: Moved password and 2FA management to the account dashboard, and updated the signed-in login view to offer Manage Account, Go Back to App, and Logout.
+- **Account dashboard experience**: Account copy is in English, the newsletter switch updates immediately and restores the saved value if persistence fails, and controls now have clearer hover and keyboard-focus states.
+
+#### Security
+- **Protected account settings**: Account access returns unauthenticated visitors to login with a validated internal return path. MFA status comes from Supabase Auth, while existing server and database MFA enforcement remains in place for protected operations.
+
+#### Fixed
+- **Update Center opening behavior**: The changelog no longer opens automatically for first-time installs or ordinary visits. After a waiting service worker is installed and the app reloads, the Update Center opens once; users can still open it manually from the dashboard.
+
+## [4.0.1] - 2026-10-02
+
+# Fixed
+- **AI detection**: Fixed issue where the AI detection toggle would not switch, but the AI detection was shown as enabled, preventing users from using the AI detection.
+
+
 ## [4.0.0] - 2026-10-02
 
 ### Added

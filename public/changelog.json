@@ -1,4 +1,24 @@
 {
+    "4.1.0": {
+        "Manage your account in one place": [
+            "You can now review your account details, change your password, and set up, test, or remove two-factor authentication from your Account page.",
+            "After signing in or verifying two-factor authentication, you return to the page you were trying to open."
+        ],
+        "Choose whether to receive product news": [
+            "You can opt in to occasional product news by email or turn the preference off at any time. No emails are sent yet."
+        ],
+        "Faster account preferences": [
+            "Your newsletter preference switch responds immediately and returns to its saved setting if the update cannot be saved."
+        ],
+        "Update news at the right time": [
+            "The What's New window no longer interrupts your first visit or opens during normal use. It appears after you install an app update, and you can still open it whenever you want."
+        ]
+    },
+    "4.0.1": {
+        "Fixed AI detection issue": [
+            "Fixed an issue where AI detection did not start correctly."
+        ]
+    },
     "4.0.0": {
         "Keep your data separate": [
             "Your guest data and each signed-in account now stay in separate workspaces. You can choose when to import guest food, drinks, and workouts into an account."
