@@ -1,3 +1,6 @@
+import { supabase } from './supabase';
+import { readLocalLastSeen, writeLocalLastSeen } from './changelogStorage';
+
 export interface ChangelogEntry {
     id: string;
     version: string;
@@ -54,46 +57,52 @@ export async function fetchChangelogEntries(): Promise<ChangelogEntry[]> {
         const response = await fetch('/changelog.json');
 
         if (!response.ok) {
-            throw new Error(`Failed to fetch changelog: ${response.status}`);
+            throw new Error('changelog_unavailable');
         }
 
         const jsonData = await response.json();
         return convertJsonToChangelogEntries(jsonData);
-    } catch (error) {
-        console.error('[changelog] fetch entries error:', error);
+    } catch {
+        console.error('[changelog] could not load update notes.');
         return [];
     }
 }
 
 export async function fetchLastSeenChangelogVersion(userId: string): Promise<string | null> {
-    return null;
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('latest_version')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (error) {
+        throw new Error('Could not read the account update version.');
+    }
+
+    if (!data) throw new Error('The account profile is unavailable.');
+    return data.latest_version ?? null;
 }
 
 export async function storeLastSeenChangelogVersion(userId: string, version: string): Promise<void> {
-    return;
-}
+    const { data, error } = await supabase
+        .from('profiles')
+        .update({ latest_version: version })
+        .eq('id', userId)
+        .select('id')
+        .maybeSingle();
 
-export const LAST_SEEN_STORAGE_KEY = 'healthsync_last_seen_changelog_version';
-export const PENDING_RELOAD_STORAGE_KEY = 'healthsync_pending_reload_after_update';
-
-export function readLocalLastSeen(): string | null {
-    try {
-        return localStorage.getItem(LAST_SEEN_STORAGE_KEY);
-    } catch (error) {
-        return null;
+    if (error || data?.id !== userId) {
+        throw new Error('Could not save the account update version.');
     }
 }
 
-export function writeLocalLastSeen(version: string): void {
-    try {
-        localStorage.setItem(LAST_SEEN_STORAGE_KEY, version);
-    } catch (error) {}
-}
+export const PENDING_RELOAD_STORAGE_KEY = 'healthsync_pending_reload_after_update';
+export { readLocalLastSeen, writeLocalLastSeen } from './changelogStorage';
 
 export function readPendingReloadAfterUpdate(): boolean {
     try {
         return localStorage.getItem(PENDING_RELOAD_STORAGE_KEY) === 'true';
-    } catch (error) {
+    } catch {
         return false;
     }
 }
@@ -101,7 +110,7 @@ export function readPendingReloadAfterUpdate(): boolean {
 export function writePendingReloadAfterUpdate(pending: boolean): void {
     try {
         localStorage.setItem(PENDING_RELOAD_STORAGE_KEY, String(pending));
-    } catch (error) {}
+    } catch {}
 }
 
 export function pickHigherVersion(left: string | null, right: string | null): string | null {
@@ -112,7 +121,16 @@ export function pickHigherVersion(left: string | null, right: string | null): st
 
 export async function syncLastSeenVersion(
     userId: string,
-    localVersion: string,
     supabaseVersion: string | null,
-): Promise<void> {
+): Promise<string | null> {
+    const localVersion = readLocalLastSeen(userId);
+    const latestSeenVersion = pickHigherVersion(localVersion, supabaseVersion);
+    if (!latestSeenVersion) return null;
+
+    if (supabaseVersion !== latestSeenVersion) {
+        await storeLastSeenChangelogVersion(userId, latestSeenVersion);
+    }
+    if (localVersion !== latestSeenVersion) writeLocalLastSeen(userId, latestSeenVersion);
+
+    return latestSeenVersion;
 }

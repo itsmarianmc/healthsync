@@ -77,8 +77,6 @@ export default function GlassInput({ amount, onChange }: GlassInputProps) {
         if (snapped !== null) commit(snapped);
     };
 
-    const quickSet = (ml: number) => { lastSnappedRef.current = ml; commit(ml); };
-
     const quickSetWithAnim = (ml: number) => {
         lastSnappedRef.current = ml;
         setAnimatingFill(true);

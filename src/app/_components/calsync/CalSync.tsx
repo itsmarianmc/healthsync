@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useLayoutEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import type { FoodEntry, DrinkEntry, PendingFoodDraft, DraftChange, FoodSearchResult } from '../../_lib/types';
+import type { FoodEntry, PendingFoodDraft, DraftChange, FoodSearchResult } from '../../_lib/types';
 import type { GeminiAnalysis } from '../../_lib/gemini';
 import FoodList from './FoodList';
 import MacroRings from './MacroRings';
@@ -13,7 +13,9 @@ import { useAuth } from '../../_context/AuthContext';
 import { useAppShell } from '../../_context/AppShellContext';
 import { useAiDetection } from '../../_context/AiDetectionContext';
 import { usePendingFoodDraft } from '../../_hooks/usePendingFoodDraft';
-import { pushFoodEntriesToCloud, deleteFoodFromCloud, syncDrinkToCloud } from '../../_lib/sync';
+import { deleteFoodFromCloud, restoreFoodInCloud } from '../../_lib/sync';
+import { logFoodEntry } from '../../_lib/foodLog';
+import { activeOwner, GUEST_OWNER, markDeleted, markRestoredFood } from '../../_lib/localData';
 import { removeHeaderBtn, addHeaderBtn } from '../../_lib/headerBtns';
 import { generateDraftId } from '../../_lib/ids';
 import HeaderTitle from '../shared/HeaderTitle';
@@ -128,7 +130,7 @@ export default function CalSync({
         try {
             localStorage.setItem(PENDING_KEY, JSON.stringify(drafts));
             window.dispatchEvent(new Event('storage'));
-        } catch (err) {
+        } catch {
             logger.error('Failed to persist pending drafts');
         }
     }, []);
@@ -157,21 +159,11 @@ export default function CalSync({
         window.addEventListener('viewChanged', loadEntries);
         window.addEventListener('focus', loadEntries);
         const interval = setInterval(() => { loadEntries(); setTick(t => t + 1); }, 30000);
-        const onSymLog = (e: Event) => {
-            try {
-                const detail = (e as CustomEvent).detail as FoodEntry | undefined;
-                if (detail) handleLog(detail);
-            } catch (err) {
-                logger.error('Failed to handle sync event');
-            }
-        };
-        window.addEventListener('sym:logFood', onSymLog as EventListener);
         return () => {
             window.removeEventListener('storage', loadEntries);
             window.removeEventListener('storage', loadPendingDrafts);
             window.removeEventListener('viewChanged', loadEntries);
             window.removeEventListener('focus', loadEntries);
-            window.removeEventListener('sym:logFood', onSymLog as EventListener);
             clearInterval(interval);
         };
     }, [loadEntries, loadPendingDrafts]);
@@ -185,63 +177,68 @@ export default function CalSync({
     const handleLog = useCallback(async (entry: FoodEntry) => {
         setAddingId(entry.id);
         try {
-            const updated = [...entries, entry];
-            setEntries(updated);
-            save(updated);
-            if (user) await pushFoodEntriesToCloud([entry], user.id);
-            if (entry.isDrink) {
-                const drinkEntry: DrinkEntry = {
-                    id: entry.id,
-                    drink: entry.food,
-                    emoji: entry.emoji,
-                    color: entry.color,
-                    amount: entry.amount || 250,
-                    ts: entry.ts,
-                    date: entry.date,
-                    source: 'calsync',
-                };
-                const dsEntries = JSON.parse(localStorage.getItem('dropsync_v3') || '[]');
-                dsEntries.push(drinkEntry);
-                localStorage.setItem('dropsync_v3', JSON.stringify(dsEntries));
-                if (user) await syncDrinkToCloud(drinkEntry, user.id);
-            }
+            const result = await logFoodEntry(entry, user?.id);
+            loadEntries();
+            return result;
         } finally {
             setAddingId(null);
         }
-    }, [entries, save, user]);
+    }, [loadEntries, user?.id]);
 
     const handleDelete = useCallback(async (id: string) => {
+        const ownerId = user?.id ?? GUEST_OWNER;
+        if (activeOwner() !== ownerId) return;
         const toDelete = entries.find(e => e.id === id);
         if (!toDelete) return;
         const updated = entries.filter(e => e.id !== id);
         setEntries(updated);
         save(updated);
-        if (user) await deleteFoodFromCloud(id, user.id);
-        showToast(`Deleted ${toDelete.food}`, 4000, async () => {
+        let cloudPending = false;
+        if (user) try { await deleteFoodFromCloud(toDelete, user.id); } catch { cloudPending = true; }
+        if (activeOwner() !== ownerId) return;
+        showToast(cloudPending ? 'Deleted locally · cloud sync pending' : `Deleted ${toDelete.food}`, 4000, async () => {
+            if (activeOwner() !== ownerId) return;
             const restored = [...updated, toDelete].sort((a, b) => a.ts - b.ts);
             setEntries(restored);
             save(restored);
-            if (user) await pushFoodEntriesToCloud([toDelete], user.id);
-            showToast('Entry restored');
+            let restorePending = false;
+            if (user) try { await restoreFoodInCloud(toDelete, user.id); } catch {
+                restorePending = true;
+            }
+            if (activeOwner() === ownerId) showToast(restorePending ? 'Restored locally; cloud sync will retry' : 'Entry restored');
         });
     }, [entries, save, user, showToast]);
 
     const handleClearAll = useCallback(async () => {
+        const ownerId = user?.id ?? GUEST_OWNER;
+        if (activeOwner() !== ownerId) return;
         const today = new Date().toDateString();
         if (localStorage.getItem('dropsync_delete_warning') !== 'false' && !confirm("Delete all of today's entries?")) return;
         const deleted = entries.filter(e => e.date === today);
         const kept = entries.filter(e => e.date !== today);
         setEntries(kept);
         save(kept);
+        if (user) deleted.forEach(entry => markDeleted('food', entry));
+        let cloudPending = false;
         for (const e of deleted) {
-            if (user) await deleteFoodFromCloud(e.id, user.id);
+            if (activeOwner() !== ownerId) return;
+            if (user) try { await deleteFoodFromCloud(e, user.id); } catch { cloudPending = true; }
         }
-        showToast("Today's entries deleted", 4000, async () => {
+        if (activeOwner() !== ownerId) return;
+        showToast(cloudPending ? 'Deleted locally · cloud sync pending' : "Today's entries deleted", 4000, async () => {
+            if (activeOwner() !== ownerId) return;
             const restored = [...kept, ...deleted].sort((a, b) => a.ts - b.ts);
             setEntries(restored);
             save(restored);
-            if (user) await pushFoodEntriesToCloud(deleted, user.id);
-            showToast('Entries restored');
+            if (user) deleted.forEach(entry => markRestoredFood(entry.id));
+            let restorePending = false;
+            if (user) for (const entry of deleted) {
+                if (activeOwner() !== ownerId) return;
+                try { await restoreFoodInCloud(entry, user.id); } catch {
+                    restorePending = true;
+                }
+            }
+            if (activeOwner() === ownerId) showToast(restorePending ? 'Restored locally; cloud sync will retry' : 'Entries restored');
         });
     }, [entries, save, user, showToast]);
 
@@ -253,10 +250,6 @@ export default function CalSync({
         clearActiveDraft();
         externalOnModalClose?.();
     }, [externalOnModalClose, clearActiveDraft]);
-
-    const handleDismissCurrentDetection = useCallback(() => {
-        setCurrentDetectionId(null);
-    }, []);
 
     const handleAiMethodSelect = useCallback((mode: 'describe' | 'import' | 'capture') => {
         setAiMethodOpen(false);

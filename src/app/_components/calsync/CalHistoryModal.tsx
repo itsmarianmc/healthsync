@@ -50,7 +50,7 @@ export default function CalHistoryModal({ entries, isOpen, onClose }: CalHistory
         else if (sheet.stateRef.current !== 'closed') sheet.close();
     }, [isOpen]);
 
-    const [goal, setGoal] = useState(2000);
+    const [, setGoal] = useState(2000);
     const [goalMap, setGoalMap] = useState<Record<ChartMode, number>>({ kcal: 2000, prot: 0, carb: 0, fat: 0 });
     useEffect(() => {
         const g = parseInt(localStorage.getItem('calsync_goal') || '2000', 10);

@@ -34,10 +34,12 @@ Default URL: `http://localhost:3000`.
 
 ## Actual npm scripts
 
-`package.json` currently defines `dev`, `build`, `start` and `lint`. `npm test`, `npm run test:e2e` and `npm run test:watch` are not currently defined, although older project documents mention them. Run Playwright directly:
+`package.json` defines `dev`, `build`, `start`, `lint`, `test`, `test:watch` and `test:e2e`:
 
 ```bash
-npx playwright test
+npm test
+npm run test:watch
+npm run test:e2e
 npx playwright test e2e/settings.spec.ts
 npx playwright test --ui
 ```
@@ -74,17 +76,27 @@ npm run build
 npm run start
 ```
 
-For Vercel, set environment variables in project settings. For a self-managed Node host, put the server behind TLS/reverse proxy; the host may set `PORT`. `hosting.md` also contains Supabase SQL, a SQLite alternative, a Docker example and backup notes.
+For Vercel, set environment variables in project settings. For a self-managed Node host, put the server behind TLS/reverse proxy; the host may set `PORT`. `hosting.md` contains Supabase SQL, a Docker example, backup notes and a SQLite porting outline (not a currently wired backend).
 
 ## Supabase operations
 
-1. Create the project.
-2. Run the idempotent schema from `hosting.md` in the SQL editor.
-3. Enable RLS on all four tables.
-4. Verify policies use `auth.uid() = user_id`.
-5. Restrict Auth redirect URLs and Site URL to controlled origins.
-6. Configure email confirmation, password rules and optional TOTP/MFA.
-7. Test food, drink, settings and account deletion with a test account.
+1. Create or clone the project intended for development/testing.
+2. Run the base schema from `hosting.md` only for a new, isolated project.
+3. Review the actual schema, policies, grants and constraints using
+   [`security-migration.md`](./security-migration.md).
+4. Apply the ordered migrations to the isolated project and verify the
+   database-level access matrix. The maintainer reports this migration
+   completed without error on the cloned HealthSync development project on
+   2026-09-30; do not assume another project has the same schema or policies.
+5. Verify each app-level acceptance case in `security-migration.md` using
+   disposable users, especially cross-account access, AAL1/AAL2, sync after
+   reload, Delete All Data and account deletion.
+6. Only after a target-project preflight and backup, apply the migration to the
+   intended production database and deploy the matching app release. Production
+   migration/deployment is not confirmed by the repository or the test-clone
+   result.
+7. Restrict Auth redirect URLs and Site URL to controlled origins; configure
+   email confirmation, password rules and optional TOTP/MFA.
 
 The `updated_at` trigger on `user_settings` is important because workout routines are merged by timestamp.
 
@@ -111,7 +123,9 @@ When adding an external host, update `connect-src`, `img-src`, `script-src` or `
 - Search the browser console for `[sync]`.
 - Check `NEXT_PUBLIC_SUPABASE_URL` and the anon key.
 - Check `/api/sync/verify` with a valid session.
-- Compare tables, unique constraints and RLS with `hosting.md`.
+- Compare tables and constraints with `hosting.md`; compare policies and grants
+  with `docs/security-migration.md`. Verify the CLI is linked to the intended
+  project before any dump or migration command.
 - Restart the dev server after changing `.env`.
 
 ### AI does not work

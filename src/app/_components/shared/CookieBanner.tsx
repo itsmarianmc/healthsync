@@ -11,7 +11,7 @@ export default function CookieBanner() {
     const [panelActive, setPanelActive] = useState(false)
 
     const [bannerVisible, setBannerVisible] = useState(false) 
-    const [bannerClosing, setBannerClosing] = useState(false)
+    const [, setBannerClosing] = useState(false)
     
     const [analytics, setAnalytics] = useState(settings.analytics)
     const [preferences, setPreferences] = useState(settings.preferences)
@@ -58,10 +58,6 @@ export default function CookieBanner() {
             bannerRef.current?.removeEventListener('animationend', handleAnimationEnd)
         }
         bannerRef.current.addEventListener('animationend', handleAnimationEnd, { once: true })
-    }
-
-    const loadCookieSettings = (): boolean => {
-        return false;
     }
 
     const saveCookieSettings = () => {
@@ -115,7 +111,7 @@ export default function CookieBanner() {
         setThirdparty(false)
         setBannerVisible(true)
         setBannerClosing(false)
-    }, [])
+    }, [settings])
 
     useEffect(() => {
         const handleDocumentClick = (e: MouseEvent) => {
@@ -150,7 +146,7 @@ export default function CookieBanner() {
                             <p className="cookie-description">
                                 <a>This website uses cookies and similar technologies to ensure its basic functionality, enhance your user experience, analyze how it is used, gather anonymized statistics on website traffic and usage patterns, remember your preferences such as language or region, and provide enhanced features and to offer embedded content like videos, maps, or social media feeds.</a>
                                 <br />
-                                <a>By clicking "Accept," you agree to the use of all cookies. You can change your settings at any time. By using my services, you agree to the </a>
+                                <a>By clicking &quot;Accept,&quot; you agree to the use of all cookies. You can change your settings at any time. By using my services, you agree to the </a>
                                 <a className="linkout nodecoration" href="https://healthsync.itsmarian.dev/legal/cookies">Cookie Policy</a><a>, the </a>
                                 <a className="linkout nodecoration" href="https://healthsync.itsmarian.dev/legal/privacy">Privacy Policy</a>
                                 <a> and the </a>

@@ -12,6 +12,15 @@ async function gotoFreshOnboarding(page: Page) {
     });
 }
 
+async function gotoOnboarding(page: Page) {
+    await page.goto(`${BASE_URL}/onboarding`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#onboardingOverlay')).toBeVisible();
+    await page.waitForFunction(() => {
+        const button = document.querySelector('#onboardingNext');
+        return Boolean(button && Object.keys(button).some(key => key.startsWith('__reactFiber')));
+    });
+}
+
 test.describe('Onboarding flow', () => {
     test.beforeEach(async ({ page }) => {
         await gotoFreshOnboarding(page);
@@ -24,7 +33,7 @@ test.describe('Onboarding flow', () => {
     });
 
     test('renders the first slide with the expected structure', async ({ page }) => {
-        await page.goto(`${BASE_URL}/onboarding`);
+        await gotoOnboarding(page);
         const overlay = page.locator('#onboardingOverlay');
         await expect(overlay).toBeVisible();
 
@@ -44,7 +53,7 @@ test.describe('Onboarding flow', () => {
     });
 
     test('advances through every slide via Next/Back', async ({ page }) => {
-        await page.goto(`${BASE_URL}/onboarding`);
+        await gotoOnboarding(page);
         const dots = page.locator('#onboardingProgress .onboarding-dot');
         const next = page.locator('#onboardingNext');
         const back = page.locator('#onboardingBack');
@@ -65,13 +74,14 @@ test.describe('Onboarding flow', () => {
     });
 
     test('completes the flow, persists the flag, and lands on /dash', async ({ page }) => {
-        await page.goto(`${BASE_URL}/onboarding`);
+        await gotoOnboarding(page);
         const dots = page.locator('#onboardingProgress .onboarding-dot');
         const next = page.locator('#onboardingNext');
         const totalSlides = await dots.count();
 
         for (let i = 1; i < totalSlides; i++) {
             await next.click();
+            await expect(dots.nth(i)).toHaveClass(/\bactive\b/);
         }
         await expect(next).toHaveText(/Let's go!/);
 
@@ -87,7 +97,7 @@ test.describe('Onboarding flow', () => {
     });
 
     test('login link in the onboarding header sets the flag and routes to /login', async ({ page }) => {
-        await page.goto(`${BASE_URL}/onboarding`);
+        await gotoOnboarding(page);
         await Promise.all([
             page.waitForURL(/\/login(?:\/|\?|#|$)/),
             page.locator('#onboardingLogin').click(),

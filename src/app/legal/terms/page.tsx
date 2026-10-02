@@ -186,9 +186,10 @@ export default function TermsPage() {
                     4.3 I strongly recommend enabling Two-Factor Authentication (TOTP) where available.
                 </div>
                 <div className="text-section">
-                    4.4 You may delete your account at any time from within the app. Deleting your
-                    account removes the data associated with your user ID from the cloud backend, subject
-                    only to statutory retention obligations.
+                    4.4 You may request account deletion from within the app. The app confirms deletion
+                    only after the authentication provider and database deletion steps succeed. Associated
+                    cloud records are then removed, subject to statutory retention obligations. If a
+                    deletion step fails, the app reports the failure and the account may remain active.
                 </div>
             </section>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState, useCallback } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import DropSync from '@/app/_components/dropsync/DropSync';
 import { useAppShell } from '@/app/_context/AppShellContext';

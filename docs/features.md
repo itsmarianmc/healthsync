@@ -36,7 +36,7 @@ If no macro goal is active:
 
 ## CalSync – food tracking
 
-Source: `src/app/_components/calsync/CalSync.tsx`, `CalSyncModal.tsx`, `FoodList.tsx` and `MacroRings.tsx`.
+Source: `src/app/_components/calsync/CalSync.tsx`, `GlobalFoodActions.tsx`, `CalSyncModal.tsx`, `BarcodeSearchPopup.tsx`, `src/app/_lib/foodLog.ts`, `FoodList.tsx` and `MacroRings.tsx`.
 
 ### Input methods
 
@@ -47,9 +47,11 @@ Source: `src/app/_components/calsync/CalSync.tsx`, `CalSyncModal.tsx`, `FoodList
 
 ### Saving food
 
-After confirmation, a `FoodEntry` is built with client ID, `ts`, `date`, scaled macros and optional barcode/source metadata. It is written to `calsync_v1`, a local `storage` event is dispatched and, if signed in, it is asynchronously synchronized to Supabase.
+After confirmation, a `FoodEntry` is built with client ID, `ts`, `date`, scaled macros and optional barcode/source metadata. The shared `logFoodEntry` helper reads the current local array, appends the entry once, writes `calsync_v1`, dispatches a local `storage` event and, if signed in, queues an idempotent Supabase upsert. It rejects a save if the active guest/user workspace has changed. A cloud failure keeps the local entry pending for retry. Barcode search and scanning use this path on `/dash`, `/food` and `/drinks`; the save acknowledgment is shown only after the local write succeeds.
 
-A barcode product classified as a liquid sets `isDrink` but initially remains a FoodEntry. DropSync is a separate workflow; do not merge the domains without an explicit migration.
+A barcode product classified as a liquid sets `isDrink`; the same logging operation also mirrors it into `dropsync_v3` and queues a drink upsert. The FoodEntry and DrinkEntry share the client ID.
+
+The dashboard food action and global AI extra-menu actions open the food input sheets on the current main route. `/food` retains its own CalSync sheets for history and pending drafts. A dismissed AI result from another main route is saved into the same pending-draft list visible on `/food`.
 
 ### AI Detection
 
@@ -147,7 +149,9 @@ Settings provides local export and local deletion. Full account deletion require
 
 ## Authentication and account management
 
-The login page has internal views for login, registration, MFA, 2FA setup, reset, reset MFA, confirmation and logged-in state. Password login can lead directly to the MFA challenge. Registration passes name/avatar metadata to Supabase. The global `AuthContext` synchronizes local data after successful sign-in.
+The login page has internal views for login, registration, MFA, 2FA setup, reset, reset MFA, confirmation and logged-in state. Password login can lead directly to the MFA challenge. Registration passes name/avatar metadata to Supabase. The global `AuthContext` synchronizes local data after successful sign-in. The MFA screen does not offer a remembered-device bypass; a verified factor requires an AAL2 challenge. OTP fields support paste and Ctrl/⌘+A to clear the full six-digit code; multi-digit authenticator autofill is distributed across all six fields. Login views slide horizontally between steps and respect reduced-motion preferences. When a verified MFA factor requires another challenge, `AppShell` displays a branded gate with the current account identity, a link to enter the code and a sign-out action. The limited `mfaUser` context value is only used to identify that pending session; it does not authorize health-data access.
+
+The update center stores a separate acknowledged changelog version for guests and each signed-in user ID. Signed-in users combine only their own local value with their owner-scoped `profiles.latest_version`; failed profile reads or writes retain the local fallback without claiming cloud persistence. The old browser-wide marker is ignored. The additive profile migration grants owner-scoped access to this one field under the existing MFA-aware profile policies.
 
 Session tokens are held in cookies through the Supabase SSR browser client. HealthSync does not maintain its own password database and does not store session tokens as domain data in Local Storage.
 

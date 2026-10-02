@@ -1,16 +1,18 @@
 import { test, expect, type Page } from '@playwright/test';
+import { APP_VERSION } from '../src/app/_lib/release';
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000';
 
 async function gotoDashboard(page: Page) {
-    await page.addInitScript(() => {
+    await page.addInitScript((appVersion) => {
         localStorage.setItem('calsync_onboarding_done', '1');
         localStorage.setItem('bannerAccepted', 'true');
+        localStorage.setItem('healthsync_last_seen_changelog_version_guest', appVersion);
         localStorage.setItem(
             'cookieSettings',
             JSON.stringify({ analytics: false, preferences: false, thirdparty: false, marketing: false })
         );
-    });
+    }, APP_VERSION);
     await page.goto(`${BASE_URL}/dash`);
     await expect(page.locator('#db-openSettingsBtn')).toBeVisible();
     await expect(page.locator('.cookie-banner')).toHaveCount(0);

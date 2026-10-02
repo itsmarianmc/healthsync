@@ -15,7 +15,7 @@ interface BarcodeScannerProps {
 }
 
 type Reader = {
-    decodeFromStream: (stream: MediaStream, video: HTMLVideoElement, callback: (result: { getText: () => string } | null, error: Error | null) => void) => void;
+    decodeFromStream: (stream: MediaStream, video: HTMLVideoElement, callback: (result: { getText: () => string } | null, error: Error | null) => void) => Promise<unknown> | void;
     reset?: () => void;
     stop?: () => void;
 };
@@ -33,6 +33,7 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded, s
     const deviceIdRef = useRef<string | undefined>(undefined);
     const scannedRef = useRef(false);
     const onScannedRef = useRef(onScanned);
+    const onCloseRef = useRef(onClose);
     const onStatusChangeRef = useRef(onStatusChange);
     const onCamerasChangeRef = useRef(onCamerasChange);
     const [status, setStatus] = useState('Preparing camera...');
@@ -40,6 +41,7 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded, s
     const [activeDeviceId, setActiveDeviceId] = useState<string>();
 
     useEffect(() => { onScannedRef.current = onScanned; }, [onScanned]);
+    useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
     useEffect(() => { onStatusChangeRef.current = onStatusChange; }, [onStatusChange]);
     useEffect(() => { onCamerasChangeRef.current = onCamerasChange; }, [onCamerasChange]);
     const updateStatus = useCallback((message: string) => { setStatus(message); onStatusChangeRef.current?.(message); }, []);
@@ -61,7 +63,9 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded, s
             if (!mountedRef.current) return;
             setCameras(cams);
             onCamerasChangeRef.current?.(cams, activeId);
-        } catch { /* The scanner remains usable when camera enumeration is unavailable. */ }
+        } catch {
+            console.warn('Failed to enumerate camera devices.');
+        }
     }, []);
 
     const startCamera = useCallback(async (requestedDeviceId?: string) => {
@@ -82,36 +86,40 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded, s
         const track = stream.getVideoTracks()[0];
         if (!track) { stopCamera(); updateStatus('The selected camera has no video track. Try another camera.'); return; }
         await applyBarcodeFocus(track);
+        if (epoch !== startEpochRef.current || !mountedRef.current) { stream.getTracks().forEach(track => track.stop()); return; }
         const actualDeviceId = track.getSettings().deviceId;
         deviceIdRef.current = actualDeviceId;
         setActiveDeviceId(actualDeviceId);
         void refreshCameraList(actualDeviceId);
         const video = videoRef.current;
         if (!video) { stopCamera(); return; }
-        video.srcObject = stream;
-        try { await video.play(); } catch (error) { stopCamera(); updateStatus(describeCameraError(error)); return; }
-        if (epoch !== startEpochRef.current) return;
         const reader = new ZXing.BrowserMultiFormatReader();
         readerRef.current = reader;
         activeRef.current = true;
         updateStatus('Point the camera at a barcode...');
-        reader.decodeFromStream(stream, video, (result, error) => {
-            if (!mountedRef.current || !activeRef.current || scannedRef.current) return;
-            if (result?.getText()) {
-                scannedRef.current = true;
-                const code = result.getText();
-                updateStatus(`Scanned: ${code}`);
-                stopCamera();
-                onScannedRef.current(code);
-                if (!embedded) onClose();
-                return;
-            }
-            const name = (error as Error | null)?.name;
-            if (name && !['NotFoundException', 'FormatException', 'ChecksumException'].includes(name)) {
-                updateStatus('Having trouble reading this code. Hold it steady, improve the light, or try another camera.');
-            }
-        });
-    }, [embedded, onClose, refreshCameraList, stopCamera, updateStatus]);
+        try {
+            await reader.decodeFromStream(stream, video, (result, error) => {
+                if (!mountedRef.current || !activeRef.current || scannedRef.current) return;
+                if (result?.getText()) {
+                    scannedRef.current = true;
+                    const code = result.getText();
+                    updateStatus(`Scanned: ${code}`);
+                    stopCamera();
+                    onScannedRef.current(code);
+                    if (!embedded) onCloseRef.current();
+                    return;
+                }
+                const name = (error as Error | null)?.name;
+                if (name && !['NotFoundException', 'FormatException', 'ChecksumException'].includes(name)) {
+                    updateStatus('Having trouble reading this code. Hold it steady, improve the light, or try another camera.');
+                }
+            });
+        } catch (error) {
+            if (epoch !== startEpochRef.current || !mountedRef.current) return;
+            stopCamera();
+            updateStatus(describeCameraError(error));
+        }
+    }, [embedded, refreshCameraList, stopCamera, updateStatus]);
 
     const scheduleStart = useCallback((deviceId?: string, delay = 250) => {
         if (startTimerRef.current) clearTimeout(startTimerRef.current);

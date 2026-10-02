@@ -455,7 +455,7 @@ export default function AiTips({ score }: AiTipsProps) {
     const [text2, setText2] = useState('');
     const lastHashRef = useRef('');
     const [aiEnabled, setAiEnabled] = useState(() => isAIEnabled() && canUsePreferences);
-    const [status, setStatus] = useState<ActivityStatus>('active');
+    const [, setStatus] = useState<ActivityStatus>('active');
 
     const refresh = useCallback(() => {
         if (!canUsePreferences) {

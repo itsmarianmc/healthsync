@@ -158,7 +158,7 @@ export default function CookiesPage() {
                             <tr style={{ borderBottom: '1px solid var(--border)' }}>
                                 <td style={{ padding: '8px 6px' }}><code>sb-access-token</code>, <code>sb-refresh-token</code></td>
                                 <td style={{ padding: '8px 6px' }}>Supabase auth cookie</td>
-                                <td style={{ padding: '8px 6px' }}>Session / 30 days</td>
+                                <td style={{ padding: '8px 6px' }}>Up to 30 days, subject to refresh and browser settings</td>
                                 <td style={{ padding: '8px 6px' }}>Authentication session management</td>
                             </tr>
                             <tr style={{ borderBottom: '1px solid var(--border)' }}>

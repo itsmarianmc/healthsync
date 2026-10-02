@@ -7,7 +7,7 @@ import { useAppShell } from '@/app/_context/AppShellContext';
 import { visitedRoutes } from '@/app/_lib/visitedRoutes';
 
 function DashboardPageContent() {
-    const { openSettings, openUpdateCenter } = useAppShell();
+    const { openSettings, openUpdateCenter, openFoodAction } = useAppShell();
     const searchParams = useSearchParams();
     const router = useRouter();
     const nfl = useRef(visitedRoutes.has('dashboard'));
@@ -29,9 +29,7 @@ function DashboardPageContent() {
             nfl={nfl.current}
             onOpenSettings={openSettings}
             onOpenUpdateCenter={openUpdateCenter}
-            onOpenCalSync={() => {
-                router.push('/food?openAiMethod=true');
-            }}
+            onOpenCalSync={() => openFoodAction('methods')}
             onOpenDropSync={() => router.push('/drinks?openModal=true')}
         />
     );
