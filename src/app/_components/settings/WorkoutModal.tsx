@@ -261,7 +261,7 @@ function GifModal({ url, name, instructions, instructionSteps, onClose }: {
                     </div>
                 </div>
                 <div className="modal-body gif-modal-body">
-                    <video src={url} autoPlay muted loop className="gif-modal-video" />
+                    <video src={url} autoPlay muted loop playsInline className="gif-modal-video" />
                     
                     {showTabs && (
                         <div className="gif-tabs">
@@ -774,8 +774,10 @@ function ActiveExerciseCard({ ex, exIdx, onChange, onShowGif }: {
     onChange: (exIdx: number, setIdx: number, updated: Partial<SessionSet>) => void;
     onShowGif: (url: string, name: string, instructions?: string, instructionSteps?: string[]) => void;
 }) {
+    const isActive = ex.sets.some(set => set.state === 'active');
+
     return (
-        <div className="exercise-card" style={{ marginTop: 14 }}>
+        <div className={`exercise-card active-workout-exercise${isActive ? ' is-active' : ''}`} style={{ marginTop: 14 }}>
             <div className="exercise-card-header" style={ex.gif ? { cursor: 'pointer' } : {}}
                 onClick={() => ex.gif && onShowGif(ex.gif, ex.name, ex.instructions, ex.instruction_steps)}>
                 <span>
@@ -794,7 +796,7 @@ function ActiveExerciseCard({ ex, exIdx, onChange, onShowGif }: {
                             <div key={setIdx} className={`set-row${done ? ' set-done' : ''}${set.isPR ? ' set-pr' : ''}`}>
                                 <div className="set-number">
                                     {setIdx + 1}
-                                    {set.isPR && <span className="set-pr-pill" title="New personal record">PR</span>}
+                                    {set.isPR && <i className="fa-solid fa-trophy set-pr-trophy" title="New personal record" aria-label="New personal record" />}
                                 </div>
                                 <input type="number" className="active-set-weight" value={set.weight} placeholder="0" step={2.5} min={0} disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { weight: parseFloat(e.target.value) || 0 })} onFocus={e => e.target.select()} aria-label={`Set ${setIdx + 1} weight in kg`} />
                                 <input type="number" className="active-set-reps" value={set.reps} placeholder="8" min={1} step={1} disabled={done} onChange={e => !done && onChange(exIdx, setIdx, { reps: parseInt(e.target.value) || 0 })} onFocus={e => e.target.select()} aria-label={`Set ${setIdx + 1} reps`} />
@@ -893,7 +895,7 @@ function RestTimerBar({ remaining, active, duration, onAdjust, onSkip, onStart, 
 function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     session: WorkoutSession;
     onClose: () => void;
-    onFinish: (session: WorkoutSession, intensity: number) => void;
+    onFinish: (session: WorkoutSession, intensity: number, endTime: number) => void;
 }) {
     const overlayRef = useRef<HTMLDivElement>(null);
     const modalRef = useRef<HTMLDivElement>(null);
@@ -909,6 +911,7 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     const [restDuration, setRestDuration] = useState<number>(DEFAULT_REST_SECONDS);
     const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
     const [restRemaining, setRestRemaining] = useState<number>(0);
+    const finishTimeRef = useRef<number | null>(null);
     const dragY = useRef(0);
     const dragStartT = useRef(0);
     const isDragging = useRef(false);
@@ -942,9 +945,14 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
             }
         });
         document.body.classList.add('modal-open');
-        const t = setInterval(() => setElapsed(s => s + 1), 1000);
-        return () => { clearInterval(t); document.body.classList.remove('modal-open'); };
+        return () => { document.body.classList.remove('modal-open'); };
     }, []);
+
+    useEffect(() => {
+        if (ratingMode) return;
+        const timer = setInterval(() => setElapsed(seconds => seconds + 1), 1000);
+        return () => clearInterval(timer);
+    }, [ratingMode]);
 
     useEffect(() => {
         if (restEndsAt === null) { setRestRemaining(0); return; }
@@ -1016,11 +1024,13 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
 
     const finish = () => {
         if (!ratingMode) {
+            finishTimeRef.current = Date.now();
+            setRestEndsAt(null);
+            setRestRemaining(0);
             setRatingMode(true);
             return;
         }
         if (!rating) return;
-        if (overlayRef.current) overlayRef.current.classList.remove('visible');
         if (modalRef.current) {
             modalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4,0,0.2,1)';
             modalRef.current.style.transform = 'translateY(110%)';
@@ -1030,7 +1040,7 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                 ...session,
                 intensity: String(rating),
                 exercises: session.exercises.map(ex => ({ ...ex, intensity: String(rating) })),
-            }, rating);
+            }, rating, finishTimeRef.current ?? Date.now());
         }, 380);
     };
 
@@ -1355,12 +1365,11 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
         setTimeout(() => setActiveSession(session), 420);
     };
 
-    const handleFinish = async (session: WorkoutSession, rating: number) => {
+    const handleFinish = async (session: WorkoutSession, rating: number, endTime: number) => {
         if (!canUsePreferences) {
             showToast('Workout saving requires cookie consent');
             return;
         }
-        const endTime = Date.now();
         const duration = Math.floor((endTime - session.startTime) / 1000);
         const log = {
             id: session.id, routineId: session.routineId, routineName: session.routineName,
@@ -1405,7 +1414,7 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
         }
         if (prs.length) {
             const label = prs.length === 1 ? `New PR: ${prs[0]}` : `New PRs: ${prs.join(', ')}`;
-            setTimeout(() => showToast(label), 600);
+            setTimeout(() => showToast(label, 6000), 600);
         }
         setActiveSession(null);
     };
