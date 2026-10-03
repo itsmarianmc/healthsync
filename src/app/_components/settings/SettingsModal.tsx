@@ -1086,50 +1086,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                 </div>
             </div>
         </div>
-
-        {goalModalOpen && (
-            <GoalModal
-                mode={goalMode}
-                onModeChange={setGoalMode}
-                calGoal={calGoal}
-                waterGoal={waterGoal}
-                macroProtein={macroProtein}
-                macroCarbs={macroCarbs}
-                macroFat={macroFat}
-                calcFields={calcFields}
-                calcWeight={calcWeight}
-                calcHeight={calcHeight}
-                calcAge={calcAge}
-                calcResult={calcResult}
-                onCalcFieldChange={(k, v) => setCalcFields(f => ({ ...f, [k]: v }))}
-                onCalcWeightChange={setCalcWeight}
-                onCalcHeightChange={setCalcHeight}
-                onCalcAgeChange={setCalcAge}
-                onCalGoalChange={v => sanitizeNumericSetting(v, calGoal, c => setCalGoal(c), 'calsync_goal', () => window.dispatchEvent(new Event('storage')), showToast)}
-                onWaterGoalChange={v => sanitizeNumericSetting(v, waterGoal, w => setWaterGoal(w), 'dropsync_goal', () => window.dispatchEvent(new Event('storage')), showToast)}
-                onMacroProteinChange={v => { setMacroProtein(v); saveMacro('calsync_goal_protein', v); }}
-                onMacroCarbsChange={v => { setMacroCarbs(v); saveMacro('calsync_goal_carbs', v); }}
-                onMacroFatChange={v => { setMacroFat(v); saveMacro('calsync_goal_fat', v); }}
-                onSave={(kcal, water, prot, carbs, fat) => {
-                    if (kcal) setAndSaveGoal(kcal);
-                    if (water) setAndSaveWater(water);
-                    if (prot !== undefined) { setMacroProtein(String(prot)); saveMacro('calsync_goal_protein', String(prot)); }
-                    if (carbs !== undefined) { setMacroCarbs(String(carbs)); saveMacro('calsync_goal_carbs', String(carbs)); }
-                    if (fat !== undefined) { setMacroFat(String(fat)); saveMacro('calsync_goal_fat', String(fat)); }
-                    showToast('Changes Saved!');
-                    setGoalModalOpen(false);
-                }}
-                onClose={() => setGoalModalOpen(false)}
-                showToast={showToast}
-                OptionGroup={({ id, val, opts, onChange }) => (
-                    <div className="option-group" id={id}>
-                    {opts.map((o: { label: string; v: string }) => (
-                        <button key={o.v} className={`option-btn${val === o.v ? ' active' : ''}`} data-val={o.v} onClick={() => onChange(o.v)}>{o.label}</button>
-                    ))}
-                    </div>
-                )}
-                />
-            )}
         </div>
 
         {logoutConfirm && (
@@ -1251,6 +1207,50 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                     </div>
                 </div>
             </div>
+        )}
+
+        {goalModalOpen && (
+            <GoalModal
+                mode={goalMode}
+                onModeChange={setGoalMode}
+                calGoal={calGoal}
+                waterGoal={waterGoal}
+                macroProtein={macroProtein}
+                macroCarbs={macroCarbs}
+                macroFat={macroFat}
+                calcFields={calcFields}
+                calcWeight={calcWeight}
+                calcHeight={calcHeight}
+                calcAge={calcAge}
+                calcResult={calcResult}
+                onCalcFieldChange={(k, v) => setCalcFields(f => ({ ...f, [k]: v }))}
+                onCalcWeightChange={setCalcWeight}
+                onCalcHeightChange={setCalcHeight}
+                onCalcAgeChange={setCalcAge}
+                onCalGoalChange={v => sanitizeNumericSetting(v, calGoal, c => setCalGoal(c), 'calsync_goal', () => window.dispatchEvent(new Event('storage')), showToast)}
+                onWaterGoalChange={v => sanitizeNumericSetting(v, waterGoal, w => setWaterGoal(w), 'dropsync_goal', () => window.dispatchEvent(new Event('storage')), showToast)}
+                onMacroProteinChange={v => { setMacroProtein(v); saveMacro('calsync_goal_protein', v); }}
+                onMacroCarbsChange={v => { setMacroCarbs(v); saveMacro('calsync_goal_carbs', v); }}
+                onMacroFatChange={v => { setMacroFat(v); saveMacro('calsync_goal_fat', v); }}
+                onSave={(kcal, water, prot, carbs, fat) => {
+                    if (kcal) setAndSaveGoal(kcal);
+                    if (water) setAndSaveWater(water);
+                    if (prot !== undefined) { setMacroProtein(String(prot)); saveMacro('calsync_goal_protein', String(prot)); }
+                    if (carbs !== undefined) { setMacroCarbs(String(carbs)); saveMacro('calsync_goal_carbs', String(carbs)); }
+                    if (fat !== undefined) { setMacroFat(String(fat)); saveMacro('calsync_goal_fat', String(fat)); }
+                    showToast('Changes Saved!');
+                    setGoalModalOpen(false);
+                }}
+                onClose={() => setGoalModalOpen(false)}
+                showToast={showToast}
+                OptionGroup={({ id, val, opts, onChange }) => (
+                    <div className="option-group" id={id}>
+                    {opts.map((o: { label: string; v: string }) => (
+                        <button key={o.v} className={`option-btn${val === o.v ? ' active' : ''}`} data-val={o.v} onClick={() => onChange(o.v)}>{o.label}</button>
+                    ))}
+                    </div>
+                )}
+            />
         )}
 
         <ReportBugModal isOpen={reportOpen} onClose={() => setReportOpen(false)} />

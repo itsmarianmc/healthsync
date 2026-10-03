@@ -104,6 +104,7 @@ The `updated_at` trigger on `user_settings` is important because workout routine
 ## PWA and offline behavior
 
 - `public/manifest.json` defines name, icons, standalone mode, start URL and shortcuts.
+- `src/app/layout.tsx` uses the default iOS status-bar style and a fixed 1px theme-colored background to mitigate status-bar blur without extra padding. Verify on an actual iOS Home Screen app; re-adding the app may be needed to refresh the installed metadata, so export local tracking data before removing it.
 - `src/app/sw.ts` uses Serwist precaching and runtime caching.
 - Navigation failures serve `public/offline.html`.
 - The Service Worker is registered through the generated Serwist route.

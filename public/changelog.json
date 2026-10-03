@@ -2,13 +2,17 @@
     "4.1.0": {
         "Manage your account in one place": [
             "You can now review your account details, change your password, and set up, test, or remove two-factor authentication from your Account page.",
-            "After signing in or verifying two-factor authentication, you return to the page you were trying to open."
+            "If you open your Account page before signing in or verifying two-factor authentication, you return there after verification."
         ],
         "Choose whether to receive product news": [
-            "You can opt in to occasional product news by email or turn the preference off at any time. No emails are sent yet."
+            "You can opt in to occasional product news by email or turn the preference off at any time. No emails are sent yet.",
+            "Your preference switch responds immediately and returns to its saved setting if the update cannot be saved."
         ],
-        "Faster account preferences": [
-            "Your newsletter preference switch responds immediately and returns to its saved setting if the update cannot be saved."
+        "Simpler portion and drink controls": [
+            "You can choose from a shorter list of preset amounts in three columns, and your drink selection has more room with clearer spacing between steps."
+        ],
+        "Shorter weather messages": [
+            "You see a shorter message when your weather location is unavailable."
         ],
         "Update news at the right time": [
             "The What's New window no longer interrupts your first visit or opens during normal use. It appears after you install an app update, and you can still open it whenever you want."
@@ -17,19 +21,16 @@
             "The update notice now sits lower, leaves your dashboard buttons sharp, and disappears while a menu or other window is open."
         ],
         "Clearer mobile headers": [
-            "Your app and account header controls stay sharp when you pull down to refresh."
+            "Your app uses clearer headers and updated iPhone status-bar styling to reduce blur around the top controls introduced in iOS 27."
         ],
         "Reliable photo and camera access": [
-            "You can now open your photos or take a picture from the AI food flow on iPhone and other devices."
+            "Tapping Import Food or Capture Food opens the food window and your photo library or camera directly, with improved compatibility for iPhone. Cancelling the selection also closes the empty food window."
         ],
         "Clearer workout tracking": [
             "Exercise videos stay in the workout screen on iPhone, your current exercise is highlighted, and workout history is easier to scan."
         ],
         "Workout records and finish flow": [
             "Personal records now stand out with a gold trophy frame, the workout timer stops when you finish, and record notifications stay visible longer."
-        ],
-        "Goal calculator spacing": [
-            "Removed extra space above the calorie goal calculator fields."
         ]
     },
     "4.0.1": {

@@ -5,27 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-### [4.1.0] - 2026-10-02
+### [4.1.0] - 2026-10-03
 
 #### Added
-- **Account dashboard**: Added a protected `/account` page for viewing account details, changing passwords, and setting up, testing, or removing authenticator-based two-factor authentication. Signed-in users can reach it from the existing Manage Account entry; login and MFA redirects return users to the account page after verification.
-- **Newsletter preference**: Added an explicit, default-off email news preference on `profiles`, with opt-in and opt-out timestamps. The account page saves the preference only; no email delivery integration is configured.
+- **Account dashboard**: Added a protected `/account` page for viewing account details, changing passwords, and setting up, testing, or removing authenticator-based two-factor authentication. Signed-in users can reach it from the existing Manage Account entry; login and MFA verification can return them to `/account`.
+- **Newsletter preference**: Added an explicit, default-off email news preference on `profiles`, with database-maintained opt-in and opt-out timestamps. The account switch updates immediately and restores its saved value if persistence fails. The additive migration must be applied before using this preference; no email delivery integration is configured.
+- **Food image-picker regression coverage**: Added 11 Playwright cases covering import/capture actions on all main routes, the original click context, file previews, cancellation, direct-link keyboard fallback, consent, and missing AI configuration.
 
 #### Changed
 - **Account controls and login navigation**: Moved password and 2FA management to the account dashboard, and updated the signed-in login view to offer Manage Account, Go Back to App, and Logout.
-- **Account dashboard experience**: Account copy is in English, the newsletter switch updates immediately and restores the saved value if persistence fails, and controls now have clearer hover and keyboard-focus states.
-
-#### Security
-- **Protected account settings**: Account access returns unauthenticated visitors to login with a validated internal return path. MFA status comes from Supabase Auth, while existing server and database MFA enforcement remains in place for protected operations.
+- **Quick amounts and hydration layout**: Food presets now offer 100, 200, 250, 330, 400, and 500; drink presets offer 100, 250, 330, 500, 750, and 1000. Quick amounts use three columns, and the hydration sheet separates its steps with a 24px gap while removing the drink picker's extra horizontal padding.
+- **Weather error copy**: Shortened the unavailable-location message to `Location unavailable`.
+- **Shared authenticator input**: Extracted `OtpInput` from the login page for reuse by account security controls, preserving its existing paste, auto-fill, and keyboard behavior.
+- **Technical documentation**: Updated the architecture, account/profile contracts, newsletter migration requirements, food-picker flow, and iOS workaround. Revised the Supabase runbook and audit notes to distinguish migration files present in this checkout from historical deployment reports.
+- **Protected account settings**: The account page sends unauthenticated or MFA-pending visitors to `/login?next=%2Faccount`; login accepts only `/account` as this return destination. Account security controls read factor status from Supabase Auth and require a current authenticator code before removing a verified factor or opening password changes for an account with 2FA.
 
 #### Fixed
 - **Update Center opening behavior**: The changelog no longer opens automatically for first-time installs or ordinary visits. After a waiting service worker is installed and the app reloads, the Update Center opens once; users can still open it manually from the dashboard.
 - **Update banner display**: Removed the banner backdrop blur that softened the dashboard header buttons, moved the banner lower, and hid it while any modal is open.
-- **Mobile header clarity**: Removed backdrop and element filters from the app and account headers so pull-to-refresh no longer blurs the title or header controls.
-- **AI photo and camera selection on iOS**: Replaced delayed file-picker clicks with explicit buttons in the AI flow so iOS can open Photos or the camera from a direct tap.
+- **Mobile header clarity**: Removed CSS backdrop and element filters from app headers and kept the new account header unfiltered. Changed the installed iOS status-bar style to `default` and added a fixed 1px theme-colored strip to mitigate native top-edge blur without adding layout padding; actual iOS device verification remains pending.
+- **AI photo and camera selection**: Replaced delayed file-picker clicks with synchronous modal mounting and picker activation in the original Import Food/Capture Food click, preserving the user gesture needed by iOS. Both the extra menu and AI method chooser open the picker directly; cancellation closes the empty sheet, and direct query links retain a clickable, keyboard-accessible waiting area. Existing consent and AI configuration checks remain enforced.
+- **AI toggle appearance**: Connected the AI Detection switch's pressed state to the existing CSS so its appearance matches its enabled state.
 - **Workout experience**: Kept exercise demonstration videos inline on iOS, outlined the exercise with the active set, and restyled workout history entries to match routine cards.
 - **Workout personal records and finishing**: Marked record sets with a gold trophy frame, held the background through the finish animation, stopped the timer when rating begins, and kept PR notifications visible longer.
-- **Goal calculator spacing**: Removed excess top padding from the calorie goal calculator.
+- **Goal modal width and spacing**: Moved the goal overlays outside the Settings overlay so neither manual goals nor the calculator inherits its 0.92 sub-modal scale. Removed excess top padding from the goal fields.
 
 ## [4.0.1] - 2026-10-02
 

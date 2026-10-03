@@ -5049,11 +5049,6 @@ input::-webkit-inner-spin-button {
 	text-align: center;
 }
 
-.ai-processing .ai-file-picker-btn {
-	height: auto;
-	margin-top: 16px;
-}
-
 .processing-spinner {
 	animation: pulse 2s ease-in-out infinite;
 	color: var(--accent);
@@ -5359,7 +5354,7 @@ input::-webkit-inner-spin-button {
 	display: grid;
 	flex-wrap: wrap;
 	gap: 7px;
-	grid-template-columns: repeat(4, 1fr);
+	grid-template-columns: repeat(3, 1fr);
 	justify-content: center;
 	width: 100%;
 }
@@ -5918,7 +5913,6 @@ input::-webkit-inner-spin-button {
 	display: grid;
 	gap: 10px;
 	grid-template-columns: repeat(3, 1fr);
-	padding: 0px 24px 0;
 }
 
 .drink-option {

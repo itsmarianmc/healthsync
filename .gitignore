@@ -53,6 +53,7 @@ node_modules/
 /supabase-backup/
 /supabase/.temp/
 supabase_migration.sql
+/supabase/
 
 # AI Models
 .models

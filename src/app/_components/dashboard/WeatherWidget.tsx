@@ -179,7 +179,7 @@ export default function WeatherWidget() {
         setLoading(false);
       } catch {
         if (!cancelled) {
-          setError('Location unavailable. Check location permission and try again.');
+          setError('Location unavailable');
           setLoading(false);
         }
       }

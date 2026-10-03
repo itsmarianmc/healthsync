@@ -62,6 +62,8 @@ All of these conditions are required:
 - `calsync_ai_api_key` exists and has been validated
 - third-party consent is granted
 
+Import Food and Capture Food open the input sheet and its native image/camera picker in the original click handler, including the AI method chooser and extra menu on all main routes. `foodImagePicker.ts` flushes the sheet state before clicking the mounted file input so iOS keeps user activation; no timer opens the picker. Cancelling closes the empty sheet. Direct query links without a user gesture keep a clickable, keyboard-accessible waiting area as a fallback, without separate Choose Photo/Take Photo buttons.
+
 `gemini.ts` reduces images to a maximum 1280-pixel edge and JPEG quality 0.82 when browser APIs are available. Gemini is asked to return JSON containing name, brand, amount, unit, calories, protein, carbs and fat. The response is normalized and invalid/negative numbers are converted to safe fallbacks.
 
 AI errors are classified internally as `quota`, `no_json` or `api_error` and converted to UI messages by `describeGeminiError`. The API key remains local and must not enter analytics, logs or exports.
