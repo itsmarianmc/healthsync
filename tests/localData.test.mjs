@@ -160,9 +160,9 @@ test('a cloud reset invalidates an offline device queue', () => {
 test('MFA is required only for verified-factor sessions below aal2', () => {
   assert.equal(hasVerifiedMfaFactor([{ status: 'unverified' }]), false);
   assert.equal(hasVerifiedMfaFactor([{ status: 'verified' }]), true);
-  assert.equal(needsMfaVerification('aal1', false), false); // pending enrollment is not active MFA
-  assert.equal(needsMfaVerification('aal1', true), true); // verified factor, session still aal1
-  assert.equal(needsMfaVerification('aal2', true), false); // verified factor already used
+  assert.equal(needsMfaVerification('aal1', false), false);
+  assert.equal(needsMfaVerification('aal1', true), true);
+  assert.equal(needsMfaVerification('aal2', true), false);
   assert.equal(protectedApiMayProceed('aal1', false), true);
   assert.equal(protectedApiMayProceed('aal1', true), false);
   assert.equal(protectedApiMayProceed('aal2', true), true);

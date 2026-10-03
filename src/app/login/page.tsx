@@ -101,8 +101,7 @@ export default function LoginPage() {
         const params = new URLSearchParams(window.location.search);
         if (params.get('keep_login_page') === 'true') return;
 
-        // Only honor the internal account destination. Any other supplied value
-        // falls back to the existing dashboard flow.
+        // Restrict redirects to known internal destinations.
         if (params.get('next') === '/account') {
             router.replace('/account');
             return;
