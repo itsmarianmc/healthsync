@@ -2,8 +2,7 @@ export function needsMfaVerification(
   currentLevel: string | null | undefined,
   hasVerifiedFactor: boolean,
 ): boolean {
-  // Supabase can report nextLevel=aal2 during an unverified enrollment.
-  // Only a verified factor means the user has actually enabled MFA.
+  // Supabase's nextLevel=aal2 can reflect unverified enrollment; require a verified factor.
   return hasVerifiedFactor && currentLevel !== 'aal2';
 }
 

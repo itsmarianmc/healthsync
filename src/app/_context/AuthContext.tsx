@@ -221,8 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const lastSync = localStorage.getItem('healthsync_last_cloud_sync');
             if (mustDiscardAfterReset(lastSync, cloudSettings.data_reset_at)) {
                 clearActiveHealthData();
-                // Record the reset marker immediately so a later retry does not
-                // discard new entries created after this reset was processed.
+                // Persist the reset marker now so retries preserve entries added after this reset.
                 localStorage.setItem('healthsync_last_cloud_sync', cloudSettings.data_reset_at!);
             }
             let pendingSettings = JSON.parse(localStorage.getItem('healthsync_pending_settings') || '{}');

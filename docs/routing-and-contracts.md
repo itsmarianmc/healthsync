@@ -66,6 +66,7 @@ Global quick actions:
 
 After handling, `food/page.tsx` removes the processed parameters with `router.replace(..., { scroll: false })`. A `navigate:food` event with `{ openModal: true, mode?: ... }` can request the same state.
 These query parameters remain supported for links into `/food`. The global extra menu opens the same input flow in place on `/dash` and `/drinks`.
+On `/food`, the extra-menu image/camera actions dispatch `navigate:food` synchronously and open the native file picker in the same click; query-driven navigation cannot preserve that user gesture. Direct query links still open the sheet, whose waiting area can be activated to select a photo.
 
 ### `/drinks`
 

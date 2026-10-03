@@ -1,5 +1,4 @@
-// The unprefixed keys are the active workspace. A saved workspace is never
-// merged into a different account, including after a browser restart.
+// Unprefixed keys hold the active workspace; snapshots remain tied to their owner across restarts.
 export const HEALTH_DATA_KEYS = [
   'calsync_v1', 'dropsync_v3', 'healthsync_workout_logs', 'healthsync_workouts',
   'calsync_pending', 'calsync_goal', 'calsync_goal_protein',
@@ -80,8 +79,7 @@ export function importGuestData(owner: string): void {
     added.forEach(item => pending.add(item.id));
     localStorage.setItem(pendingKey, JSON.stringify([...pending]));
   }
-  // Consume only the entries transferred to the account. Keep guest settings,
-  // routines and preferences in their own workspace instead of discarding them.
+  // Import consumes tracked entries while preserving guest settings, routines and preferences.
   importedKeys.forEach(key => { guest[key] = '[]'; });
   for (const key of [
     'healthsync_pending_food', 'healthsync_pending_drinks', 'healthsync_pending_workouts',

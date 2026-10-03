@@ -19,6 +19,7 @@ import UpdateCenter from './update/UpdateCenter';
 import AiDetectionIndicator from './calsync/AiDetectionIndicator';
 import GlobalFoodActions from './calsync/GlobalFoodActions';
 import { logFoodEntry } from '../_lib/foodLog';
+import { openFoodImagePicker } from '../_lib/foodImagePicker';
 import type { FoodEntry } from '../_lib/types';
 import { removeHeaderBtn, addHeaderBtn } from '../_lib/headerBtns';
 import { consumePendingTour, startTourWhenReady } from '../_lib/tour';
@@ -49,7 +50,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         openFoodAction, closeFoodAction,
     } = useAppShell();
 
-    const { canUsePreferences } = useCookieConsent();
+    const { canUsePreferences, canUseThirdParty } = useCookieConsent();
     const { user, mfaRequired, mfaUser, logout, showToast } = useAuth();
 
     const [onboardingDone, setOnboardingDone] = useState(true);
@@ -173,12 +174,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         if (action === 'describe-food') {
             if (pathname === '/food') router.push('/food?openModal=true&mode=describe');
             else openFoodAction('describe');
-        } else if (action === 'import-food') {
-            if (pathname === '/food') router.push('/food?openModal=true&mode=import');
-            else openFoodAction('import');
-        } else if (action === 'capture-food') {
-            if (pathname === '/food') router.push('/food?openModal=true&mode=capture');
-            else openFoodAction('capture');
+        } else if (action === 'import-food' || action === 'capture-food') {
+            if (!canUseThirdParty) { showToast('AI detection requires third-party consent.'); return; }
+            const mode = action === 'import-food' ? 'import' : 'capture';
+            openFoodImagePicker(mode, () => {
+                if (pathname === '/food') window.dispatchEvent(new CustomEvent('navigate:food', { detail: { openModal: true, mode } }));
+                else openFoodAction(mode);
+            });
         } else if (action === 'search-food') setSearchPopupOpen(true);
         else if (action === 'scan-barcode') setSearchPopupOpen(true);
         else if (action === 'log-drink') {
@@ -186,7 +188,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         } else if (action === 'training') openWorkout();
         else if (action === 'workout-history') openWorkoutHistory();
         else if (action === 'supplements') openSupplements();
-    }, [router, pathname, openFoodAction, setExtraMenuOpen, openWorkout, openWorkoutHistory, openSupplements, supplementsEnabled, aiDetectionUsable]);
+    }, [router, pathname, openFoodAction, setExtraMenuOpen, openWorkout, openWorkoutHistory, openSupplements, supplementsEnabled, aiDetectionUsable, canUseThirdParty, showToast]);
 
     const handleFoodLog = useCallback(async (entry: FoodEntry) => {
         const { cloudPending } = await logFoodEntry(entry, user?.id);
