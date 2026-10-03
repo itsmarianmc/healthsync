@@ -977,10 +977,7 @@ a:link:hover {
 	display: flex;
 	flex-direction: column;
 	max-width: 420px;
-	padding: 12px 24px 0; 
-	padding-top: 12px;
-	padding-left: 24px;
-	padding-right: 24px;
+	padding: 24px 24px 0;
 	width: 100%;
 }
 
