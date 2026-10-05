@@ -5,31 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-### [4.2.0] - 2026-10-05
+## [4.2.0] - 2026-10-05
 
-#### Added
+### Added
 - **Custom supplement schedules**: Added a Settings manager sheet and a separate add/edit sheet for user-defined supplements with optional free-text amounts, weekday schedules, and calendar-day intervals.
 - **Local-first definition sync**: Added the `calsync_custom_supplements` workspace key, `UserSettings.custom_supplements`, and the existing settings-queue path. The additive `20261005010000_custom_supplements.sql` migration adds the JSONB field to an existing `user_settings` table; it has not been applied to or verified against an external database.
 - **Supplement regression coverage**: Added Node.js cases for schedule validation, week rollover and daylight-saving transitions, plus workspace-isolation checks and Playwright coverage for the manager/editor flow, stable IDs and preserved intake marks.
 
-#### Changed
+### Changed
 - **Custom supplement access**: The manager is available when supplement tracking and Preferences consent are enabled, even before weight-based goals are calculated.
 - **Supplement day view**: Custom supplements now appear and count toward progress only when due on the selected date. Creatine and magnesium remain daily; the existing taken map and custom supplement IDs preserve saved checkmarks across renames and schedule edits.
 - **Schedule editor layout**: Days use seven round, single-letter weekday buttons in one row. Interval entry reads as “Every N days,” and the sheet resizes when its schedule changes.
 - **Technical documentation**: Updated the feature guide, data and sync model, file inventory, operations notes, project overview, and this release history for custom supplement tracking.
 
-#### Fixed
+### Fixed
 - **Supplement editor close flicker**: Kept the editor closed after its close animation instead of briefly reopening it after a save-triggered render.
 - **Onboarding support link**: Pointed the final slide's GitHub link to the HealthSync issue tracker.
 
-### [4.1.0] - 2026-10-03
+## [4.1.0] - 2026-10-03
 
-#### Added
+### Added
 - **Account dashboard**: Added a protected `/account` page for viewing account details, changing passwords, and setting up, testing, or removing authenticator-based two-factor authentication. Signed-in users can reach it from the existing Manage Account entry; login and MFA verification can return them to `/account`.
 - **Newsletter preference**: Added an explicit, default-off email news preference on `profiles`, with database-maintained opt-in and opt-out timestamps. The account switch updates immediately and restores its saved value if persistence fails. The additive migration must be applied before using this preference; no email delivery integration is configured.
 - **Food image-picker regression coverage**: Added 11 Playwright cases covering import/capture actions on all main routes, the original click context, file previews, cancellation, direct-link keyboard fallback, consent, and missing AI configuration.
 
-#### Changed
+### Changed
 - **Account controls and login navigation**: Moved password and 2FA management to the account dashboard, and updated the signed-in login view to offer Manage Account, Go Back to App, and Logout.
 - **Quick amounts and hydration layout**: Food presets now offer 100, 200, 250, 330, 400, and 500; drink presets offer 100, 250, 330, 500, 750, and 1000. Quick amounts use three columns, and the hydration sheet separates its steps with a 24px gap while removing the drink picker's extra horizontal padding.
 - **Weather error copy**: Shortened the unavailable-location message to `Location unavailable`.
@@ -37,7 +37,7 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 - **Technical documentation**: Updated the architecture, account/profile contracts, newsletter migration requirements, food-picker flow, and iOS workaround. Revised the Supabase runbook and audit notes to distinguish migration files present in this checkout from historical deployment reports.
 - **Protected account settings**: The account page sends unauthenticated or MFA-pending visitors to `/login?next=%2Faccount`; login accepts only `/account` as this return destination. Account security controls read factor status from Supabase Auth and require a current authenticator code before removing a verified factor or opening password changes for an account with 2FA.
 
-#### Fixed
+### Fixed
 - **Update Center opening behavior**: The changelog no longer opens automatically for first-time installs or ordinary visits. After a waiting service worker is installed and the app reloads, the Update Center opens once; users can still open it manually from the dashboard.
 - **Update banner display**: Removed the banner backdrop blur that softened the dashboard header buttons, moved the banner lower, and hid it while any modal is open.
 - **Mobile header clarity**: Removed CSS backdrop and element filters from app headers and kept the new account header unfiltered. Changed the installed iOS status-bar style to `default` and added a fixed 1px theme-colored strip to mitigate native top-edge blur without adding layout padding; actual iOS device verification remains pending.
@@ -49,7 +49,7 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [4.0.1] - 2026-10-02
 
-# Fixed
+### Fixed
 - **AI detection**: Fixed issue where the AI detection toggle would not switch, but the AI detection was shown as enabled, preventing users from using the AI detection.
 
 
