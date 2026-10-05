@@ -21,7 +21,7 @@ A two-step bottom sheet: pick a drink, then set the amount by dragging a glass u
 Built-in 4-day split (Pull / Push / Legs / Arms) with editable routines, drag-to-reorder exercises and per-exercise GIF previews. Live session timer, per-set weight and reps logging, and a history view of finished sessions.
 
 **Settings**
-Goals for calories, water and macros. A built-in calorie calculator using the Mifflin-St-Jeor formula. Workout routines with a live session timer and per-set logging. Optional AI Detection settings with the user's Gemini API key. Multiple themes.
+Goals for calories, water and macros. Daily supplement tracking with custom weekday or interval schedules. A built-in calorie calculator using the Mifflin-St-Jeor formula. Workout routines with a live session timer and per-set logging. Optional AI Detection settings with the user's Gemini API key. Multiple themes.
 
 **AI Detection (opt-in)**
 Optional Google Gemini integration inside CalSync to estimate nutrition from a photo, camera capture or text description. Disabled by default, uses the user's own API key, never proxies through the HealthSync backend. See the in-app [AI Guidelines](https://healthsync.itsmarian.dev/legal/ai-guidelines) for details.

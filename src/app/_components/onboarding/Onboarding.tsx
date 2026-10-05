@@ -197,7 +197,7 @@ export default function Onboarding({ onDone }: OnboardingProps) {
                                     </div>
                                     <div className="onboarding-feature">
                                         <div className="onboarding-feature-icon"><i className="fa-solid fa-hands-holding-heart" /></div>
-                                        <div className="onboarding-feature-text"><strong>Thank you for using HealthSync!</strong><span>I hope you enjoy this app and if you encounter any errors or bugs, you can <a href="https://github.com/itsmarianmc/projects/issues" target="_blank" rel="noopener">report them on GitHub</a>.</span></div>
+                                        <div className="onboarding-feature-text"><strong>Thank you for using HealthSync!</strong><span>I hope you enjoy this app and if you encounter any errors or bugs, you can <a href="https://github.com/itsmarianmc/healthsync/issues" target="_blank" rel="noopener">report them on GitHub</a>.</span></div>
                                     </div>
                                 </div>
                             )}

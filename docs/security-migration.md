@@ -2,16 +2,15 @@
 
 ## What this checkout establishes
 
-The current repository contains only
-[`20261002010000_profile_newsletter_preferences.sql`](../supabase/migrations/20261002010000_profile_newsletter_preferences.sql).
-It alters an already existing `public.profiles` table to add newsletter
-preference and timestamp columns, installs a timestamp trigger, and grants
-authenticated column-level SELECT and UPDATE access. It does **not** create
-`profiles`, the health-data tables, base grants or RLS policies, MFA helpers,
-the `clear_healthsync_data()` RPC, or the foreign keys required for account
-deletion. The SQL setup section in [`hosting.md`](../hosting.md) is a reference
-schema, not an executable migration history or proof of the current remote
-schema.
+The current repository contains the additive
+[`20261005010000_custom_supplements.sql`](../supabase/migrations/20261005010000_custom_supplements.sql).
+It adds a JSONB column with an empty-array default to an already existing
+`public.user_settings` table. It does **not** create the base schema, grants or
+RLS policies, MFA helpers, the `clear_healthsync_data()` RPC, or the foreign
+keys required for account deletion. The SQL setup section in
+[`hosting.md`](../hosting.md) is a reference schema, not an executable
+migration history or proof of the current remote schema. No database was
+queried or changed for this feature.
 
 Older audit notes record maintainer reports about migrations and database tests
 performed against other checkouts/projects. Those files, database query output,
@@ -20,12 +19,11 @@ working tree. The reports are retained as historical context in
 [`quality-audit.md`](./quality-audit.md); do not use them as evidence that a
 current DEV or production database has the expected schema or policies.
 
-Before applying even the available additive migration, inspect the target
-database and its Supabase migration history. Confirm that `public.profiles`
-exists, that its owner/MFA policies are already correct, and that the pending
-migration is intended for that project. The newsletter migration does not
-replace or repair any existing policy. Applying it does not configure an email
-provider or send email.
+Before applying the available additive migration, inspect the target database
+and its Supabase migration history. Confirm that `public.user_settings` exists,
+that its owner/MFA policies are already correct, and that the pending
+migration is intended for that project. The custom-supplements migration does
+not replace or repair any existing policy or grant.
 
 ## Read-only preflight
 
@@ -92,7 +90,7 @@ The client expects these tables and conflict keys:
 | `profiles` | Account display fields, changelog acknowledgement and newsletter preference | `id = auth.users.id`; client selects the signed-in user's row |
 | `calsync_entries` | Food entries and deletion state | `(user_id, entry_id)` |
 | `dropsync_entries` | Drink entries and deletion state | `(user_id, entry_id)` |
-| `user_settings` | Goals, supplement/activity settings, routines and reset marker | `user_id` |
+| `user_settings` | Goals, supplement/activity settings, custom supplement definitions, routines and reset marker | `user_id` |
 | `workout_sessions` | Completed workout history | `(user_id, session_id)` |
 
 The exact base columns, constraints, RLS policies, grants and reset RPC must be
@@ -100,13 +98,12 @@ confirmed against the target. The reference table definitions are in
 [`hosting.md`](../hosting.md); sync mappings and local formats are in
 [`data-model-and-storage.md`](./data-model-and-storage.md).
 
-The checked-in newsletter migration adds `newsletter_opt_in boolean not null
-default false`, `newsletter_opt_in_at timestamptz`, and
-`newsletter_opt_out_at timestamptz`. Its trigger records the time of a change
-to the opt-in boolean. Authenticated users receive SELECT on those three
-columns and UPDATE on `newsletter_opt_in`; the migration does not grant table
-access or modify RLS. Confirm the resulting effective permissions and policies
-on the intended target after applying it.
+The checked-in custom-supplements migration adds
+`custom_supplements jsonb not null default '[]'::jsonb` to the expected
+`public.user_settings` table. It does not grant table or column access and does
+not modify RLS. The profile newsletter migration described in older notes is
+not present in this checkout. Confirm the target's effective permissions and
+policies independently before applying any migration.
 
 ## Authorization checks to perform in an isolated project
 

@@ -66,7 +66,7 @@ Next App Router + React
 
 ## Security and migration status
 
-The ordered migrations under `supabase/migrations/` create the base schema, apply owner/MFA policies and grants, add sync/reset fields and unique indexes, and create the `clear_healthsync_data()` RPC. The security migration replaces existing policies on five public tables, so inspect the target database first. See [`docs/security-migration.md`](docs/security-migration.md) for the CLI command, preflight queries, test matrix, backup and rollout steps.
+The migration currently present under `supabase/migrations/` adds the custom supplement definitions field to an existing `user_settings` table. The base schema, owner/MFA policies and grants, sync/reset migrations, and `clear_healthsync_data()` RPC described in older rollout notes are not present in this checkout. The security migration replaces existing policies on five public tables, so inspect the target database first. See [`docs/security-migration.md`](docs/security-migration.md) for the preflight queries, test matrix, backup and rollout steps.
 
 As of 2026-10-02, the maintainer reports matching local and remote migration history, a read-only production SQL check with correct tested owner/AAL visibility on all five app tables, successful SQL write cases and an allowed `clear_healthsync_data()` reset, plus a passing current E2E suite and production build. The reported write/reset matrix and E2E count were not included in the handoff and were not independently repeated here. The updated unit suite and any remaining owner/MFA acceptance cases still need explicit evidence; see the migration guide.
 
