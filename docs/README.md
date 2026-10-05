@@ -1,6 +1,6 @@
 # HealthSync – Technical Documentation
 
-This documentation describes the checked-in HealthSync code and configuration as inspected on **October 2, 2026**. It is intended for developers, maintainers, rebuilds, and coding agents. The working tree contains application and documentation changes; inspect `git status --short` before relying on them as a released state. Only `20261002010000_profile_newsletter_preferences.sql` is present under `supabase/migrations/` in this checkout. `AGENTS.md` and older audit notes contain maintainer-reported rollout status for other migration files and Supabase projects; those reports are not independent evidence, and the referenced files/database state are not available for verification here.
+This documentation describes the checked-in HealthSync code and configuration as inspected on **October 5, 2026**. It is intended for developers, maintainers, rebuilds, and coding agents. Inspect `git status --short` before relying on a working-tree change as a released state. This checkout contains the additive `20261005010000_custom_supplements.sql` migration under `supabase/migrations/`; it adds one JSONB field to an existing `user_settings` table. The baseline schema, owner/MFA migrations and newsletter migration referenced in older reports are not present here, and no external database state is established by repository files.
 
 ## Purpose
 
@@ -9,6 +9,7 @@ HealthSync is a mobile-first Progressive Web App for:
 - calorie and macro tracking (CalSync)
 - hydration tracking (DropSync)
 - workout routines and workout sessions
+- daily supplement tracking with custom weekday and interval schedules
 - optional cloud synchronization with Supabase
 - optional AI nutrition detection through a user-provided Gemini key
 

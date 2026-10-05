@@ -1,4 +1,18 @@
 {
+    "4.2.0": {
+        "Custom Supplement Schedules": [
+            "You can add your own supplements with an optional amount, then choose specific weekdays or a repeating interval that starts on a date you pick.",
+            "Your daily tracker shows each custom supplement only when it is due. Renaming a supplement or changing its schedule keeps its saved intake records.",
+            "You can manage custom supplements without entering a body weight or calculating Creatine and Magnesium goals."
+        ],
+        "Schedule Editor Improvements": [
+            "You can pick weekdays from one row of round buttons, and the editor adjusts to the schedule you choose.",
+            "When you close the editor, it stays closed instead of briefly reappearing."
+        ],
+        "Find HealthSync's Issue Tracker": [
+            "You can now open HealthSync's issue tracker from the link on the final onboarding slide."
+        ]
+    },
     "4.1.0": {
         "Manage your account in one place": [
             "You can now review your account details, change your password, and set up, test, or remove two-factor authentication from your Account page.",

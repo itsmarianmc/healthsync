@@ -143,7 +143,14 @@ Themes, header name, splash screen, sheet expansion, delete confirmation, weathe
 
 ### Supplements
 
-Creatine and magnesium goals can be calculated from body weight. Daily intake is stored locally by date. The section is exposed in the extra menu only when tracking is enabled.
+Creatine and magnesium remain daily entries, with goals optionally calculated from body weight. The **Manage custom supplements** entry appears in Settings only when Track Supplements is enabled and Preferences consent is available; it does not depend on body weight or calculated goals. Settings stays open under the separate manager sheet, and the add/edit sheet opens above the manager with its own header close button.
+
+A custom definition stores a stable ID, required name, optional free-text amount, and one schedule:
+
+- **Days**: choose one or more weekdays, Monday=1 through Sunday=7. The editor presents them as seven round, single-letter buttons with full weekday names for assistive technology.
+- **Interval**: choose a whole number of at least two days and an editable `YYYY-MM-DD` start date. The start date itself is due, and later due dates are calculated by calendar-day difference.
+
+The editor resizes its sheet when the schedule changes. Closing it returns to the manager without reopening the editor. Definitions use `calsync_custom_supplements` and signed-in changes use the existing `user_settings.custom_supplements` queue; Local Storage remains the immediate source of truth. Dated checkmarks remain in the compatible `calsync_supplements_taken` map and use the stable supplement ID. The daily view keeps Creatine and Magnesium due every day, shows custom entries only when due on the selected date, and counts only those due entries for daily progress. A day with no due supplements has an empty state rather than a completed `0/0` count. Existing date selection and future-day locking remain in effect. Renaming keeps the ID; editing a schedule preserves checkmarks, and removing a definition leaves its prior intake records untouched. The supplement section is exposed in the extra menu only when tracking is enabled.
 
 ### Export and account
 
@@ -153,13 +160,15 @@ Settings provides local export, local health-data deletion, and a separate full-
 
 The login page handles login, registration, MFA verification, password reset, MFA reset, confirmation and the logged-in state. Password login can lead to an MFA challenge. Registration passes name/avatar metadata to Supabase. The logged-in state offers Go back to app, Manage Account (to `/account`) and Logout. Password changes and TOTP setup, testing and removal happen on `/account`. The account page also reads and updates the owner profile's newsletter preference; the UI states that no email service is connected and sends no newsletter. `AuthContext` synchronizes local data after successful sign-in. A verified factor requires AAL2; the app checks verified factor status as well as assurance level. Shared OTP fields support paste and authenticator autofill. Login views respect reduced-motion preferences. When MFA is required, `AppShell` displays a gate with the pending account identity, a link to `/login` and a sign-out action. The limited `mfaUser` context value identifies that pending session; it does not authorize health-data access.
 
-The update center stores a separate acknowledged changelog version for guests and each signed-in user ID. Signed-in users combine only their own local value with their `profiles.latest_version`; failed profile reads or writes retain the local fallback without claiming cloud persistence. The old browser-wide marker is ignored. The profile-version migration is described in historical audit notes but is absent from this checkout, so its deployed column/grants and the profile's owner/MFA policies cannot be verified here. The one checked-in SQL migration adds newsletter preference columns and grants; it does not create the profile table or its base policies.
+The update center stores a separate acknowledged changelog version for guests and each signed-in user ID. Signed-in users combine only their own local value with their `profiles.latest_version`; failed profile reads or writes retain the local fallback without claiming cloud persistence. The old browser-wide marker is ignored. The profile-version and newsletter migrations are described in historical audit notes but are absent from this checkout, so their deployed columns/grants and the profile's owner/MFA policies cannot be verified here. The checked-in SQL migration adds only custom supplement definitions to `user_settings`.
 
 Session tokens are held in cookies through the Supabase SSR browser client. HealthSync does not maintain its own password database and does not store session tokens as domain data in Local Storage.
 
 ## Onboarding and tour
 
 When `calsync_onboarding_done` is missing, `AppShell` redirects unsigned users to `/onboarding`. The onboarding page sets the marker, dispatches `onboarding:done` and replaces the route with `/dash`.
+
+The final onboarding slide links to the HealthSync GitHub issue tracker.
 
 Afterwards, the tooltip tour can start or be requested again from the tour code. It waits for elements with known IDs and stops after bounded retries if a target never appears.
 

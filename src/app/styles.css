@@ -1371,7 +1371,7 @@ a:link:hover {
 	background: var(--surface2);
 	border: none;
 	border-radius: 50px;
-	color: var(--accent);
+	color: var(--text-dim);
 	cursor: pointer;
 	display: flex;
 	font-family: "DM Sans", sans-serif;
@@ -3227,6 +3227,243 @@ input::-webkit-inner-spin-button {
 	font-weight: 600;
 }
 
+.onepx-spacer {
+	height: 1px;
+	width: 100%;
+	background: var(--border);
+	margin: 3px 0;
+}
+
+.supplement-manage-btn {
+	align-items: center;
+	appearance: none;
+	background: var(--surface2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	color: var(--text);
+	cursor: pointer;
+	display: flex;
+	font: inherit;
+	font-size: 13px;
+	justify-content: space-between;
+	margin-top: 6px;
+	padding: 8px 12px;
+	text-align: left;
+	width: 100%;
+}
+
+.supplement-manage-btn:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.custom-supplements-panel {
+	padding-bottom: 1.75rem;
+}
+
+.custom-supplements-back {
+	align-items: center;
+	background: transparent;
+	border: 0;
+	border-radius: 8px;
+	color: var(--text2);
+	cursor: pointer;
+	display: inline-flex;
+	font: inherit;
+	font-size: 13px;
+	gap: 8px;
+	margin: 0 0 16px;
+	padding: 8px 0;
+}
+
+.custom-supplements-back:focus-visible,
+.custom-supplement-edit:focus-visible,
+.custom-supplement-remove:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.custom-supplements-intro {
+	color: var(--text2);
+	font-size: 13px;
+	margin: 0 0 18px;
+}
+
+.custom-supplements-empty {
+	background: var(--surface2);
+	border: 1px dashed var(--border);
+	border-radius: var(--radius-sm);
+	color: var(--text2);
+	font-size: 13px;
+	margin: 0 0 12px;
+	padding: 16px;
+	text-align: center;
+}
+
+.custom-supplement-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	list-style: none;
+	margin: 0 0 12px;
+	padding: 0;
+}
+
+.custom-supplement-item {
+	align-items: stretch;
+	background: var(--surface2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	display: flex;
+	gap: 8px;
+	padding: 8px;
+}
+
+.custom-supplement-edit {
+	background: transparent;
+	border: 0;
+	border-radius: 8px;
+	color: var(--text);
+	cursor: pointer;
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	font: inherit;
+	gap: 3px;
+	min-width: 0;
+	padding: 8px;
+	text-align: left;
+}
+
+.custom-supplement-edit-name {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.custom-supplement-dose,
+.custom-supplement-schedule {
+	color: var(--text2);
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.custom-supplement-remove {
+	align-self: center;
+	background: var(--surface3);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	color: #ef4444;
+	cursor: pointer;
+	flex: 0 0 40px;
+	height: 40px;
+}
+
+.custom-supplement-add {
+	margin-top: 12px;
+}
+
+.custom-supplement-field:first-child {
+	margin-top: 0;
+}
+
+.custom-supplement-field {
+	margin: 18px 0;
+}
+
+.custom-supplement-mode,
+.custom-supplement-weekdays {
+	display: grid;
+	gap: 8px;
+}
+
+.custom-supplement-mode {
+	background: var(--surface2);
+	border-radius: 14px;
+	gap: 4px;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	padding: 4px;
+}
+
+.custom-supplement-weekdays {
+	gap: clamp(4px, 1.5vw, 8px);
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.custom-supplement-mode .option-btn {
+	background: transparent;
+	border-color: transparent;
+	border-radius: 10px;
+	height: 40px;
+	padding: 0 10px;
+}
+
+.custom-supplement-mode .option-btn.active {
+	background: var(--surface3);
+	border-color: var(--border);
+	color: var(--text);
+}
+
+.custom-supplement-weekday {
+    aspect-ratio: 1;
+    border-radius: 50%;
+    width: 100%;
+    min-width: 0;
+    font-size: 1rem;
+    align-items: center;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    display: grid;
+}
+
+.custom-supplement-mode .option-btn:focus-visible,
+.custom-supplement-weekdays .option-btn:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.custom-supplement-interval {
+	align-items: center;
+	display: flex;
+	gap: 10px;
+}
+
+.custom-supplement-interval input {
+	max-width: 100px;
+}
+
+.custom-supplement-interval label {
+	color: var(--text2);
+	font-size: 14px;
+	margin: 0;
+}
+
+.custom-supplement-interval span {
+	color: var(--text2);
+	font-size: 14px;
+}
+
+.custom-supplement-start-date {
+	margin-top: 14px;
+}
+
+.custom-supplement-error {
+	color: #ef4444;
+	font-size: 13px;
+	margin: 10px 0;
+}
+
+.custom-supplement-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 22px;
+}
+
+.custom-supplement-actions .option-btn {
+	flex: 1;
+	min-height: 44px;
+}
+
 .onboarding-feature-text strong {
 	color: var(--text);
 	display: block;
@@ -3497,6 +3734,17 @@ input::-webkit-inner-spin-button {
 	gap: 8px;
 	margin: 0 0 12px;
 	padding: 10px 12px;
+}
+
+.supp-empty-state {
+	background: var(--surface2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	color: var(--text2);
+	font-size: 13px;
+	margin: 0 0 16px;
+	padding: 14px;
+	text-align: center;
 }
 
 .supp-list {

@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
+### [4.2.0] - 2026-10-05
+
+#### Added
+- **Custom supplement schedules**: Added a Settings manager sheet and a separate add/edit sheet for user-defined supplements with optional free-text amounts, weekday schedules, and calendar-day intervals.
+- **Local-first definition sync**: Added the `calsync_custom_supplements` workspace key, `UserSettings.custom_supplements`, and the existing settings-queue path. The additive `20261005010000_custom_supplements.sql` migration adds the JSONB field to an existing `user_settings` table; it has not been applied to or verified against an external database.
+- **Supplement regression coverage**: Added Node.js cases for schedule validation, week rollover and daylight-saving transitions, plus workspace-isolation checks and Playwright coverage for the manager/editor flow, stable IDs and preserved intake marks.
+
+#### Changed
+- **Custom supplement access**: The manager is available when supplement tracking and Preferences consent are enabled, even before weight-based goals are calculated.
+- **Supplement day view**: Custom supplements now appear and count toward progress only when due on the selected date. Creatine and magnesium remain daily; the existing taken map and custom supplement IDs preserve saved checkmarks across renames and schedule edits.
+- **Schedule editor layout**: Days use seven round, single-letter weekday buttons in one row. Interval entry reads as “Every N days,” and the sheet resizes when its schedule changes.
+- **Technical documentation**: Updated the feature guide, data and sync model, file inventory, operations notes, project overview, and this release history for custom supplement tracking.
+
+#### Fixed
+- **Supplement editor close flicker**: Kept the editor closed after its close animation instead of briefly reopening it after a save-triggered render.
+- **Onboarding support link**: Pointed the final slide's GitHub link to the HealthSync issue tracker.
+
 ### [4.1.0] - 2026-10-03
 
 #### Added

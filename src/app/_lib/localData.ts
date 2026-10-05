@@ -6,7 +6,7 @@ export const HEALTH_DATA_KEYS = [
   'calsync_active_draft', 'dropsync_goal',
   'calsync_goal_ml',
   'calsync_user_weight_kg', 'calsync_creatine_goal', 'calsync_magnesium_goal',
-  'calsync_track_supplements', 'calsync_supplements_taken',
+  'calsync_track_supplements', 'calsync_supplements_taken', 'calsync_custom_supplements',
   'healthsync_activity_status', 'healthsync_rest_seconds', 'healthsync_pending_food',
   'healthsync_pending_drinks', 'healthsync_pending_workouts',
   'healthsync_deleted_food', 'healthsync_deleted_drinks',

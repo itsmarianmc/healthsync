@@ -11,6 +11,7 @@ import {
 } from '../_lib/sync';
 import type { UserSettings, FoodEntry, DrinkEntry } from '../_lib/types';
 import { switchWorkspace, activeOwner, GUEST_OWNER, pendingIds, clearActiveHealthData, clearPending, acknowledgeSettings } from '../_lib/localData';
+import { parseCustomSupplements, SUPPLEMENT_KEYS } from '../_lib/supplements';
 import { entriesToUpload, mustDiscardAfterReset } from '../_lib/syncPolicy';
 import { hasVerifiedMfaFactor, needsMfaVerification } from '../_lib/mfaPolicy';
 
@@ -145,6 +146,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('calsync_track_supplements', String(data.track_supplements));
         if (data.supplements_taken)
         localStorage.setItem('calsync_supplements_taken', JSON.stringify(data.supplements_taken));
+        if (data.custom_supplements !== undefined && data.custom_supplements !== null) {
+            const customSupplements = parseCustomSupplements(data.custom_supplements);
+            if (customSupplements) localStorage.setItem(SUPPLEMENT_KEYS.custom, JSON.stringify(customSupplements));
+        }
         if (data.status) {
             localStorage.setItem('healthsync_activity_status', JSON.stringify(data.status));
         }

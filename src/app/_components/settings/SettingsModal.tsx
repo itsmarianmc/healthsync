@@ -24,6 +24,7 @@ interface SettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
     onOpenNotes: () => void;
+    onOpenCustomSupplements: () => void;
 }
 
 type CalcFields = { gender: string; activity: string; goalType: string; hydrationClimate: string };
@@ -101,7 +102,7 @@ function runCalc(fields: CalcFields, w: number, h: number, age: number) {
     return { kcal, protein, carbs, fat, hydration: Math.round(hydration) };
 }
 
-export default function SettingsModal({ isOpen, onClose, onOpenNotes }: SettingsModalProps) {
+export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCustomSupplements }: SettingsModalProps) {
     const { user, logout, showToast, retrySync } = useAuth();
     const { canUsePreferences, canUseThirdParty } = useCookieConsent();
     const hasWeatherConsent = canUsePreferences && canUseThirdParty;
@@ -927,6 +928,17 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes }: Settings
                                                 <i className="fa-solid fa-circle-info" style={{ marginRight: 6 }} />
                                                 Open <em>Calculate Goal</em> and enter your weight to compute supplement targets.
                                             </p>
+                                        )}
+                                        {canUsePreferences && (
+                                            <button
+                                                type="button"
+                                                className="supplement-manage-btn"
+                                                id="manageCustomSupplementsBtn"
+                                                onClick={() => setTimeout(onOpenCustomSupplements, 200)}
+                                            >
+                                                <span>Manage custom supplements</span>
+                                                <i className="fas fa-chevron-right" aria-hidden="true" />
+                                            </button>
                                         )}
                                     </div>
                                 )}

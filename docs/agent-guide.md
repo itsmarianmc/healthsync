@@ -59,10 +59,11 @@ Route page + global `AppShell` + feature component + local JSON data + optional 
 
 ## Supabase security rollout status
 
-This checkout contains only the additive newsletter-preference migration.
-The baseline schema and owner/MFA/reset migrations described in older reports
+This checkout contains only the additive custom-supplements migration, which
+adds a JSONB field to an existing `user_settings` table. The baseline schema,
+newsletter migration and owner/MFA/reset migrations described in older reports
 are absent, and no remote migration history or current database state was
-queried for this documentation audit. Older maintainer reports are retained as
+queried for this implementation. Older maintainer reports are retained as
 historical evidence in [`quality-audit.md`](./quality-audit.md), but do not
 establish the current checkout's migration chain or target-project state. See
 [`security-migration.md`](./security-migration.md) before database work.

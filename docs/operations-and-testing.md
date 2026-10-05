@@ -44,6 +44,11 @@ npx playwright test e2e/settings.spec.ts
 npx playwright test --ui
 ```
 
+`npm test` includes `tests/supplements.test.mjs`, which covers weekday selection,
+interval start and pre-start dates, two-day intervals across a week boundary,
+invalid definitions, and calendar-day arithmetic across the Berlin spring DST
+change.
+
 ## Playwright configuration
 
 `playwright.config.ts` uses `e2e/` as the test directory, calls `/dash`, `/food`, `/drinks`, `/login` and `/onboarding` in global setup, and uses `BASE_URL` or `http://localhost:3000`. In CI it starts `npm run build && npm run start` as the web server, with one worker and two retries. Locally it uses a Desktop Edge project with a fixed executable path.
@@ -67,6 +72,9 @@ For UI/data changes also check manually:
 4. Settings change and Local Storage event.
 5. Login, MFA and cloud sync when Supabase is configured.
 6. offline navigation after Service Worker installation.
+7. Settings → Track Supplements: open the manager only with tracking and
+   Preferences consent, switch between Days and Interval, confirm the sheet
+   resizes, and close the editor with its X without a reopening flash.
 
 ## Deployment
 
@@ -85,7 +93,7 @@ For Vercel, set environment variables in project settings. For a self-managed No
    RLS without defining policies and is not a complete setup procedure.
 3. Review the actual schema, policies, grants and constraints using
    [`security-migration.md`](./security-migration.md). This checkout contains
-   only the additive newsletter preference migration; it does not contain the
+   only the additive custom-supplements migration; it does not contain the
    base schema or security migration chain described in older audit notes.
 4. Do not assume that the historical reports of a clone migration establish
    the state of another project or the current remote schema.

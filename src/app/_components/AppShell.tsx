@@ -11,6 +11,7 @@ import Toast from './shared/Toast';
 import PullToRefresh from './shared/PullToRefresh';
 import SettingsModal from './settings/SettingsModal';
 import NotesModal from './settings/NotesModal';
+import CustomSupplementsModal from './settings/CustomSupplementsModal';
 import WorkoutModal from './settings/WorkoutModal';
 import WorkoutHistoryModal from './settings/WorkoutHistoryModal';
 import SupplementsModal from './settings/SupplementsModal';
@@ -59,6 +60,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const [deferredPrompt, setDeferredPrompt] = useState<InstallPromptEvent | null>(null);
     const [searchPopupOpen, setSearchPopupOpen] = useState(false);
     const [searchPopupMode, setSearchPopupMode] = useState<'search' | 'camera'>('search');
+    const [customSupplementsOpen, setCustomSupplementsOpen] = useState(false);
     const foodOwnerRef = useRef(user?.id ?? 'guest');
 
     useEffect(() => {
@@ -221,6 +223,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const handleOpenNotesFromSettings = useCallback(() => {
         openNotes();
     }, [openNotes]);
+    const handleOpenCustomSupplements = useCallback(() => {
+        setCustomSupplementsOpen(true);
+    }, []);
+    const handleCloseCustomSupplements = useCallback(() => {
+        setCustomSupplementsOpen(false);
+    }, []);
     if (mfaRequired && pathname !== '/login' && !pathname.startsWith(LEGAL_ROUTES_PREFIX)) {
         return <main className="mfa-gate">
             <div className="mfa-gate__content">
@@ -357,9 +365,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     isOpen={settingsOpen}
                     onClose={handleSettingsClose}
                     onOpenNotes={handleOpenNotesFromSettings}
+                    onOpenCustomSupplements={handleOpenCustomSupplements}
                 />
 
                 <NotesModal isOpen={notesOpen} onClose={closeNotes} />
+                <CustomSupplementsModal
+                    isOpen={customSupplementsOpen}
+                    onClose={handleCloseCustomSupplements}
+                />
                 <WorkoutModal isOpen={workoutOpen} onClose={closeWorkout} />
                 <WorkoutHistoryModal isOpen={workoutHistoryOpen} onClose={closeWorkoutHistory} />
                 <SupplementsModal isOpen={supplementsOpen} onClose={closeSupplements} />

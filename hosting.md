@@ -163,7 +163,7 @@ create index if not exists dropsync_entries_user_ts_idx
 alter table dropsync_entries enable row level security;
 
 
--- ---------- User settings (goals + workout routines) ----------
+-- ---------- User settings (goals + supplements + workout routines) ----------
 create table if not exists user_settings (
   user_id          uuid primary key references auth.users on delete cascade,
   calorie_goal     integer not null default 2000,
@@ -171,6 +171,7 @@ create table if not exists user_settings (
   carbs_goal       integer not null default 0,
   fat_goal         integer not null default 0,
   goal_ml          integer not null default 2500,
+  custom_supplements jsonb not null default '[]'::jsonb,
   workout_routines jsonb,
   updated_at       timestamptz not null default now()
 );
@@ -257,16 +258,13 @@ reads and writes to the owner and grants access only to these fields. The
 additive `20261001010000_profile_latest_version.sql` migration grants the
 changelog field separately. It does not expose profiles as a directory.
 
-The additive migration
-[`20261002010000_profile_newsletter_preferences.sql`](supabase/migrations/20261002010000_profile_newsletter_preferences.sql)
-adds `newsletter_opt_in boolean not null default false`,
-`newsletter_opt_in_at timestamptz` and `newsletter_opt_out_at timestamptz`.
-It preserves existing profile rows and RLS policies, grants authenticated
-owners SELECT on the preference and timestamps and UPDATE only on the
-preference, and records the latest consent transition using a database trigger.
-Apply this migration before deploying the `/account` newsletter preference UI.
-No mail provider is configured and no newsletter messages are sent by this
-feature.
+The profile newsletter migration described in older setup notes is not present
+in this checkout. The checked-in
+[`20261005010000_custom_supplements.sql`](supabase/migrations/20261005010000_custom_supplements.sql)
+migration adds `custom_supplements jsonb not null default '[]'::jsonb` to an
+existing `user_settings` table. It does not create the table or modify its RLS
+policies and grants. Inspect the target schema and migration history before
+applying it; no external database state is established here.
 
 ---
 
@@ -372,6 +370,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
   carbs_goal        INTEGER NOT NULL DEFAULT 0,
   fat_goal          INTEGER NOT NULL DEFAULT 0,
   goal_ml           INTEGER NOT NULL DEFAULT 2500,
+  custom_supplements TEXT NOT NULL DEFAULT '[]',            -- JSON-serialised supplement definitions
   workout_routines  TEXT,                                 -- JSON serialised string
   updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
