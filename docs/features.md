@@ -68,6 +68,26 @@ Import Food and Capture Food open the input sheet and its native image/camera pi
 
 AI errors are classified internally as `quota`, `no_json` or `api_error` and converted to UI messages by `describeGeminiError`. The API key remains local and must not enter analytics, logs or exports.
 
+AI settings are specific to the guest/account workspace on this device. After
+login, an account with no AI configuration can explicitly choose **Use guest AI
+settings, key and accepted terms** in Settings. The offer explains that it copies
+saved activation, an existing Gemini key and previously accepted AI terms only
+on this device. It never invents missing consent or a key, and existing account
+values (including a deliberate opt-out) are preserved. The offer is rendered as
+`#guestAiConfigOffer`; its actions require current third-party consent.
+**Keep AI disabled for
+this account** declines the copy and stores an explicit disabled preference.
+The usual guest food/drink/workout import does not transfer AI configuration.
+
+Settings, the extra menu and AI method availability refresh after toggling,
+adoption, login, logout, account changes and consent changes. Activation can
+remain saved while a missing key, missing AI terms or denied third-party consent
+keeps recognition unavailable. The status box uses the saved key rather than
+unvalidated input. An API-key validation started in one workspace cannot write
+into a later workspace, even when the user switches back before it completes.
+An explicit newer cloud reset continues to remove local AI configuration along
+with tracked data; it is a separate possible explanation for cleared settings.
+
 ### Pending drafts
 
 AI results can be dismissed into a later editable draft. There is a list (`calsync_pending`) for multiple drafts and an active draft (`calsync_active_draft`) for resuming the modal. Drafts older than seven days are cleaned up. A draft is not a FoodEntry and must not affect calorie or streak calculations.

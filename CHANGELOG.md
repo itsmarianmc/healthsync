@@ -5,22 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-## [4.2.0] - 2026-10-05
+## [4.2.0] - 2026-10-17
 
 ### Added
 - **Custom supplement schedules**: Added a Settings manager sheet and a separate add/edit sheet for user-defined supplements with optional free-text amounts, weekday schedules, and calendar-day intervals.
 - **Local-first definition sync**: Added the `calsync_custom_supplements` workspace key, `UserSettings.custom_supplements`, and the existing settings-queue path. The additive `20261005010000_custom_supplements.sql` migration adds the JSONB field to an existing `user_settings` table; it has not been applied to or verified against an external database.
 - **Supplement regression coverage**: Added Node.js cases for schedule validation, week rollover and daylight-saving transitions, plus workspace-isolation checks and Playwright coverage for the manager/editor flow, stable IDs and preserved intake marks.
+- **Explicit guest AI configuration adoption**: Settings offers a device-local copy of guest activation, an existing Gemini key, and previously accepted AI terms only when all three account AI keys are absent. The separate action preserves existing account values, including deliberate deactivation, requires current third-party consent, and never infers missing keys or terms; declining stores an explicit disabled preference.
+- **Sync and AI regression coverage**: Added deterministic tests for stale sync results with failed and successful parallel uploads, capped/incomplete cloud reads, tombstones, Undo, workspace changes, AI adoption and late key validation. Validation on 2026-10-17 passed 73 Node tests, seven Edge fixtures with mocked Supabase/Next navigation, and 11 existing image-picker browser cases. TypeScript passed; lint remains at 121 errors and 48 warnings with no new findings in changed files. Real Auth/Supabase and production behavior were not verified.
 
 ### Changed
 - **Custom supplement access**: The manager is available when supplement tracking and Preferences consent are enabled, even before weight-based goals are calculated.
 - **Supplement day view**: Custom supplements now appear and count toward progress only when due on the selected date. Creatine and magnesium remain daily; the existing taken map and custom supplement IDs preserve saved checkmarks across renames and schedule edits.
 - **Schedule editor layout**: Days use seven round, single-letter weekday buttons in one row. Interval entry reads as “Every N days,” and the sheet resizes when its schedule changes.
 - **Technical documentation**: Updated the feature guide, data and sync model, file inventory, operations notes, project overview, and this release history for custom supplement tracking.
+- **Sync and AI technical documentation**: Updated the data/storage model, feature guide and operational evidence to document reconciliation, account-scoped AI settings and controlled reproduction limits. Explicit cloud resets continue to clear health data and AI configuration; the reported incident's reset marker and production row limit remain unknown.
 
 ### Fixed
 - **Supplement editor close flicker**: Kept the editor closed after its close animation instead of briefly reopening it after a save-triggered render.
 - **Onboarding support link**: Pointed the final slide's GitHub link to the HealthSync issue tracker.
+- **Concurrent food and drink sync**: Replaced the final full-list overwrite in `AuthContext` with `entrySync.ts`, which rereads current local entries before committing and preserves concurrent additions even after successful individual uploads clear pending markers. Failed uploads retain local records and durable retry information, including recovered legacy entries.
+- **Complete cloud history reads**: Food and drink pulls now paginate in stable `entry_id` order with exact counts, advancing by the rows actually returned. Missing/changing counts, duplicate IDs, incomplete pages and read failures reject the collection rather than replacing local history with a partial result.
+- **Deletion and Undo races**: Reconciliation respects cloud tombstones and current local deletion/restoration intent. Food Undo merges into the latest local list, while late delete/restore acknowledgements queue repair of the newer opposite intent. Workspace revision guards invalidate old entry operations after account switches, including A to B to A, and explicit resets.
+- **Active AI settings and availability**: Settings rereads AI configuration on storage/owner changes and emits the existing storage signal after toggles, terms changes and adoption. Settings, AppShell and `AiDetectionProvider` consistently require activation, accepted AI terms, a saved key and third-party consent; unvalidated input alone no longer displays an active status.
+- **Late Gemini key validation**: Validation results cannot save into a changed or reset workspace, supersede a newer validation request, overwrite changed AI configuration, or persist after third-party consent is revoked. API keys remain local and outside exports, logs and cloud settings.
 
 ## [4.1.0] - 2026-10-03
 

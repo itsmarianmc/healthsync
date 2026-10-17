@@ -7,7 +7,7 @@ import type {
   WorkoutSession,
   WorkoutRoutines,
 } from './types';
-import { activeOwner, clearDeleted, clearPending, markDeleted, markRestoredFood, clearRestoredFood, restoredFoodIds, pendingDeleted, pendingIds } from './localData';
+import { activeOwner, clearDeleted, clearPending, markDeleted, markRestoredFood, clearRestoredFood, restoredFoodIds, pendingDeleted, pendingIds, workspaceGuard, entryChangedSince, entryMutationRevision } from './localData';
 
 function assertActiveWorkspace(userId: string): void {
   if (activeOwner() !== userId) throw new Error('Workspace changed during sync');
@@ -54,47 +54,90 @@ function drinkRow(e: DrinkEntry, userId: string) {
   };
 }
 
+// Exact counts let us continue even when a server caps a requested page below
+// our page size. A short page alone is never proof of a complete history.
+type EntryRow = { entry_id: string; deleted_at?: string | null };
+async function pullEntryRows<T extends EntryRow>(table: 'calsync_entries' | 'dropsync_entries', userId: string): Promise<T[] | null> {
+  const isCurrent = workspaceGuard(userId);
+  if (!(await assertUserAuthorized(userId)) || !isCurrent()) return null;
+  const rows: T[] = [];
+  const ids = new Set<string>();
+  let total: number | null = null;
+  do {
+    const { data, error, count } = await supabase.from(table)
+      .select('*', { count: 'exact' }).eq('user_id', userId)
+      .order('entry_id', { ascending: true }).range(rows.length, rows.length + 499);
+    if (!isCurrent() || error || !Array.isArray(data) || count === null || !Number.isSafeInteger(count) || count < 0) return null;
+    if (total !== null && total !== count) return null;
+    total = count;
+    for (const row of data) {
+      if (typeof row.entry_id !== 'string' || ids.has(row.entry_id)) return null;
+      ids.add(row.entry_id);
+      rows.push(row);
+    }
+    if (rows.length > total || (data.length === 0 && rows.length < total)) return null;
+  } while (rows.length < total);
+  return rows;
+}
+
 export async function pushFoodEntriesToCloud(
   entries: FoodEntry[],
   userId: string,
 ): Promise<void> {
+  const isCurrent = workspaceGuard(userId);
+  const revision = entryMutationRevision();
   if (!entries.length) return;
   if (!(await assertUserAuthorized(userId))) throw new Error('Cloud authorization failed');
-  assertActiveWorkspace(userId);
+  if (!isCurrent()) throw new Error('Workspace changed during sync');
   const payload = entries.map((e) => foodRow(e, userId));
   const { error } = await supabase
     .from('calsync_entries')
     .upsert(payload, { onConflict: 'user_id,entry_id' });
   if (error) throw error;
-  assertActiveWorkspace(userId);
-  clearPending('food', entries.map(e => e.id));
+  if (!isCurrent()) throw new Error('Workspace changed during sync');
+  clearPending('food', entries.filter(e => !entryChangedSince('food', e.id, revision)).map(e => e.id));
 }
 
 export async function deleteFoodFromCloud(
   entry: FoodEntry,
   userId: string,
 ): Promise<void> {
-  assertActiveWorkspace(userId);
+  const isCurrent = workspaceGuard(userId);
+  if (!isCurrent()) throw new Error('Workspace changed during sync');
   markDeleted('food', entry);
+  const revision = entryMutationRevision();
   if (!(await assertUserAuthorized(userId))) throw new Error('Cloud authorization failed');
-  assertActiveWorkspace(userId);
+  if (!isCurrent()) throw new Error('Workspace changed during sync');
   const { error } = await supabase
     .from('calsync_entries')
     .upsert({ ...foodRow(entry, userId), deleted_at: new Date().toISOString() }, { onConflict: 'user_id,entry_id' });
   if (error) throw error;
-  assertActiveWorkspace(userId);
+  if (!isCurrent()) throw new Error('Workspace changed during sync');
+  if (entryChangedSince('food', entry.id, revision)) {
+    // An older delete may have reached the server after a completed Undo.
+    const current = JSON.parse(localStorage.getItem('calsync_v1') || '[]') as FoodEntry[];
+    if (current.some(item => item.id === entry.id)) markRestoredFood(entry.id);
+    return;
+  }
   clearDeleted('food', [entry.id]);
 }
 
 export async function restoreFoodInCloud(entry: FoodEntry, userId: string): Promise<void> {
-  assertActiveWorkspace(userId);
+  const isCurrent = workspaceGuard(userId);
+  if (!isCurrent()) throw new Error('Workspace changed during sync');
   markRestoredFood(entry.id);
+  const revision = entryMutationRevision();
   if (!(await assertUserAuthorized(userId))) throw new Error('Cloud authorization failed');
-  assertActiveWorkspace(userId);
+  if (!isCurrent()) throw new Error('Workspace changed during sync');
   const { error } = await supabase.from('calsync_entries')
     .upsert({ ...foodRow(entry, userId), deleted_at: null }, { onConflict: 'user_id,entry_id' });
   if (error) throw error;
-  assertActiveWorkspace(userId);
+  if (!isCurrent()) throw new Error('Workspace changed during sync');
+  if (entryChangedSince('food', entry.id, revision)) {
+    const current = JSON.parse(localStorage.getItem('calsync_v1') || '[]') as FoodEntry[];
+    if (!current.some(item => item.id === entry.id)) markDeleted('food', entry);
+    return;
+  }
   clearDeleted('food', [entry.id]);
   clearPending('food', [entry.id]);
   clearRestoredFood(entry.id);
@@ -103,18 +146,10 @@ export async function restoreFoodInCloud(entry: FoodEntry, userId: string): Prom
 export async function pullFoodFromCloud(
   userId: string,
 ): Promise<{ entries: FoodEntry[]; deletedIds: string[] } | null> {
-  if (!(await assertUserAuthorized(userId))) return null;
-  const { data, error } = await supabase
-    .from('calsync_entries')
-    .select('*')
-    .eq('user_id', userId)
-    .order('ts', { ascending: true });
-  if (error) {
-    console.error('[sync] could not load food entries.');
-    return null;
-  }
-  const deletedIds = (data || []).filter(r => r.deleted_at).map(r => r.entry_id as string);
-  return { deletedIds, entries: (data || []).filter(r => !r.deleted_at).map((r) => ({
+  const data = await pullEntryRows<ReturnType<typeof foodRow> & EntryRow>('calsync_entries', userId);
+  if (!data) return null;
+  const deletedIds = data.filter(r => r.deleted_at).map(r => r.entry_id as string);
+  return { deletedIds, entries: data.filter(r => !r.deleted_at).map((r) => ({
     id: r.entry_id,
     food: r.food,
     brand: r.brand || '',
@@ -138,46 +173,43 @@ export async function syncDrinkToCloud(
   entry: DrinkEntry,
   userId: string,
 ): Promise<void> {
+  const isCurrent = workspaceGuard(userId);
+  const revision = entryMutationRevision();
   if (!(await assertUserAuthorized(userId))) throw new Error('Cloud authorization failed');
-  assertActiveWorkspace(userId);
+  if (!isCurrent()) throw new Error('Workspace changed during sync');
   const { error } = await supabase.from('dropsync_entries')
     .upsert(drinkRow(entry, userId), { onConflict: 'user_id,entry_id' });
   if (error) throw error;
-  assertActiveWorkspace(userId);
-  clearPending('drinks', [entry.id]);
+  if (!isCurrent()) throw new Error('Workspace changed during sync');
+  if (!entryChangedSince('drinks', entry.id, revision)) clearPending('drinks', [entry.id]);
 }
 
 export async function deleteDrinkFromCloud(
   entry: DrinkEntry,
   userId: string,
 ): Promise<void> {
-  assertActiveWorkspace(userId);
+  const isCurrent = workspaceGuard(userId);
+  if (!isCurrent()) throw new Error('Workspace changed during sync');
   markDeleted('drinks', entry);
+  const revision = entryMutationRevision();
   if (!(await assertUserAuthorized(userId))) throw new Error('Cloud authorization failed');
-  assertActiveWorkspace(userId);
+  if (!isCurrent()) throw new Error('Workspace changed during sync');
   const { error } = await supabase
     .from('dropsync_entries')
     .upsert({ ...drinkRow(entry, userId), deleted_at: new Date().toISOString() }, { onConflict: 'user_id,entry_id' });
   if (error) throw error;
-  assertActiveWorkspace(userId);
+  if (!isCurrent()) throw new Error('Workspace changed during sync');
+  if (entryChangedSince('drinks', entry.id, revision)) return;
   clearDeleted('drinks', [entry.id]);
 }
 
 export async function pullDrinksFromCloud(
   userId: string,
 ): Promise<{ entries: DrinkEntry[]; deletedIds: string[] } | null> {
-  if (!(await assertUserAuthorized(userId))) return null;
-  const { data, error } = await supabase
-    .from('dropsync_entries')
-    .select('*')
-    .eq('user_id', userId)
-    .order('ts', { ascending: true });
-  if (error) {
-    console.error('[sync] could not load drink entries.');
-    return null;
-  }
-  const deletedIds = (data || []).filter(r => r.deleted_at).map(r => r.entry_id as string);
-  return { deletedIds, entries: (data || []).filter(r => !r.deleted_at).map((r) => ({
+  const data = await pullEntryRows<ReturnType<typeof drinkRow> & EntryRow>('dropsync_entries', userId);
+  if (!data) return null;
+  const deletedIds = data.filter(r => r.deleted_at).map(r => r.entry_id as string);
+  return { deletedIds, entries: data.filter(r => !r.deleted_at).map((r) => ({
     id: r.entry_id,
     drink: r.drink,
     emoji: r.emoji,

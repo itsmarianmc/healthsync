@@ -173,3 +173,41 @@ When adding an external host, update `connect-src`, `img-src`, `script-src` or `
 - Use the local Settings export for user export.
 - A GDPR-oriented rebuild should add a server-side portability/export feature; the current default is primarily local.
 
+## Controlled sync and AI regression evidence — October 17, 2026
+
+The original `performCloudSync` callback from revision `67ba5ae` was executed
+with a deferred final food pull. A confirmed food entry was added while that
+pull was outstanding. The old callback removed that entry both after a failed
+parallel single upload (pending ID remained) and after a successful upload
+(pending ID was already cleared). This reproduces the overwrite mechanism in a
+controlled harness, not the reported production incident. The production row
+limit and whether a reset marker was involved remain unknown.
+
+The current regression suite covers the final local reread, food/drink upload
+failures and successes, capped/incomplete cloud pages, tombstones, Undo, late
+opposite-intent acknowledgements and workspace changes including A → B → A.
+AI cases cover guest/A/B isolation, explicit adoption/decline, missing key or
+terms, denied service consent, resets and late/out-of-order key validation.
+
+Executed checks:
+
+- `npm test`: 73 passing Node tests, including existing local-data, workout and
+  supplement tests.
+- `npx playwright test e2e/ai-workspaces.spec.ts --workers=1 --reporter=line`:
+  seven passing Edge browser fixtures. These bundle the real login, AuthProvider,
+  Settings, AppShell and AI provider with **mocked Supabase transport and Next
+  navigation** (`e2e/fixtures/ai-app.ts`). Service Workers and external services
+  are blocked; Gemini validation receives only fixture responses. This does not
+  establish real cookie authentication, server authorization, RLS or cloud state.
+- Eleven existing `e2e/food-image-picker.spec.ts` cases passed against the local
+  Next development app with external requests intercepted. The consent case now
+  expects unavailable AI actions to be disabled consistently.
+- `npx tsc --noEmit` and `git diff --check` passed.
+- `npm run lint` was executed and remains failing with 121 errors and 48
+  warnings. The modified tracked TypeScript files were compared with their HEAD
+  versions through ESLint: no new findings; Settings has one fewer existing
+  error. All new source and test files have zero lint findings.
+
+No production access, deployment, schema change, real Auth/Supabase acceptance
+test or production build was performed for this change.
+

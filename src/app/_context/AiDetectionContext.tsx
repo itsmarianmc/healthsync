@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { analyzeWithGemini, describeGeminiError, type GeminiAnalysis } from '../_lib/gemini';
+import { isAiUsable } from '../_lib/aiConfig';
 import { generateDetectionId } from '../_lib/ids';
 import { logger } from '@/lib/logger';
 
@@ -47,14 +48,15 @@ export function AiDetectionProvider({ children }: { children: React.ReactNode })
     useEffect(() => {
         if (typeof window === 'undefined') return;
         const read = () => {
-            setIsAiDetectionUsable(
-                localStorage.getItem('calsync_ai_enabled') === 'true'
-                && !!localStorage.getItem('calsync_ai_api_key'),
-            );
+            setIsAiDetectionUsable(isAiUsable());
         };
         read();
         window.addEventListener('storage', read);
-        return () => window.removeEventListener('storage', read);
+        window.addEventListener('cookieSettingsChanged', read);
+        return () => {
+            window.removeEventListener('storage', read);
+            window.removeEventListener('cookieSettingsChanged', read);
+        };
     }, []);
 
     const setDetection = useCallback((id: string, patch: Partial<Detection>) => {
@@ -80,12 +82,12 @@ export function AiDetectionProvider({ children }: { children: React.ReactNode })
         bump();
 
         const apiKey = (typeof window !== 'undefined' && localStorage.getItem('calsync_ai_api_key')) || '';
-        if (!apiKey) {
+        if (!isAiUsable()) {
             detectionsRef.current.set(id, {
                 id,
                 mode: input.mode,
                 status: 'error',
-                errorMessage: 'No API key configured. Add one in Settings.',
+                errorMessage: 'AI Detection needs activation, an API key and consent in Settings.',
                 startedAt: Date.now(),
                 finishedAt: Date.now(),
             });

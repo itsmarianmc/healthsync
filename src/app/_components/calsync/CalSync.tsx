@@ -198,7 +198,8 @@ export default function CalSync({
         if (activeOwner() !== ownerId) return;
         showToast(cloudPending ? 'Deleted locally · cloud sync pending' : `Deleted ${toDelete.food}`, 4000, async () => {
             if (activeOwner() !== ownerId) return;
-            const restored = [...updated, toDelete].sort((a, b) => a.ts - b.ts);
+            const current = JSON.parse(localStorage.getItem('calsync_v1') || '[]') as FoodEntry[];
+            const restored = [...current.filter(entry => entry.id !== toDelete.id), toDelete].sort((a, b) => a.ts - b.ts);
             setEntries(restored);
             save(restored);
             let restorePending = false;
@@ -227,7 +228,9 @@ export default function CalSync({
         if (activeOwner() !== ownerId) return;
         showToast(cloudPending ? 'Deleted locally · cloud sync pending' : "Today's entries deleted", 4000, async () => {
             if (activeOwner() !== ownerId) return;
-            const restored = [...kept, ...deleted].sort((a, b) => a.ts - b.ts);
+            const current = JSON.parse(localStorage.getItem('calsync_v1') || '[]') as FoodEntry[];
+            const restoredIds = new Set(deleted.map(entry => entry.id));
+            const restored = [...current.filter(entry => !restoredIds.has(entry.id)), ...deleted].sort((a, b) => a.ts - b.ts);
             setEntries(restored);
             save(restored);
             if (user) deleted.forEach(entry => markRestoredFood(entry.id));

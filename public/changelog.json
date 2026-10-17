@@ -11,6 +11,21 @@
         ],
         "Find HealthSync's Issue Tracker": [
             "You can now open HealthSync's issue tracker from the link on the final onboarding slide."
+        ],
+        "Reliable Food And Drink Sync": [
+            "You keep meals and drinks you add while HealthSync is syncing, even when their uploads finish before the sync does.",
+            "If an upload fails, you keep your entry on this device so HealthSync can try again.",
+            "You keep your saved history even when HealthSync cannot retrieve all of it from the cloud."
+        ],
+        "Safer Undo": [
+            "You can undo a meal deletion without losing meals you added afterward, and deleted entries stay deleted when syncing finishes."
+        ],
+        "Choose Your AI Settings After Sign-In": [
+            "You can choose to copy your guest AI settings, including any saved Gemini API key and accepted AI terms, to an account with no AI settings on this device. Your existing account choices stay unchanged."
+        ],
+        "Accurate AI Detection Status": [
+            "You see the current account's AI settings after signing in, signing out, switching accounts or changing the AI switch. Food recognition is available only after you enable it, accept the AI terms, save a key and allow third-party services.",
+            "You can switch accounts while a key check is running without that check changing the new account's AI settings."
         ]
     },
     "4.1.0": {

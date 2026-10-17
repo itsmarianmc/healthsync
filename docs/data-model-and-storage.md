@@ -167,6 +167,25 @@ checkmarks, and removing a definition does not delete its prior intake map.
 | `healthsync_pending_reload_after_update` | one-time marker consumed after a worker switch and app reload to open the Update Center | boolean string |
 | `hs_install_dismissed` | PWA install banner dismissed | `'1'` |
 
+The three AI keys remain in `HEALTH_DATA_KEYS`: activation, accepted AI terms
+and the Gemini key belong to the active guest/account workspace. Login does not
+copy them from the guest, and cloud settings do not contain these keys. Settings
+offers an explicit, device-local copy of the guest AI configuration only when
+**all three account keys are absent**. Any existing account value, including
+`calsync_ai_enabled = 'false'`, prevents the offer and copy. Choosing to keep AI
+disabled stores that explicit account preference. The tracked guest-data import
+remains separate and does not import AI configuration.
+
+`aiConfig.ts` copies only values that actually exist; activation does not imply
+a key or accepted terms. Availability requires activation, accepted AI terms,
+a non-empty saved key and current third-party consent. Settings writes and
+explicit adoption dispatch the existing `storage` event; Settings, AppShell and
+AiDetectionProvider reread active values on workspace/storage changes. Editing
+an unsaved key does not by itself show AI as active. Validation results are
+discarded after a workspace switch (including A → B → A), reset, newer validation
+request, changed AI configuration or revoked third-party consent. Keys stay local
+and are excluded from cloud settings, exports and logs.
+
 ### Weather
 
 | Key | Content |
@@ -235,10 +254,34 @@ Before cloud operations, `sync.ts` calls `supabase.auth.getSession()` and sends 
 
 ### Food
 
-1. Cloud food and deletion tombstones are loaded in ascending timestamp order.
+1. Cloud food and deletion tombstones are paginated in stable `entry_id` order
+   with an exact total count. Offsets advance by the number actually returned,
+   so a server cap below the requested 500 rows does not truncate the history.
+   Missing/changing counts, duplicate IDs, read errors or an empty page before
+   the total is reached reject the whole read (`null`), preserving local data.
 2. Pending entries and legacy local entries absent from cloud are uploaded unless a cloud tombstone supersedes them.
-3. The confirmed cloud result replaces the local list only after a successful read; failed writes retain pending records for retry.
+3. `entrySync.ts` rereads the current local list immediately before committing.
+   Current local-only entries survive even when a successful parallel individual
+   upload already removed their pending markers. Upload failures leave both the
+   entry and durable retry information; legacy recovery is marked pending before
+   uploading. An incomplete confirmation never commits a replacement list.
 4. New local entries are stored optimistically and synchronized with an idempotent upsert.
+
+The workout history's final local reread is useful for concurrent additions,
+but food/drinks also require deletion handling. Pending local deletions and
+entries removed while a pull was running cannot be restored by stale cloud rows.
+Cloud tombstones remove old local copies; explicit food Undo made during a pull
+wins over its stale tombstone, even if its restore upload already succeeded.
+In-memory entry mutation revisions track those overlapping operations, without
+new persisted keys. Pending restoration/deletion records remain retryable after
+failure. Food Undo merges into the latest local list so it preserves later meals.
+The final merged list is sorted by `ts` as before.
+
+Workspace guards also invalidate outstanding operations on A → B → A and on
+explicit data clearing. Old entry operations cannot commit data or acknowledge
+queues in the newly activated workspace. A new Cloud Reset still explicitly
+clears all `HEALTH_DATA_KEYS`, including the three AI keys; the reset marker is
+stored before continuing sync. This reset semantics is unchanged.
 
 ### Drinks
 

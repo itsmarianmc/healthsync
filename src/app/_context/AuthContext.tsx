@@ -9,10 +9,11 @@ import {
   pushFoodEntriesToCloud, syncDrinkToCloud, pushSettings, syncWorkouts,
   syncWorkoutHistory, flushDeletedEntries, flushRestoredFood,
 } from '../_lib/sync';
-import type { UserSettings, FoodEntry, DrinkEntry } from '../_lib/types';
-import { switchWorkspace, activeOwner, GUEST_OWNER, pendingIds, clearActiveHealthData, clearPending, acknowledgeSettings } from '../_lib/localData';
+import type { UserSettings } from '../_lib/types';
+import { switchWorkspace, activeOwner, GUEST_OWNER, clearActiveHealthData, acknowledgeSettings, workspaceGuard } from '../_lib/localData';
 import { parseCustomSupplements, SUPPLEMENT_KEYS } from '../_lib/supplements';
-import { entriesToUpload, mustDiscardAfterReset } from '../_lib/syncPolicy';
+import { mustDiscardAfterReset } from '../_lib/syncPolicy';
+import { syncEntries } from '../_lib/entrySync';
 import { hasVerifiedMfaFactor, needsMfaVerification } from '../_lib/mfaPolicy';
 
 interface AuthContextType {
@@ -180,16 +181,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [user, fetchSettings]);
 
     const performCloudSync = useCallback(async (userId: string) => {
+        let isCurrent = workspaceGuard(userId);
         const startedPathname = pathnameRef.current;
         const { data: { session } } = await supabase.auth.getSession();
         const hasValidSession = !!session && session.user?.id === userId && !isTokenExpired(session);
         if (isSyncingRef.current) {
-            if (lastSyncedUserIdRef.current !== userId) queuedSyncUserRef.current = userId;
+            queuedSyncUserRef.current = userId;
             return;
         }
         if (lastSyncedUserIdRef.current === userId) return;
         if (!hasValidSession) return;
-        if (activeOwner() !== userId) return;
+        if (!isCurrent()) return;
         invalidateSyncToast();
         isSyncingRef.current = true;
         lastSyncedUserIdRef.current = userId;
@@ -197,7 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const toastContextIsCurrent = () => syncToastEpochRef.current === toastEpoch &&
             pathnameRef.current === startedPathname && window.location.pathname === startedPathname &&
             SYNC_TOAST_ROUTES.has(startedPathname ?? '') &&
-            document.visibilityState === 'visible' && activeOwner() === userId;
+            document.visibilityState === 'visible' && isCurrent();
         const canShowCompletionToast = async () => {
             if (!toastContextIsCurrent()) return false;
             try {
@@ -219,22 +221,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch {}
         try {
             await ensureSettings(userId);
-            if (activeOwner() !== userId) return;
+            if (!isCurrent()) return;
             let cloudSettings = await pullSettings(userId);
-            if (activeOwner() !== userId) return;
+            if (!isCurrent()) return;
             if (!cloudSettings) throw new Error('Unable to read cloud settings');
             const lastSync = localStorage.getItem('healthsync_last_cloud_sync');
             if (mustDiscardAfterReset(lastSync, cloudSettings.data_reset_at)) {
                 clearActiveHealthData();
+                isCurrent = workspaceGuard(userId);
                 // Persist the reset marker now so retries preserve entries added after this reset.
                 localStorage.setItem('healthsync_last_cloud_sync', cloudSettings.data_reset_at!);
             }
             let pendingSettings = JSON.parse(localStorage.getItem('healthsync_pending_settings') || '{}');
             const hadPendingSettings = Object.keys(pendingSettings).length > 0;
             while (Object.keys(pendingSettings).length) {
-                if (activeOwner() !== userId) return;
+                if (!isCurrent()) return;
                 await pushSettings(userId, pendingSettings);
-                if (activeOwner() !== userId) return;
+                if (!isCurrent()) return;
                 acknowledgeSettings(pendingSettings);
                 pendingSettings = JSON.parse(localStorage.getItem('healthsync_pending_settings') || '{}');
             }
@@ -242,41 +245,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 cloudSettings = await pullSettings(userId);
                 if (!cloudSettings) throw new Error('Unable to confirm cloud settings');
             }
-            if (activeOwner() !== userId) return;
+            if (!isCurrent()) return;
             setSettings(cloudSettings);
             applySettingsToLocalStorage(cloudSettings);
             await flushDeletedEntries(userId);
+            if (!isCurrent()) return;
             await flushRestoredFood(userId);
+            if (!isCurrent()) return;
 
-            const cloudFood = await pullFoodFromCloud(userId);
-            if (activeOwner() !== userId) return;
-            if (!cloudFood) throw new Error('Unable to read food entries');
-            const localFood = JSON.parse(localStorage.getItem('calsync_v1') || '[]') as FoodEntry[];
-            const foodPending = pendingIds('food');
-            const foodUpload = entriesToUpload(localFood, foodPending, cloudFood.deletedIds, cloudFood.entries.map(entry => entry.id));
-            if (foodUpload.length) await pushFoodEntriesToCloud(foodUpload, userId);
-            const finalFood = foodUpload.length ? await pullFoodFromCloud(userId) : cloudFood;
-            if (activeOwner() !== userId) return;
-            if (!finalFood) throw new Error('Unable to confirm food upload');
-            clearPending('food', finalFood.deletedIds);
-            localStorage.setItem('calsync_v1', JSON.stringify(finalFood.entries));
-
-            const cloudDrinks = await pullDrinksFromCloud(userId);
-            if (activeOwner() !== userId) return;
-            if (!cloudDrinks) throw new Error('Unable to read drink entries');
-            const localDrinks = JSON.parse(localStorage.getItem('dropsync_v3') || '[]') as DrinkEntry[];
-            const drinkPending = pendingIds('drinks');
-            const drinkUpload = entriesToUpload(localDrinks, drinkPending, cloudDrinks.deletedIds, cloudDrinks.entries.map(entry => entry.id));
-            for (const entry of drinkUpload) await syncDrinkToCloud(entry, userId);
-            const finalDrinks = drinkUpload.length ? await pullDrinksFromCloud(userId) : cloudDrinks;
-            if (activeOwner() !== userId) return;
-            if (!finalDrinks) throw new Error('Unable to confirm drink upload');
-            clearPending('drinks', finalDrinks.deletedIds);
-            localStorage.setItem('dropsync_v3', JSON.stringify(finalDrinks.entries));
+            await syncEntries('food', userId, pullFoodFromCloud, pushFoodEntriesToCloud);
+            if (!isCurrent()) return;
+            await syncEntries('drinks', userId, pullDrinksFromCloud, async (entries, owner) => {
+                for (const entry of entries) {
+                    if (!isCurrent()) throw new Error('Workspace changed during sync');
+                    await syncDrinkToCloud(entry, owner);
+                }
+            });
+            if (!isCurrent()) return;
 
             await syncWorkouts(userId);
+            if (!isCurrent()) return;
             await syncWorkoutHistory(userId);
-            if (activeOwner() !== userId) return;
+            if (!isCurrent()) return;
             localStorage.setItem('healthsync_last_cloud_sync', new Date().toISOString());
 
             window.dispatchEvent(new Event('storage'));
@@ -296,9 +286,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         } finally {
             isSyncingRef.current = false;
+            if (!isCurrent()) lastSyncedUserIdRef.current = null;
             const queued = queuedSyncUserRef.current;
             queuedSyncUserRef.current = null;
-            if (queued && activeOwner() === queued) setTimeout(() => window.dispatchEvent(new Event('online')), 0);
+            if (queued && activeOwner() === queued && lastSyncedUserIdRef.current !== queued) {
+                setTimeout(() => window.dispatchEvent(new Event('online')), 0);
+            }
         }
     }, [applySettingsToLocalStorage, showToast, invalidateSyncToast]);
 

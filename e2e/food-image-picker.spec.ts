@@ -87,9 +87,8 @@ test('missing third-party consent does not open a picker', async ({ page }) => {
     await prepare(page, false);
     await page.goto('/dash', { waitUntil: 'domcontentloaded' });
     await page.locator('#extraActionBtn').click();
-    await expect(page.locator('[data-action="import-food"]')).toBeEnabled();
-    await page.locator('[data-action="import-food"]').click();
-    await expect(page.getByText('AI detection requires third-party consent.', { exact: true })).toBeVisible();
+    await expect(page.locator('[data-action="import-food"]')).toBeDisabled();
+    await expect(page.locator('[data-action="capture-food"]')).toBeDisabled();
     expect(await page.evaluate(() => (window as unknown as PickerWindow).pickerClicks)).toEqual([]);
 });
 
