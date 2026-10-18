@@ -3,6 +3,212 @@
 import React, { useEffect } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
+const mitLicenseText = (copyright: string) => `MIT License
+
+${copyright}
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`;
+
+const licenseTextStyle: React.CSSProperties = { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontFamily: 'inherit' };
+
+// Google Material Design Icons source: https://github.com/google/material-design-icons/blob/master/LICENSE
+const materialIconsApacheLicenseText = `Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.`;
+
 interface NotesModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -60,6 +266,12 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                 </div>
                 <div className="modal-body" id="notesModalBody" style={{ paddingBottom: '1em' }} onClick={handleLicenseToggle}>
                 <div className="license-section">
+                    <div className="license-section-title"><i className="fas fa-file-contract"></i> HealthSync source code<i className="fas fa-chevron-right license-arrow" aria-hidden="true" /></div>
+                    <div className="license-section-body">
+                        <p>HealthSync&apos;s original source code is available under the MIT License; see the repository&apos;s LICENSE file. This does not grant rights to the HealthSync name or trademarks, logo, favicons, exercise media, datasets, or third-party material. The hosted service has separate terms of use.</p>
+                    </div>
+                </div>
+                <div className="license-section">
                     <div className="license-section-title">
                         <i className="fas fa-file-contract"></i> About HealthSync & Data Sources
                         <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
@@ -111,10 +323,11 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                     <div className="license-section">
                         <div className="license-section-title"><i className="fas fa-file-contract"></i> Open Food Facts<i className="fas fa-chevron-right license-arrow" aria-hidden="true" /></div>
                         <div className="license-section-body">
+                            <p>Product names, brands and nutrition facts shown in HealthSync come from <a href="https://world.openfoodfacts.org/" target="_blank" rel="noopener noreferrer">Open Food Facts</a>. The database is licensed under ODbL 1.0; individual database contents are covered by the Database Contents License (DbCL). Product images have separate CC BY-SA terms. The text search requests no image fields and the product view renders no Open Food Facts images; the barcode endpoint returns an unfiltered product record.</p>
                             <p><strong>ODC Open Database License (ODbL)</strong></p>
                             <br />
                             <p>URL: <a href="https://opendatacommons.org/licenses/odbl/1.0/" target="_blank">https://opendatacommons.org/licenses/odbl/1.0/</a></p>
-                            <p>Individual contents: Database Contents License. Contributor data: CC-BY-SA.</p>
+                            <p>The license text below includes generic examples, including “DATABASE NAME”. Those examples are part of the ODbL text; the HealthSync source credit is the paragraph above.</p>
                             <br />
                             <p><strong>Preamble</strong></p>
                             <p>The Open Database License (ODbL) is a license agreement intended to allow users to freely share, modify, and use this Database while maintaining this same freedom for others. Many databases are covered by copyright, and therefore this document licenses these rights. Some jurisdictions, mainly in the European Union, have specific rights that cover databases, and so the ODbL addresses these rights, too. Finally, the ODbL is also an agreement in contract for users of this Database to act in certain ways in return for accessing this Database.</p>
@@ -257,27 +470,10 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                             <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
                         </div>
                         <div className="license-section-body">
-                            <p><strong>Font License</strong></p>
-                            <p>Applies to all desktop and webfont files in the following directory: font-awesome/fonts/.</p>
-                            <br />
-                            <p><strong>License: SIL OFL 1.1</strong></p>
-                            <p>URL: <a href="https://openfontlicense.org/" target="_blank">https://openfontlicense.org/</a></p>
-                            <br />
-                            <p><strong>Code License</strong></p>
-                            <p>Applies to all CSS and LESS files in the following directories: font-awesome/css/, font-awesome/less/, and font-awesome/scss/.</p>
-                            <p>License: MIT License</p>
-                            <p>URL: <a href="https://opensource.org/license/mit" target="_blank">https://opensource.org/license/mit</a></p>
-                            <br />
-                            <p><strong>Documentation License</strong></p>
-                            <p>Applies to all Font Awesome project files that are not a part of the Font or Code licenses.</p>
-                            <p>License: CC BY 3.0</p>
-                            <p>URL: <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank">https://creativecommons.org/licenses/by/3.0/</a></p>
-                            <br />
-                            <p><strong>Brand Icons</strong></p>
-                            <p>All brand icons are trademarks of their respective owners.</p>
-                            <p>The use of these trademarks does not indicate endorsement of the trademark holder by Font Awesome, nor vice versa.</p>
-                            <p>Brand icons should only be used to represent the company or product to which they refer.</p>
-                            <p>Please do not use brand logos for any purpose except to represent that particular brand or service.</p>
+                            <p>HealthSync references <strong>Font Awesome Free 7.2.0</strong> CSS at itsmarian.dev. The CSS is code under MIT; the webfonts referenced by that CSS are font software under SIL OFL 1.1. The original CDN files and embedded notices have not been retrieved for comparison.</p>
+                            <p>CSS code: <a href="https://github.com/FortAwesome/Font-Awesome/blob/7.x/LICENSE.txt" target="_blank" rel="noopener noreferrer">official Font Awesome Free 7 license</a>.</p>
+                            <p style={licenseTextStyle}>{mitLicenseText('Copyright 2026 Fonticons, Inc.')}</p>
+                            <p>Webfonts: Copyright (c) 2026 Fonticons, Inc., Reserved Font Name &quot;Font Awesome&quot;; SIL Open Font License 1.1. The complete OFL 1.1 terms are reproduced in the DM Sans section below; the <a href="https://github.com/FortAwesome/Font-Awesome/blob/7.x/LICENSE.txt" target="_blank" rel="noopener noreferrer">official Font Awesome file</a> includes its own copyright and notices. Brand marks may have separate trademark rights.</p>
                         </div>
                     </div>
                     <div className="license-section">
@@ -287,42 +483,11 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                             <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
                         </div>
                         <div className="license-section-body">
-                            <p>Apache License<br />Version 2.0, January 2004<br /><a href="https://creativecommons.org/licenses/by/3.0/" target="_blank">https://creativecommons.org/licenses/by/3.0/</a></p>
-                            <br />
-                            <p>TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION</p>
-                            <br />
-                            <p>1. Definitions.</p>
-                            <p>&quot;License&quot; shall mean the terms and conditions for use, reproduction, and distribution as defined by Sections 1 through 9 of this document.</p>
-                            <p>&quot;Licensor&quot; shall mean the copyright owner or entity authorized by the copyright owner that is granting the License.</p>
-                            <p>&quot;Legal Entity&quot; shall mean the union of the acting entity and all other entities that control, are controlled by, or are under common control with that entity. For the purposes of this definition, &quot;control&quot; means (i) the power, direct or indirect, to cause the direction or management of such entity, whether by contract or otherwise, or (ii) ownership of fifty percent (50%) or more of the outstanding shares, or (iii) beneficial ownership of such entity.</p>
-                            <p>&quot;You&quot; (or &quot;Your&quot;) shall mean an individual or Legal Entity exercising permissions granted by this License.</p>
-                            <p>&quot;Source&quot; form shall mean the preferred form for making modifications, including but not limited to software source code, documentation source, and configuration files.</p>
-                            <p>&quot;Object&quot; form shall mean any form resulting from mechanical transformation or translation of a Source form, including but not limited to compiled object code, generated documentation, and conversions to other media types.</p>
-                            <p>&quot;Work&quot; shall mean the work of authorship, whether in Source or Object form, made available under the License, as indicated by a copyright notice that is included in or attached to the work (an example is provided in the Appendix below).</p>
-                            <p>&quot;Derivative Works&quot; shall mean any work, whether in Source or Object form, that is based on (or derived from) the Work and for which the editorial revisions, annotations, elaborations, or other modifications represent, as a whole, an original work of authorship. For the purposes of this License, Derivative Works shall not include works that remain separable from, or merely link (or bind by name) to the interfaces of, the Work and Derivative Works thereof.</p>
-                            <p>&quot;Contribution&quot; shall mean any work of authorship, including the original version of the Work and any modifications or additions to that Work or Derivative Works thereof, that is intentionally submitted to Licensor for inclusion in the Work by the copyright owner or by an individual or Legal Entity authorized to submit on behalf of the copyright owner. For the purposes of this definition, &quot;submitted&quot; means any form of electronic, verbal, or written communication sent to the Licensor or its representatives, including but not limited to communication on electronic mailing lists, source code control systems, and issue tracking systems that are managed by, or on behalf of, the Licensor for the purpose of discussing and improving the Work, but excluding communication that is conspicuously marked or otherwise designated in writing by the copyright owner as &quot;Not a Contribution.&quot;</p>
-                            <p>&quot;Contributor&quot; shall mean Licensor and any individual or Legal Entity on behalf of whom a Contribution has been received by Licensor and subsequently incorporated within the Work.</p>
-                            <br />
-                            <p>2. Grant of Copyright License. Subject to the terms and conditions of this License, each Contributor hereby grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare Derivative Works of, publicly display, publicly perform, sublicense, and distribute the Work and such Derivative Works in Source or Object form.</p>
-                            <br />
-                            <p>3. Grant of Patent License. Subject to the terms and conditions of this License, each Contributor hereby grants to You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable (except as stated in this section) patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer the Work, where such license applies only to those patent claims licensable by such Contributor that are necessarily infringed by their Contribution(s) alone or by combination of their Contribution(s) with the Work to which such Contribution(s) was submitted. If You institute patent litigation against any entity (including a cross-claim or counterclaim in a lawsuit) alleging that the Work or a Contribution incorporated within the Work constitutes direct or contributory patent infringement, then any patent licenses granted to You under this License for that Work shall terminate as of the date such litigation is filed.</p>
-                            <br />
-                            <p>4. Redistribution. You may reproduce and distribute copies of the Work or Derivative Works thereof in any medium, with or without modifications, and in Source or Object form, provided that You meet the following conditions:</p>
-                            <p>(a) You must give any other recipients of the Work or Derivative Works a copy of this License; and</p>
-                            <p>(b) You must cause any modified files to carry prominent notices stating that You changed the files; and</p>
-                            <p>(c) You must retain, in the Source form of any Derivative Works that You distribute, all copyright, patent, trademark, and attribution notices from the Source form of the Work, excluding those notices that do not pertain to any part of the Derivative Works; and</p>
-                            <p>(d) If the Work includes a &quot;NOTICE&quot; text file as part of its distribution, then any Derivative Works that You distribute must include a readable copy of the attribution notices contained within such NOTICE file, excluding those notices that do not pertain to any part of the Derivative Works, in at least one of the following places: within a NOTICE text file distributed as part of the Derivative Works; within the Source form or documentation, if provided along with the Derivative Works; or, within a display generated by the Derivative Works, if and wherever such third-party notices normally appear. The contents of the NOTICE file are for informational purposes only and do not modify the License. You may add Your own attribution notices within Derivative Works that You distribute, alongside or as an addendum to the NOTICE text from the Work, provided that such additional attribution notices cannot be construed as modifying the License.</p>
-                            <p>You may add Your own copyright statement to Your modifications and may provide additional or different license terms and conditions for use, reproduction, or distribution of Your modifications, or for any such Derivative Works as a whole, provided Your use, reproduction, and distribution of the Work otherwise complies with the conditions stated in this License.</p>
-                            <br />
-                            <p>5. Submission of Contributions. Unless You explicitly state otherwise, any Contribution intentionally submitted for inclusion in the Work by You to the Licensor shall be under the terms and conditions of this License, without any additional terms or conditions. Notwithstanding the above, nothing herein shall supersede or modify the terms of any separate license agreement you may have executed with Licensor regarding such Contributions.</p>
-                            <br />
-                            <p>6. Trademarks. This License does not grant permission to use the trade names, trademarks, service marks, or product names of the Licensor, except as required for reasonable and customary use in describing the origin of the Work and reproducing the content of the NOTICE file.</p>
-                            <br />
-                            <p>7. Disclaimer of Warranty. Unless required by applicable law or agreed to in writing, Licensor provides the Work (and each Contributor provides its Contributions) on an &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied, including, without limitation, any warranties or conditions of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE. You are solely responsible for determining the appropriateness of using or redistributing the Work and assume any risks associated with Your exercise of permissions under this License.</p>
-                            <br />
-                            <p>8. Limitation of Liability. In no event and under no legal theory, whether in tort (including negligence), contract, or otherwise, unless required by applicable law (such as deliberate and grossly negligent acts) or agreed to in writing, shall any Contributor be liable to You for damages, including any direct, indirect, special, incidental, or consequential damages of any character arising as a result of this License or out of the use or inability to use the Work (including but not limited to damages for loss of goodwill, work stoppage, computer failure or malfunction, or any and all other commercial damages or losses), even if such Contributor has been advised of the possibility of such damages.</p>
-                            <br />
-                            <p>9. Accepting Warranty or Additional Liability. While redistributing the Work or Derivative Works thereof, You may choose to offer, and charge a fee for, acceptance of support, warranty, indemnity, or other liability obligations and/or rights consistent with this License. However, in accepting such obligations, You may act only on Your own behalf and on Your sole responsibility, not on behalf of any other Contributor, and only if You agree to indemnify, defend, and hold each Contributor harmless for any liability incurred by, or claims asserted against, such Contributor by reason of your accepting any such warranty or additional liability.</p>
+                            <p>HealthSync uses the <strong>@supabase/ssr 0.12.0</strong> and <strong>@supabase/supabase-js 2.108.1</strong> SDK packages. Both packages use the MIT License. These software licenses do not describe the terms of the hosted Supabase service.</p>
+                            <p><a href="https://github.com/supabase/ssr/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">@supabase/ssr source license</a>:</p>
+                            <p style={licenseTextStyle}>{mitLicenseText('Copyright (c) 2022-2023 Supabase, Inc.')}</p>
+                            <p><a href="https://github.com/supabase/supabase-js/blob/master/LICENSE" target="_blank" rel="noopener noreferrer">@supabase/supabase-js source license</a>:</p>
+                            <p style={licenseTextStyle}>{mitLicenseText('Copyright (c) 2020 Supabase')}</p>
                         </div>
                     </div>
                     <div className="license-section">
@@ -332,20 +497,9 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                             <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
                         </div>
                         <div className="license-section-body">
-                            <p>Copyright (c) 2018 ZXing for JS</p>
-                            <p><strong>License: MIT License</strong></p>
-                            <p>Licensed under the MIT License (the &quot;License&quot;); you may not use this file except in compliance with the License. You may obtain a copy of the License at:</p>
-                            <p>
-                                <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener noreferrer">
-                                    https://opensource.org/licenses/MIT
-                                </a>
-                            </p>
-                            <br />
-                            <p className="license-disclaimer">Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.</p>
-                            <br />
-                            <p className="license-usage-description">
-                                <strong>Application Usage:</strong> This project integrates the ZXing library to enable mobile/web camera scanning capabilities. It detects and analyzes barcodes (such as EAN/UPC) on product labels and automatically cross-references the retrieved barcode information with the Open Food Facts database to fetch detailed product and nutritional information.
-                            </p>
+                            <p>The barcode scanner loads <strong>@zxing/browser 0.2.1</strong> from unpkg. Its official source license is MIT:</p>
+                            <p style={licenseTextStyle}>{mitLicenseText('Copyright (c) 2018 ZXing for JS')}</p>
+                            <p>Source: <a href="https://github.com/zxing-js/browser/blob/v0.2.1/LICENSE" target="_blank" rel="noopener noreferrer">ZXing Browser v0.2.1 LICENSE</a>. The CDN-delivered file and its bundled dependencies require a separate artifact check.</p>
                         </div>
                     </div>
                     <div className="license-section">
@@ -356,23 +510,30 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                         </div>
                         <div className="license-section-body">
                             <p><strong>Font: DM Sans</strong></p>
-                            <p>Copyright 2014-2018 Indian Type Foundry (<a href="mailto:info@indiantypefoundry.com" target="_blank">info@indiantypefoundry.com</a>)</p>
-                            <p>Copyright 2019 Google LLC</p>
+                            <p>Copyright 2014 The DM Sans Project Authors (https://github.com/googlefonts/dm-fonts). The locally observed DM Sans 9pt font metadata identifies version 4.004; the next/font/google import does not pin a future build to that version.</p>
                             <br />
-                            <p><strong>License: SIL Open Font License, Version 1.1</strong></p>
+                            <p><strong>SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007</strong></p>
                             <p>This Font Software is licensed under the SIL Open Font License, Version 1.1.</p>
-                            <p>This license is available with a FAQ at: <a href="https://scripts.sil.org/OFL" target="_blank">https://scripts.sil.org/OFL</a></p>
+                            <p>The font-specific copyright and OFL notice is available from the <a href="https://github.com/google/fonts/blob/main/ofl/dmsans/OFL.txt" target="_blank" rel="noopener noreferrer">official Google Fonts source</a>. The complete OFL 1.1 terms follow.</p>
                             <br />
                             <p><strong>PREAMBLE</strong></p>
                             <p>The goals of the Open Font License (OFL) are to stimulate worldwide development of collaborative font projects, to support the font creation efforts of academic and linguistic communities, and to provide a free and open framework in which fonts may be shared and improved in partnership with others.</p>
+                            <p>The OFL allows the licensed fonts to be used, studied, modified and redistributed freely as long as they are not sold by themselves. The fonts, including any derivative works, can be bundled, embedded, redistributed and/or sold with any software provided that any reserved names are not used by derivative works. The fonts and derivatives, however, cannot be released under any other type of license. The requirement for fonts to remain under this license does not apply to any document created using the fonts or their derivatives.</p>
+                            <br />
+                            <p><strong>DEFINITIONS</strong></p>
+                            <p>&quot;Font Software&quot; refers to the set of files released by the Copyright Holder(s) under this license and clearly marked as such. This may include source files, build scripts and documentation.</p>
+                            <p>&quot;Reserved Font Name&quot; refers to any names specified as such after the copyright statement(s).</p>
+                            <p>&quot;Original Version&quot; refers to the collection of Font Software components as distributed by the Copyright Holder(s).</p>
+                            <p>&quot;Modified Version&quot; refers to any derivative made by adding to, deleting, or substituting -- in part or in whole -- any of the components of the Original Version, by changing formats or by porting the Font Software to a new environment.</p>
+                            <p>&quot;Author&quot; refers to any designer, engineer, programmer, technical writer or other person who contributed to the Font Software.</p>
                             <br />
                             <p><strong>PERMISSION & CONDITIONS</strong></p>
                             <p>Permission is hereby granted, free of charge, to any person obtaining a copy of the Font Software, to use, study, copy, merge, embed, modify, redistribute, and sell modified and unmodified copies of the Font Software, subject to the following conditions:</p>
                             <p>1. Neither the Font Software nor any of its individual components, in Original or Modified Versions, may be sold by itself.</p>
-                            <p>2. Original or Modified Versions of the Font Software may be bundled, redistributed and/or sold with any software, provided that each copy contains the above copyright notice and this license.</p>
-                            <p>3. No Modified Version of the Font Software may use the Reserved Font Name(s) unless explicit written permission is granted by the corresponding Copyright Holder.</p>
+                            <p>2. Original or Modified Versions of the Font Software may be bundled, redistributed and/or sold with any software, provided that each copy contains the above copyright notice and this license. These can be included either as stand-alone text files, human-readable headers or in the appropriate machine-readable metadata fields within text or binary files as long as those fields can be easily viewed by the user.</p>
+                            <p>3. No Modified Version of the Font Software may use the Reserved Font Name(s) unless explicit written permission is granted by the corresponding Copyright Holder. This restriction only applies to the primary font name as presented to the users.</p>
                             <p>4. The name(s) of the Copyright Holder(s) or the Author(s) of the Font Software shall not be used to promote, endorse or advertise any Modified Version, except to acknowledge the contribution(s) of the Copyright Holder(s) and the Author(s) or with their explicit written permission.</p>
-                            <p>5. The Font Software, modified or unmodified, in part or in whole, must be distributed entirely under this license, and must not be distributed under any other license.</p>
+                            <p>5. The Font Software, modified or unmodified, in part or in whole, must be distributed entirely under this license, and must not be distributed under any other license. The requirement for fonts to remain under this license does not apply to any document created using the Font Software.</p>
                             <br />
                             <p><strong>TERMINATION</strong></p>
                             <p>This license becomes null and void if any of the above conditions are not met.</p>
@@ -388,25 +549,9 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                             <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
                         </div>
                         <div className="license-section-body">
-                            <p><strong>Material Symbols and Icons</strong></p>
-                            <p>Copyright Google LLC</p>
-                            <br />
-                            <p><strong>License: Apache License 2.0</strong></p>
-                            <p>Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</p>
-                            <p>you may not use this file except in compliance with the License.</p>
-                            <p>You may obtain a copy of the License at:</p>
-                            <p><a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank">https://www.apache.org/licenses/LICENSE-2.0</a></p>
-                            <br />
-                            <p>Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</p>
-                            <p>See the License for the specific language governing permissions and limitations under the License.</p>
-                            <br />
-                            <p><strong>About Material Icons</strong></p>
-                            <p>Material Symbols are a collection of variable icon fonts developed by Google. These icons follow Material Design guidelines and are available in multiple styles (Outlined, Filled, Rounded, Sharp, Two-tone).</p>
-                            <p>The icons are designed to be consistent, flexible, and easy to use across different platforms and screen sizes.</p>
-                            <br />
-                            <p><strong>Usage</strong></p>
-                            <p>Material Icons can be used freely in both personal and commercial projects under the terms of the Apache License 2.0.</p>
-                            <p>Attribution is not required but appreciated.</p>
+                            <p>The &quot;Back to top&quot; arrow in the legal pages uses an SVG path from Google Material Icons (© Google). No Material icon font or package is loaded. The icon source is licensed under Apache License 2.0.</p>
+                            <p>Official source: <a href="https://github.com/google/material-design-icons/blob/master/LICENSE" target="_blank" rel="noopener noreferrer">Google Material Design Icons LICENSE</a>.</p>
+                            <p style={licenseTextStyle}>{materialIconsApacheLicenseText}</p>
                         </div>
                     </div>
                     <div className="license-section">
@@ -433,7 +578,7 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                             <p>While efforts are made to provide accurate and up-to-date location information, users should be aware that discrepancies may occur due to changes in geographic features, administrative boundaries, or other factors. Users are encouraged to verify critical location information through additional sources when necessary.</p>
                             <p>By using this application, you acknowledge that the developers are not responsible for any inaccuracies or issues arising from the use of location data and reverse geocoding services.</p>
                             <br />
-                            <p>Data © OpenStreetMap contributors, ODbL 1.0. <a href="http://osm.org/copyright" target="_blank" rel="noopener noreferrer">http://osm.org/copyright</a></p>
+                            <p>Place names are resolved using the public Nominatim service. Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>, ODbL 1.0. The <a href="https://operations.osmfoundation.org/policies/nominatim/" target="_blank" rel="noopener noreferrer">public Nominatim usage policy</a> is separate from the data license.</p>
                         </div>
                     </div>
                     <div className="license-section">
@@ -443,8 +588,8 @@ export default function NotesModal({ isOpen, onClose }: NotesModalProps) {
                             <i className="fas fa-chevron-right license-arrow" aria-hidden="true" />
                         </div>
                         <div className="license-section-body">
-                            <p>The instructional content and step-by-step guides for the supported exercises were sourced from the comprehensive <a href="https://github.com/hasaneyldrm/exercises-dataset" target="_blank" rel="noopener noreferrer">Exercises Dataset on GitHub</a>.</p>
-                            <p>All accompanying media assets, including images and videos, were custom-created specifically for this project and are currently not available for public distribution or external use.</p> 
+                            <p>An earlier project attribution named the <a href="https://github.com/hasaneyldrm/exercises-dataset" target="_blank" rel="noopener noreferrer">Exercises Dataset on GitHub</a>. The exact upstream revision and overlap of instructional text have not been established, so no license is assigned to the local catalog by this notice.</p>
+                            <p>The creator and release rights of the externally hosted exercise images and videos remain unverified.</p>
                         </div>
                     </div>
                 </div>

@@ -23,8 +23,9 @@ This inventory describes the currently relevant files. Historical copies under `
 | `postcss.config.mjs` | PostCSS configuration |
 | `playwright.config.ts` | Playwright browser, base URL and web server setup |
 | `.github/workflows/playwright.yml` | Playwright workflow (currently disabled with `if: false`) |
-| `supabase/migrations/20261002010000_profile_newsletter_preferences.sql` | adds profile newsletter preference/timestamps and column grants to an existing `profiles` table; no base schema or RLS policies |
+| `supabase/migrations/20261005010000_custom_supplements.sql` | adds the custom supplement definitions JSONB field to an existing `user_settings` table; no RLS or grants changes |
 | `tests/localData.test.mjs` | Node.js unit tests for local workspace and sync-policy helpers |
+| `tests/supplements.test.mjs` | weekday and interval schedule validation and calendar-day due-date tests |
 | `tests/syncWorkouts.test.mjs` | workout-routine sync authorization, read-failure and empty-state contract tests |
 | `e2e/login-a11y.spec.ts` | checks removed remembered-device copy and reduced-motion login behavior |
 
@@ -116,6 +117,8 @@ This inventory describes the currently relevant files. Historical copies under `
 | File | Purpose |
 |---|---|
 | `settings/SettingsModal.tsx` | goals, themes, consent-dependent settings, export and account |
+| `settings/CustomSupplementsModal.tsx` | custom supplement manager, workspace-local definitions and existing settings-queue sync |
+| `settings/CustomSupplementEditorModal.tsx` | separate add/edit sheet for validated weekday and interval schedules |
 | `settings/WorkoutModal.tsx` | routines, catalog, sessions, timer, sets and PRs |
 | `settings/WorkoutHistoryModal.tsx` | local workout history |
 | `settings/SupplementsModal.tsx` | supplement goals and daily status |
@@ -180,7 +183,7 @@ This inventory describes the currently relevant files. Historical copies under `
 | `changelogStorage.ts` | guest/user-specific local changelog acknowledgement keys |
 | `release.ts` | `APP_VERSION` from `package.json` |
 | `ids.ts` | client ID generators |
-| `supplements.ts` | supplement calculation and persistence |
+| `supplements.ts` | built-in goal calculation, custom definition validation and calendar-day due checks |
 | `useCookieConsent.ts` | consent state, storage and listeners |
 | `headerBtns.ts` | show/hide header buttons |
 | `tour.ts` | onboarding/tooltip tour control |

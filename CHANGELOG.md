@@ -5,25 +5,74 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-### [4.1.0] - 2026-10-02
+## [4.3.0] - 2026-10-18
 
-#### Added
-- **Account dashboard**: Added a protected `/account` page for viewing account details, changing passwords, and setting up, testing, or removing authenticator-based two-factor authentication. Signed-in users can reach it from the existing Manage Account entry; login and MFA redirects return users to the account page after verification.
-- **Newsletter preference**: Added an explicit, default-off email news preference on `profiles`, with opt-in and opt-out timestamps. The account page saves the preference only; no email delivery integration is configured.
+### Added
+- **Seven-day hydration history**: `HistoryModal` now charts the last seven local calendar days, including zero-entry days, with daily amounts, a goal marker and a goal-colored seven-day average. `DropSync` passes the current goal to the history sheet. Added Playwright coverage for empty history, goal changes, chart geometry and the existing CalSync chart.
+- **Source-code license**: Added a root `LICENSE` containing the full MIT text for HealthSync's original source code. The README and About & Licenses view now distinguish that scope from marks, exercise media, datasets and third-party material, and from the hosted service's terms.
+- **In-context data credits**: Added Open-Meteo and OpenStreetMap links in the weather widget and an Open Food Facts database/content credit below product search results.
 
-#### Changed
+### Changed
+- **Third-party license details**: Revised About & Licenses to identify the referenced Font Awesome Free 7.2.0 CSS and webfonts separately, installed Supabase SDK packages separately from the hosted service, ZXing Browser 0.2.1, the locally observed DM Sans metadata, and the reused Material Icons SVG. Included the relevant MIT, OFL and Apache license text or links, and removed the Supabase Apache/Creative Commons mismatch.
+- **Data and media provenance**: Distinguished Open Food Facts database, contents and image terms; separated the ODbL's `DATABASE NAME` example from HealthSync's own credit; linked the Nominatim service policy separately from OpenStreetMap data attribution; and marked the exercise catalog text mapping and exercise media rights as unverified.
+- **Rights footers and layout**: Replaced blanket “All rights reserved” footers with the source-code license scope. Moved the shared primary-button styles out of login-only CSS, added a visible keyboard focus outline, reserved scrollbar space and tightened About, hydration-history and onboarding-tooltip spacing.
+
+### Fixed
+- **Global error styling**: Imported the shared stylesheet in `global-error.tsx` so the fallback screen and its retry button can use the same styles as other app error screens.
+
+## [4.2.0] - 2026-10-17
+
+### Added
+- **Custom supplement schedules**: Added a Settings manager sheet and a separate add/edit sheet for user-defined supplements with optional free-text amounts, weekday schedules, and calendar-day intervals.
+- **Local-first definition sync**: Added the `calsync_custom_supplements` workspace key, `UserSettings.custom_supplements`, and the existing settings-queue path. The additive `20261005010000_custom_supplements.sql` migration adds the JSONB field to an existing `user_settings` table; it has not been applied to or verified against an external database.
+- **Supplement regression coverage**: Added Node.js cases for schedule validation, week rollover and daylight-saving transitions, plus workspace-isolation checks and Playwright coverage for the manager/editor flow, stable IDs and preserved intake marks.
+- **Explicit guest AI configuration adoption**: Settings offers a device-local copy of guest activation, an existing Gemini key, and previously accepted AI terms only when all three account AI keys are absent. The separate action preserves existing account values, including deliberate deactivation, requires current third-party consent, and never infers missing keys or terms; declining stores an explicit disabled preference.
+- **Sync and AI regression coverage**: Added deterministic tests for stale sync results with failed and successful parallel uploads, capped/incomplete cloud reads, tombstones, Undo, workspace changes, AI adoption and late key validation. Validation on 2026-10-17 passed 73 Node tests, seven Edge fixtures with mocked Supabase/Next navigation, and 11 existing image-picker browser cases. TypeScript passed; lint remains at 121 errors and 48 warnings with no new findings in changed files. Real Auth/Supabase and production behavior were not verified.
+
+### Changed
+- **Custom supplement access**: The manager is available when supplement tracking and Preferences consent are enabled, even before weight-based goals are calculated.
+- **Supplement day view**: Custom supplements now appear and count toward progress only when due on the selected date. Creatine and magnesium remain daily; the existing taken map and custom supplement IDs preserve saved checkmarks across renames and schedule edits.
+- **Schedule editor layout**: Days use seven round, single-letter weekday buttons in one row. Interval entry reads as “Every N days,” and the sheet resizes when its schedule changes.
+- **Technical documentation**: Updated the feature guide, data and sync model, file inventory, operations notes, project overview, and this release history for custom supplement tracking.
+- **Sync and AI technical documentation**: Updated the data/storage model, feature guide and operational evidence to document reconciliation, account-scoped AI settings and controlled reproduction limits. Explicit cloud resets continue to clear health data and AI configuration; the reported incident's reset marker and production row limit remain unknown.
+
+### Fixed
+- **Supplement editor close flicker**: Kept the editor closed after its close animation instead of briefly reopening it after a save-triggered render.
+- **Onboarding support link**: Pointed the final slide's GitHub link to the HealthSync issue tracker.
+- **Concurrent food and drink sync**: Replaced the final full-list overwrite in `AuthContext` with `entrySync.ts`, which rereads current local entries before committing and preserves concurrent additions even after successful individual uploads clear pending markers. Failed uploads retain local records and durable retry information, including recovered legacy entries.
+- **Complete cloud history reads**: Food and drink pulls now paginate in stable `entry_id` order with exact counts, advancing by the rows actually returned. Missing/changing counts, duplicate IDs, incomplete pages and read failures reject the collection rather than replacing local history with a partial result.
+- **Deletion and Undo races**: Reconciliation respects cloud tombstones and current local deletion/restoration intent. Food Undo merges into the latest local list, while late delete/restore acknowledgements queue repair of the newer opposite intent. Workspace revision guards invalidate old entry operations after account switches, including A to B to A, and explicit resets.
+- **Active AI settings and availability**: Settings rereads AI configuration on storage/owner changes and emits the existing storage signal after toggles, terms changes and adoption. Settings, AppShell and `AiDetectionProvider` consistently require activation, accepted AI terms, a saved key and third-party consent; unvalidated input alone no longer displays an active status.
+- **Late Gemini key validation**: Validation results cannot save into a changed or reset workspace, supersede a newer validation request, overwrite changed AI configuration, or persist after third-party consent is revoked. API keys remain local and outside exports, logs and cloud settings.
+
+## [4.1.0] - 2026-10-03
+
+### Added
+- **Account dashboard**: Added a protected `/account` page for viewing account details, changing passwords, and setting up, testing, or removing authenticator-based two-factor authentication. Signed-in users can reach it from the existing Manage Account entry; login and MFA verification can return them to `/account`.
+- **Newsletter preference**: Added an explicit, default-off email news preference on `profiles`, with database-maintained opt-in and opt-out timestamps. The account switch updates immediately and restores its saved value if persistence fails. The additive migration must be applied before using this preference; no email delivery integration is configured.
+- **Food image-picker regression coverage**: Added 11 Playwright cases covering import/capture actions on all main routes, the original click context, file previews, cancellation, direct-link keyboard fallback, consent, and missing AI configuration.
+
+### Changed
 - **Account controls and login navigation**: Moved password and 2FA management to the account dashboard, and updated the signed-in login view to offer Manage Account, Go Back to App, and Logout.
-- **Account dashboard experience**: Account copy is in English, the newsletter switch updates immediately and restores the saved value if persistence fails, and controls now have clearer hover and keyboard-focus states.
+- **Quick amounts and hydration layout**: Food presets now offer 100, 200, 250, 330, 400, and 500; drink presets offer 100, 250, 330, 500, 750, and 1000. Quick amounts use three columns, and the hydration sheet separates its steps with a 24px gap while removing the drink picker's extra horizontal padding.
+- **Weather error copy**: Shortened the unavailable-location message to `Location unavailable`.
+- **Shared authenticator input**: Extracted `OtpInput` from the login page for reuse by account security controls, preserving its existing paste, auto-fill, and keyboard behavior.
+- **Technical documentation**: Updated the architecture, account/profile contracts, newsletter migration requirements, food-picker flow, and iOS workaround. Revised the Supabase runbook and audit notes to distinguish migration files present in this checkout from historical deployment reports.
+- **Protected account settings**: The account page sends unauthenticated or MFA-pending visitors to `/login?next=%2Faccount`; login accepts only `/account` as this return destination. Account security controls read factor status from Supabase Auth and require a current authenticator code before removing a verified factor or opening password changes for an account with 2FA.
 
-#### Security
-- **Protected account settings**: Account access returns unauthenticated visitors to login with a validated internal return path. MFA status comes from Supabase Auth, while existing server and database MFA enforcement remains in place for protected operations.
-
-#### Fixed
+### Fixed
 - **Update Center opening behavior**: The changelog no longer opens automatically for first-time installs or ordinary visits. After a waiting service worker is installed and the app reloads, the Update Center opens once; users can still open it manually from the dashboard.
+- **Update banner display**: Removed the banner backdrop blur that softened the dashboard header buttons, moved the banner lower, and hid it while any modal is open.
+- **Mobile header clarity**: Removed CSS backdrop and element filters from app headers and kept the new account header unfiltered. Changed the installed iOS status-bar style to `default` and added a fixed 1px theme-colored strip to mitigate native top-edge blur without adding layout padding; actual iOS device verification remains pending.
+- **AI photo and camera selection**: Replaced delayed file-picker clicks with synchronous modal mounting and picker activation in the original Import Food/Capture Food click, preserving the user gesture needed by iOS. Both the extra menu and AI method chooser open the picker directly; cancellation closes the empty sheet, and direct query links retain a clickable, keyboard-accessible waiting area. Existing consent and AI configuration checks remain enforced.
+- **AI toggle appearance**: Connected the AI Detection switch's pressed state to the existing CSS so its appearance matches its enabled state.
+- **Workout experience**: Kept exercise demonstration videos inline on iOS, outlined the exercise with the active set, and restyled workout history entries to match routine cards.
+- **Workout personal records and finishing**: Marked record sets with a gold trophy frame, held the background through the finish animation, stopped the timer when rating begins, and kept PR notifications visible longer.
+- **Goal modal width and spacing**: Moved the goal overlays outside the Settings overlay so neither manual goals nor the calculator inherits its 0.92 sub-modal scale. Removed excess top padding from the goal fields.
 
 ## [4.0.1] - 2026-10-02
 
-# Fixed
+### Fixed
 - **AI detection**: Fixed issue where the AI detection toggle would not switch, but the AI detection was shown as enabled, preventing users from using the AI detection.
 
 

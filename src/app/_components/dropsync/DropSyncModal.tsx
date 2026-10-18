@@ -285,7 +285,7 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
                     </div>
                 </div>
                 <div className="modal-body" id="ds-modalBody" ref={bodyRef} style={{ overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', width: '200%', alignItems: 'flex-start', transform: `translateX(${step === 1 ? '0' : '-50%'})`, transition: 'transform 0.38s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                    <div style={{ display: 'flex', gap: '24px', width: '200%', alignItems: 'flex-start', transform: `translateX(${step === 1 ? '0' : 'calc(-50% - 24px)'})`, transition: 'transform 0.38s cubic-bezier(0.4, 0, 0.2, 1)' }}>
                         <div ref={step1Ref} style={{ display: 'block', width: '50%', flexShrink: 0 }}>
                             <DrinkPicker selected={selectedDrink} onSelect={handleSelectDrink} />
                         </div>

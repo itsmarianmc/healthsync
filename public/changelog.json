@@ -1,17 +1,79 @@
 {
+    "4.3.0": {
+        "Your Weekly Hydration at a Glance": [
+            "You can now see your drinks for the last seven days in History, including days with no entries, alongside your daily goal and seven-day average."
+        ],
+        "Clearer Data Sources": [
+            "You can find weather and place-name sources beside the weather display, and the product-data source in food search."
+        ],
+        "Clearer License Information": [
+            "You can now see which parts of HealthSync's source code use the MIT License and find more precise credits for third-party software, fonts, icons and exercise content in About & Licenses."
+        ],
+        "More Consistent Screens": [
+            "You now see consistent button styling on sign-in and error screens, including a clearer keyboard focus indicator and a styled retry button if a global error occurs."
+        ]
+    },
+    "4.2.0": {
+        "Custom Supplement Schedules": [
+            "You can add your own supplements with an optional amount, then choose specific weekdays or a repeating interval that starts on a date you pick.",
+            "Your daily tracker shows each custom supplement only when it is due. Renaming a supplement or changing its schedule keeps its saved intake records.",
+            "You can manage custom supplements without entering a body weight or calculating Creatine and Magnesium goals."
+        ],
+        "Schedule Editor Improvements": [
+            "You can pick weekdays from one row of round buttons, and the editor adjusts to the schedule you choose.",
+            "When you close the editor, it stays closed instead of briefly reappearing."
+        ],
+        "Find HealthSync's Issue Tracker": [
+            "You can now open HealthSync's issue tracker from the link on the final onboarding slide."
+        ],
+        "Reliable Food And Drink Sync": [
+            "You keep meals and drinks you add while HealthSync is syncing, even when their uploads finish before the sync does.",
+            "If an upload fails, you keep your entry on this device so HealthSync can try again.",
+            "You keep your saved history even when HealthSync cannot retrieve all of it from the cloud."
+        ],
+        "Safer Undo": [
+            "You can undo a meal deletion without losing meals you added afterward, and deleted entries stay deleted when syncing finishes."
+        ],
+        "Choose Your AI Settings After Sign-In": [
+            "You can choose to copy your guest AI settings, including any saved Gemini API key and accepted AI terms, to an account with no AI settings on this device. Your existing account choices stay unchanged."
+        ],
+        "Accurate AI Detection Status": [
+            "You see the current account's AI settings after signing in, signing out, switching accounts or changing the AI switch. Food recognition is available only after you enable it, accept the AI terms, save a key and allow third-party services.",
+            "You can switch accounts while a key check is running without that check changing the new account's AI settings."
+        ]
+    },
     "4.1.0": {
         "Manage your account in one place": [
             "You can now review your account details, change your password, and set up, test, or remove two-factor authentication from your Account page.",
-            "After signing in or verifying two-factor authentication, you return to the page you were trying to open."
+            "If you open your Account page before signing in or verifying two-factor authentication, you return there after verification."
         ],
         "Choose whether to receive product news": [
-            "You can opt in to occasional product news by email or turn the preference off at any time. No emails are sent yet."
+            "You can opt in to occasional product news by email or turn the preference off at any time. No emails are sent yet.",
+            "Your preference switch responds immediately and returns to its saved setting if the update cannot be saved."
         ],
-        "Faster account preferences": [
-            "Your newsletter preference switch responds immediately and returns to its saved setting if the update cannot be saved."
+        "Simpler portion and drink controls": [
+            "You can choose from a shorter list of preset amounts in three columns, and your drink selection has more room with clearer spacing between steps."
+        ],
+        "Shorter weather messages": [
+            "You see a shorter message when your weather location is unavailable."
         ],
         "Update news at the right time": [
             "The What's New window no longer interrupts your first visit or opens during normal use. It appears after you install an app update, and you can still open it whenever you want."
+        ],
+        "Clearer update banner": [
+            "The update notice now sits lower, leaves your dashboard buttons sharp, and disappears while a menu or other window is open."
+        ],
+        "Clearer mobile headers": [
+            "Your app uses clearer headers and updated iPhone status-bar styling to reduce blur around the top controls introduced in iOS 27."
+        ],
+        "Reliable photo and camera access": [
+            "Tapping Import Food or Capture Food opens the food window and your photo library or camera directly, with improved compatibility for iPhone. Cancelling the selection also closes the empty food window."
+        ],
+        "Clearer workout tracking": [
+            "Exercise videos stay in the workout screen on iPhone, your current exercise is highlighted, and workout history is easier to scan."
+        ],
+        "Workout records and finish flow": [
+            "Personal records now stand out with a gold trophy frame, the workout timer stops when you finish, and record notifications stay visible longer."
         ]
     },
     "4.0.1": {

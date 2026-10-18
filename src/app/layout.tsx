@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     description: 'Track your daily calories, protein, carbs and fat with HealthSync. Log food by name, barcode or AI photo detection. Sync your data across devices - free and easy.',
     manifest: '/manifest.json',
     applicationName: 'HealthSync',
-    appleWebApp: { title: 'HealthSync', capable: true, statusBarStyle: 'black-translucent' },
+    appleWebApp: { title: 'HealthSync', capable: true, statusBarStyle: 'default' },
     keywords: ['calorie tracker', 'food log', 'nutrition tracker', 'barcode scanner', 'AI food detection'],
     openGraph: {
         type: 'website',
@@ -80,6 +80,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 />
             </head>
             <body suppressHydrationWarning>
+                <div aria-hidden="true" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: 1, background: 'var(--bg)', pointerEvents: 'none', zIndex: 9999 }} />
                 <Script
                     id="splash-screen-init"
                     strategy="beforeInteractive"

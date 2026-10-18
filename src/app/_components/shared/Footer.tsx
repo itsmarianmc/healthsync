@@ -17,7 +17,7 @@ export default function Footer() {
             </p>
             <p className="change-settings">Change Cookie Preferences</p>
             <p style={{ marginTop: 'calc(1rem - 7.5px)' }}>
-                © {year} itsmarian | All rights reserved!
+                © {year} itsmarian | Original source code: MIT; other materials have separate rights.
             </p>
             <p>Made with ❤️ in Germany</p>
         </footer>

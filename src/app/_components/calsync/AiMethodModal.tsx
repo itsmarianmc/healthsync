@@ -3,6 +3,9 @@
 import { useEffect, useRef } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { useAppShell } from '../../_context/AppShellContext';
+import { useAuth } from '../../_context/AuthContext';
+import { useCookieConsent } from '../../_lib/useCookieConsent';
+import { openFoodImagePicker } from '../../_lib/foodImagePicker';
 
 export type AiMethod = 'describe' | 'import' | 'capture';
 
@@ -15,6 +18,8 @@ interface AiMethodModalProps {
 }
 
 export default function AiMethodModal({ isOpen, onClose, onSelect, isAiDetectionUsable = true, onOpenSettings }: AiMethodModalProps) {
+    const { canUseThirdParty } = useCookieConsent();
+    const { showToast } = useAuth();
     const pendingOpenSettings = useRef(false);
     const sheet = useDraggableSheet({
         onClose: () => {
@@ -44,8 +49,10 @@ export default function AiMethodModal({ isOpen, onClose, onSelect, isAiDetection
 
     const pick = (mode: AiMethod) => {
         if (!isAiDetectionUsable) return;
+        if (mode !== 'describe' && !canUseThirdParty) { showToast('AI detection requires third-party consent.'); return; }
         sheet.close();
-        onSelect(mode);
+        if (mode === 'describe') onSelect(mode);
+        else openFoodImagePicker(mode, () => onSelect(mode));
     };
 
     return (

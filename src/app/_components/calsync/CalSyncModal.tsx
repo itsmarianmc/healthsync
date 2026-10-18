@@ -107,7 +107,6 @@ export default function CalSyncModal({
     const isCapturing = useRef(false);
     const prevAiTextOpenRef = useRef(false);
     const closingRef = useRef(false);
-    const dispatchedForRef = useRef<'describe' | 'import' | 'capture' | null>(null);
     const stepRef = useRef(0);
     const currentDetectionIdRef = useRef<string | null>(null);
     const errorMessageRef = useRef<string | null>(null);
@@ -203,7 +202,6 @@ export default function CalSyncModal({
             naturalH.current = 0;
             const detectionId = currentDetectionIdRef.current;
             const errorMessage = errorMessageRef.current;
-            dispatchedForRef.current = null;
             currentDetectionIdRef.current = null;
             errorMessageRef.current = null;
             toastedDetectionIdRef.current = null;
@@ -271,7 +269,7 @@ export default function CalSyncModal({
     useEffect(() => {
         const inputs = [aiImageInputRef.current, aiCameraInputRef.current].filter(Boolean) as HTMLInputElement[];
         const onCancel = () => {
-            if (isModalHiddenForAiRef.current && !aiProcessingRef.current) snapToClosedRef.current();
+            if (stepRef.current === 0 && !aiProcessingRef.current) snapToClosedRef.current();
         };
         inputs.forEach(i => i.addEventListener('cancel', onCancel));
         return () => inputs.forEach(i => i.removeEventListener('cancel', onCancel));
@@ -636,28 +634,10 @@ export default function CalSyncModal({
     }, [snapToClosed]);
 
     useEffect(() => {
-        if (!openWithAi || modalState === 'closed') return;
-        if (dispatchedForRef.current === openWithAi) return;
-        let focusCleanup: (() => void) | null = null;
-        const addFocusReveal = () => {
-            const onFocus = () => {
-                setTimeout(() => {
-                    if (stepRef.current !== 1 && !aiProcessingRef.current) snapToClosedRef.current();
-                }, 400);
-            };
-            window.addEventListener('focus', onFocus, { once: true });
-            focusCleanup = () => window.removeEventListener('focus', onFocus);
-        };
-        const t = setTimeout(() => {
-            if (dispatchedForRef.current === openWithAi) return;
-            dispatchedForRef.current = openWithAi;
-            revealModal();
-            if (openWithAi === 'describe') { setAiTextOpen(true); }
-            else if (openWithAi === 'import') { aiImageInputRef.current?.click(); addFocusReveal(); }
-            else if (openWithAi === 'capture') { aiCameraInputRef.current?.click(); addFocusReveal(); }
-        }, 100);
-        return () => { clearTimeout(t); focusCleanup?.(); };
-    }, [openWithAi, modalState, revealModal]);
+        if (openWithAi !== 'describe' || modalState === 'closed') return;
+        const timer = window.setTimeout(() => setAiTextOpen(true), 100);
+        return () => window.clearTimeout(timer);
+    }, [openWithAi, modalState]);
 
     const titles: Record<number, string> = { 0: 'Upload', 1: 'Context', 2: 'Analyzing', 3: 'Finalize' };
     const isLastStep = step === 3;
@@ -665,7 +645,7 @@ export default function CalSyncModal({
     const SVG_ARROW = <svg height="25" viewBox="0 -960 960 960" width="25" fill="#ffffff"><path d="m321-80-71-71 329-329-329-329 71-71 400 400L321-80Z" /></svg>;
     const SVG_CHECK = <svg height="25" viewBox="0 -960 960 960" width="25" fill="#ffffff"><path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" /></svg>;
 
-    const QUICK_AMOUNTS = [50, 100, 150, 200, 250, 330, 400, 500];
+    const QUICK_AMOUNTS = [100, 200, 250, 330, 400, 500];
 
     const processingLabel = (() => {
         if (pendingDetection?.status === 'awaiting-file') return 'Waiting for files';
@@ -674,6 +654,13 @@ export default function CalSyncModal({
         if (aiTextOpen) return 'Waiting for content';
         return 'Analyzing...';
     })();
+
+    const canSelectFile = isOpen && step === 0 && !prefill && !pendingDetection && (openWithAi === 'import' || openWithAi === 'capture');
+    const openAiFilePicker = () => {
+        if (!canSelectFile) return;
+        if (!canUseThirdParty) { onShowToast('AI detection requires third-party consent.'); return; }
+        (openWithAi === 'capture' ? aiCameraInputRef : aiImageInputRef).current?.click();
+    };
 
     return (
         <>
@@ -696,7 +683,12 @@ export default function CalSyncModal({
                                     <input ref={aiCameraInputRef} type="file" accept="image/*" capture="environment" tabIndex={-1} aria-hidden="true"
                                     style={{ position: 'absolute', left: 0, top: 0, width: 1, height: 1, opacity: 0, overflow: 'hidden', pointerEvents: 'none' }}
                                     onChange={e => { const f = e.target.files?.[0]; if (f) handleCameraFile(f); e.target.value = ''; }} />
-                                    <div className="ai-processing" id="aiProcessing" style={{ display: 'block' }}>
+                                    <div className="ai-processing" id="aiProcessing" style={{ display: 'block' }}
+                                        role={canSelectFile ? 'button' : undefined} tabIndex={canSelectFile ? 0 : undefined}
+                                        aria-label={canSelectFile ? (openWithAi === 'capture' ? 'Take a photo' : 'Select a photo') : undefined}
+                                        onClick={openAiFilePicker} onKeyDown={e => {
+                                            if (canSelectFile && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openAiFilePicker(); }
+                                        }}>
                                         <div className="processing-spinner">
                                             <i className="fa-solid fa-circle-notch fa-spin" />
                                         </div>

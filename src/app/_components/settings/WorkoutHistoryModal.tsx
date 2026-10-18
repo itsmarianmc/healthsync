@@ -103,9 +103,9 @@ export default function WorkoutHistoryModal({ isOpen, onClose }: WorkoutHistoryM
                         const totalSets = log.exercises.reduce((s, ex) => s + ex.sets.length, 0);
 
                         return (
-                            <div key={log.id} className="workout-history-entry">
+                            <div key={log.id} className="routine-item workout-history-entry">
                                 <div
-                                    className="log-date-header"
+                                    className="routine-main workout-history-main"
                                     role="button"
                                     tabIndex={0}
                                     aria-expanded={isExpanded}
@@ -113,11 +113,16 @@ export default function WorkoutHistoryModal({ isOpen, onClose }: WorkoutHistoryM
                                     onClick={() => toggle(log.id)}
                                     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(log.id); } }}
                                 >
-                                    <div>
-                                        <span className="routine-name">{log.routineName}</span>
-                                        <span className="workout-history-meta">
-                                            {fmtDate(log.startTime)} · {fmtTime(log.startTime)}{log.intensity ? ` · Intensity ${log.intensity}` : ''}
-                                        </span>
+                                    <div className="routine-info">
+                                        <div className="workout-history-title-row">
+                                            <span className="routine-name">{log.routineName}</span>
+                                            <span className="workout-history-meta">
+                                                {fmtDate(log.startTime)} · {fmtTime(log.startTime)}{log.intensity ? ` · Intensity ${log.intensity}` : ''}
+                                            </span>
+                                        </div>
+                                        <div className="routine-stats">
+                                            {log.exercises.length} exercise{log.exercises.length !== 1 ? 's' : ''} · {doneSets}/{totalSets} sets completed
+                                        </div>
                                     </div>
                                     <div className="workout-history-right">
                                         <span className="log-date-total">{fmtDuration(log.duration)}</span>
@@ -125,14 +130,8 @@ export default function WorkoutHistoryModal({ isOpen, onClose }: WorkoutHistoryM
                                     </div>
                                 </div>
 
-                                {!isExpanded && (
-                                    <div className="routine-stats" style={{ paddingLeft: 4 }}>
-                                        {log.exercises.length} exercise{log.exercises.length !== 1 ? 's' : ''} · {doneSets}/{totalSets} sets completed
-                                    </div>
-                                )}
-
                                 {isExpanded && (
-                                    <div id={`workout-history-${log.id}`}>
+                                    <div id={`workout-history-${log.id}`} className="workout-history-details">
                                     {log.exercises.map(ex => (
                                         <div key={ex.exerciseId} className="exercise-card workout-history-card">
                                             <div className="exercise-card-header">

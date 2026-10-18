@@ -5,7 +5,8 @@ import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { useAuth } from '../../_context/AuthContext';
 import { useCookieConsent } from '../../_lib/useCookieConsent';
 import { queueSettings } from '../../_lib/localData';
-import { calcSupplements, SUPPLEMENT_KEYS } from '../../_lib/supplements';
+import { calcSupplements, isSupplementDue, readCustomSupplements, SUPPLEMENT_KEYS } from '../../_lib/supplements';
+import type { CustomSupplement } from '../../_lib/types';
 
 type TakenMap = Record<string, Record<string, boolean>>;
 
@@ -70,6 +71,17 @@ function computeSupplementsList(): Supplement[] {
     ];
 }
 
+function customSupplementsDueOn(supplements: CustomSupplement[], dateISO: string): Supplement[] {
+    return supplements
+        .filter(supplement => isSupplementDue(supplement.schedule, dateISO))
+        .map(supplement => ({
+            id: supplement.id,
+            label: supplement.name,
+            icon: 'fa-solid fa-capsules',
+            goal: supplement.dose || 'Custom supplement',
+        }));
+}
+
 interface SupplementsModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -83,6 +95,7 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
     const [selected, setSelected] = useState<string>(() => isoDate(new Date()));
     const [taken, setTaken] = useState<TakenMap>({});
     const [supplements, setSupplements] = useState<Supplement[]>([]);
+    const [customSupplements, setCustomSupplements] = useState<CustomSupplement[]>([]);
     const [trackingEnabled, setTrackingEnabled] = useState<boolean>(false);
 
     useEffect(() => {
@@ -100,6 +113,7 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
         setTaken(readTaken());
         setTrackingEnabled(readTracking());
         setSupplements(computeSupplementsList());
+        setCustomSupplements(readCustomSupplements());
 
         sheet.open();
         setTimeout(() => sheet.snapToExpanded(), 80);
@@ -111,6 +125,7 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
             setTaken(readTaken());
             setTrackingEnabled(readTracking());
             setSupplements(computeSupplementsList());
+            setCustomSupplements(readCustomSupplements());
         };
         window.addEventListener('storage', onStorage);
         return () => window.removeEventListener('storage', onStorage);
@@ -140,6 +155,10 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
     const selectedDay = week.find(d => d.iso === selected);
     const selectedTaken = taken[selected] || {};
     const futureSelected = !!selectedDay?.isFuture;
+    const selectedSupplements = [
+        ...supplements,
+        ...customSupplementsDueOn(customSupplements, selected),
+    ];
 
     const headerLabel = selectedDay
         ? selectedDay.date.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -172,8 +191,12 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
                             <div className="supp-week-strip">
                                 {week.map(d => {
                                     const dayTaken = taken[d.iso] || {};
-                                    const total = supplements.length;
-                                    const done = supplements.reduce((n, s) => n + (dayTaken[s.id] ? 1 : 0), 0);
+                                    const daySupplements = [
+                                        ...supplements,
+                                        ...customSupplementsDueOn(customSupplements, d.iso),
+                                    ];
+                                    const total = daySupplements.length;
+                                    const done = daySupplements.reduce((n, s) => n + (dayTaken[s.id] ? 1 : 0), 0);
                                     const allDone = total > 0 && done === total;
                                     const cls = [
                                         'supp-day',
@@ -205,8 +228,11 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
                                 </div>
                             )}
 
+                            {selectedSupplements.length === 0 ? (
+                                <p className="supp-empty-state">Nothing scheduled for this day.</p>
+                            ) : (
                             <div className="supp-list">
-                                {supplements.map(s => {
+                                {selectedSupplements.map(s => {
                                     const checked = !!selectedTaken[s.id] && trackingEnabled;
                                     const rowDisabled = futureSelected || !trackingEnabled;
                                     return (
@@ -228,6 +254,7 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
                                     );
                                 })}
                             </div>
+                            )}
 
                             {futureSelected && (
                                 <p className="supp-hint">
