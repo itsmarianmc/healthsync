@@ -293,7 +293,7 @@ export default function WeatherWidget() {
 
   return (
     <>
-      <div className="dash-header">
+      <div className="dash-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.2rem' }}>
         <div className="weather-widget">
           <div className="weather-widget-icon">
             <i className={`fa-solid ${iconClass}`} />
@@ -302,6 +302,12 @@ export default function WeatherWidget() {
             <div className="weather-temperature">{temperature}°C</div>
             <div className="weather-location">{weatherLocation}</div>
           </div>
+        </div>
+        <div style={{ fontSize: '0.65rem', lineHeight: 1.2, textAlign: 'center' }}>
+          <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Weather: Open-Meteo</a>{' · '}
+          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>
+          <br />
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">Place: © OpenStreetMap contributors (ODbL)</a>
         </div>
       </div>
     </>

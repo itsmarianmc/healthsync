@@ -44,7 +44,7 @@ export default function LegalLayout({ title, eyebrow = 'HealthSync', children }:
                             <a href="https://healthsync.itsmarian.dev/legal/ai-guidelines">AI Guidelines</a> • <a href="https://contact.itsmarian.dev/">Contact</a> • <a href="https://healthsync.itsmarian.dev/legal/cookies">Cookies</a> • <a href="https://healthsync.itsmarian.dev/legal/privacy">Privacy Policy</a> • <a href="https://healthsync.itsmarian.dev/legal/terms">Terms of Use</a>
                         </p>
                         <p className="change-settings">Change Cookie Preferences</p>
-                        <p style={{ marginTop: 'calc(-7.5px + 1rem)' }}>© 2026 itsmarian | All rights reserved!</p>
+                        <p style={{ marginTop: 'calc(-7.5px + 1rem)' }}>© 2026 itsmarian | Original source code: MIT; other materials have separate rights.</p>
                     </div>
                 </div>
             </footer>

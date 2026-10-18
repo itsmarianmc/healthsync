@@ -1,4 +1,18 @@
 {
+    "4.3.0": {
+        "Your Weekly Hydration at a Glance": [
+            "You can now see your drinks for the last seven days in History, including days with no entries, alongside your daily goal and seven-day average."
+        ],
+        "Clearer Data Sources": [
+            "You can find weather and place-name sources beside the weather display, and the product-data source in food search."
+        ],
+        "Clearer License Information": [
+            "You can now see which parts of HealthSync's source code use the MIT License and find more precise credits for third-party software, fonts, icons and exercise content in About & Licenses."
+        ],
+        "More Consistent Screens": [
+            "You now see consistent button styling on sign-in and error screens, including a clearer keyboard focus indicator and a styled retry button if a global error occurs."
+        ]
+    },
     "4.2.0": {
         "Custom Supplement Schedules": [
             "You can add your own supplements with an optional amount, then choose specific weekdays or a repeating interval that starts on a date you pick.",
