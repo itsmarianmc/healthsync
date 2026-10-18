@@ -4,12 +4,13 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../../_context/AuthContext';
 import { useCookieConsent } from '../../_lib/useCookieConsent';
 import { pushSettings } from '../../_lib/sync';
-import { activeOwner, acknowledgeSettings, clearActiveHealthData, GUEST_OWNER, hasGuestData, importGuestData, queueSettings } from '../../_lib/localData';
+import { activeOwner, acknowledgeSettings, clearActiveHealthData, GUEST_OWNER, hasGuestData, importGuestData, queueSettings, workspaceGuard } from '../../_lib/localData';
 import { csvEscape } from '../../_lib/csv';
 import { supabase } from '../../_lib/supabase';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { calcSupplements, persistSupplementGoals } from '../../_lib/supplements';
 import { reverseGeocodeLocation } from '../../_lib/location';
+import { adoptGuestAiConfig, canOfferGuestAiConfig, readAiConfig, saveValidatedAiKey, writeAiConfig } from '../../_lib/aiConfig';
 import { validateApiKey } from '../../_lib/gemini';
 import { APP_VERSION } from '../../_lib/release';
 import { writeLocalLastSeen, writePendingReloadAfterUpdate } from '../../_lib/changelog';
@@ -121,6 +122,8 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
     const [aiEnabled, setAiEnabled] = useState(false);
     const [aiTermsAccepted, setAiTermsAccepted] = useState(false);
     const [aiApiKey, setAiApiKey] = useState('');
+    const [savedAiKey, setSavedAiKey] = useState('');
+    const [guestAiAvailable, setGuestAiAvailable] = useState(false);
     const [apiKeyVisible, setApiKeyVisible] = useState(false);
     const [weatherEnabled, setWeatherEnabled] = useState(false);
     const [weatherLat, setWeatherLat] = useState('');
@@ -187,16 +190,28 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
     }, [canUsePreferences, user?.id]);
 
     useEffect(() => {
-        if (!canUseThirdParty) {
-            setAiEnabled(false);
-            setAiTermsAccepted(false);
-            setAiApiKey('');
-            return;
-        }
-        setAiEnabled(localStorage.getItem('calsync_ai_enabled') === 'true');
-        setAiTermsAccepted(localStorage.getItem('calsync_ai_terms_accepted') === 'true');
-        setAiApiKey(localStorage.getItem('calsync_ai_api_key') || '');
-    }, [canUseThirdParty]);
+        let previousOwner = activeOwner();
+        let isCurrent = workspaceGuard();
+        let previousKey: string | undefined;
+        const read = () => {
+            const config = readAiConfig();
+            const owner = activeOwner();
+            setAiEnabled(config.enabled);
+            setAiTermsAccepted(config.termsAccepted);
+            setSavedAiKey(config.apiKey);
+            if (!isCurrent() || owner !== previousOwner || config.apiKey !== previousKey) {
+                setAiApiKey(config.apiKey);
+                setApiKeyVisible(false);
+            }
+            previousOwner = owner;
+            isCurrent = workspaceGuard();
+            previousKey = config.apiKey;
+            setGuestAiAvailable(canOfferGuestAiConfig());
+        };
+        read();
+        window.addEventListener('storage', read);
+        return () => window.removeEventListener('storage', read);
+    }, [user?.id]);
 
     useEffect(() => {
         try {
@@ -395,19 +410,19 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
         if (!canUseThirdParty) return;
         const n = !aiEnabled;
         setAiEnabled(n);
-        localStorage.setItem('calsync_ai_enabled', String(n));
+        writeAiConfig({ enabled: n });
     };
     const handleAiAccept = () => {
         if (!canUseThirdParty) return;
         setAiTermsAccepted(true);
-        localStorage.setItem('calsync_ai_terms_accepted', 'true');
+        writeAiConfig({ termsAccepted: true });
         showToast('Terms accepted');
     };
     const handleAiDecline = () => {
         setAiEnabled(false);
         setAiTermsAccepted(false);
         if (canUseThirdParty) {
-            localStorage.setItem('calsync_ai_enabled', 'false');
+            writeAiConfig({ enabled: false, termsAccepted: false });
         }
         showToast('AI Detection disabled');
     };
@@ -418,14 +433,13 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
         if (!trimmed) { showToast('Please enter your Gemini API key.'); return; }
 
         showToast('Validating API key…');
-        const valid = await validateApiKey(trimmed);
-        if (!valid) {
+        const result = await saveValidatedAiKey(trimmed, validateApiKey);
+        if (result === 'stale') return;
+        if (result === 'invalid') {
             showToast('Invalid API key – please check and try again.');
             return;
         }
 
-        localStorage.setItem('calsync_ai_api_key', trimmed);
-        window.dispatchEvent(new Event('storage'));
         showToast('API key saved and verified.');
     };
 
@@ -698,6 +712,19 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                             AI Detection [BETA]
                         </div>
                         <div className="settings-section-body" style={{ opacity: canUseThirdParty ? 1 : 0.5, cursor: canUseThirdParty ? '' : 'default', pointerEvents: canUseThirdParty ? 'auto' : 'none' }}>
+                            {guestAiAvailable && <div className="ai-terms-box" id="guestAiConfigOffer">
+                                <p>This account has no AI settings on this device. Your guest AI settings are still saved separately.</p>
+                                <p>Use them for this account on this device? This copies the saved activation, the Gemini API key if present, and any previously accepted AI terms. Missing keys or consent still need to be provided. Nothing is uploaded.</p>
+                                <div className="ai-terms-actions">
+                                    <button type="button" className="ai-terms-btn decline" disabled={!canUseThirdParty} onClick={() => {
+                                        if (!canUseThirdParty) return;
+                                        writeAiConfig({ enabled: false });
+                                    }}>Keep AI disabled for this account</button>
+                                    <button type="button" className="ai-terms-btn accept" disabled={!canUseThirdParty} onClick={() => {
+                                        if (user && canUseThirdParty && adoptGuestAiConfig(user.id)) showToast('Guest AI settings copied to this account on this device');
+                                    }}>Use guest AI settings, key and accepted terms</button>
+                                </div>
+                            </div>}
                             <div className="settings-toggle-row">
                                 <div className="settings-toggle-label">
                                     <span>Enable AI Detection</span>
@@ -751,7 +778,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                                             <p className="form-helper"><i className="fa-solid fa-lightbulb" />Get your free API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a></p>
                                             </div>
                                             <button className="option-btn active" id="saveApiKeyBtn" style={{ width:'100%',borderRadius:'var(--radius-sm)',padding:'13px 16px',marginTop:'8px' }} onClick={handleSaveApiKey}><i className="fa-solid fa-floppy-disk" />&nbsp;Save API Key</button>
-                                            {aiApiKey && <div className="ai-status-box" id="aiStatusBox"><i className="fa-solid fa-circle-check" /><span>AI Detection is active</span></div>}
+                                            {canUseThirdParty && savedAiKey && <div className="ai-status-box" id="aiStatusBox"><i className="fa-solid fa-circle-check" /><span>AI Detection is active</span></div>}
                                         </div>
                                     )}
                                 </div>

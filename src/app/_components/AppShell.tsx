@@ -19,6 +19,7 @@ import BarcodeSearchPopup from './calsync/BarcodeSearchPopup';
 import UpdateCenter from './update/UpdateCenter';
 import AiDetectionIndicator from './calsync/AiDetectionIndicator';
 import GlobalFoodActions from './calsync/GlobalFoodActions';
+import { isAiUsable } from '../_lib/aiConfig';
 import { logFoodEntry } from '../_lib/foodLog';
 import { openFoodImagePicker } from '../_lib/foodImagePicker';
 import type { FoodEntry } from '../_lib/types';
@@ -79,18 +80,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         const read = () => {
-            setSupplementsEnabled(localStorage.getItem('calsync_track_supplements') === 'true');
-            setAiDetectionUsable(
-                localStorage.getItem('calsync_ai_enabled') === 'true'
-                && !!localStorage.getItem('calsync_ai_api_key'),
-            );
+            setSupplementsEnabled(canUsePreferences && localStorage.getItem('calsync_track_supplements') === 'true');
+            setAiDetectionUsable(isAiUsable());
         };
-        if (canUsePreferences) {
-            read();
-            window.addEventListener('storage', read);
-        }
-        return () => window.removeEventListener('storage', read);
-    }, [canUsePreferences, user?.id]);
+        read();
+        window.addEventListener('storage', read);
+        window.addEventListener('cookieSettingsChanged', read);
+        return () => {
+            window.removeEventListener('storage', read);
+            window.removeEventListener('cookieSettingsChanged', read);
+        };
+    }, [canUsePreferences, canUseThirdParty, user?.id]);
 
     useEffect(() => {
         const handler = () => setOnboardingDone(true);

@@ -23,6 +23,23 @@ export const HEALTH_DATA_KEYS = [
 const OWNER_KEY = 'healthsync_active_owner';
 const workspaceKey = (owner: string) => `healthsync_workspace_${owner}`;
 export const GUEST_OWNER = 'guest';
+let workspaceRevision = 0;
+let mutationRevision = 0;
+const entryMutations = new Map<string, number>();
+
+// A -> B -> A and explicit resets also invalidate outstanding asynchronous work.
+export function workspaceGuard(owner = activeOwner()): () => boolean {
+  const revision = workspaceRevision;
+  return () => activeOwner() === owner && workspaceRevision === revision;
+}
+
+export function entryMutationRevision(): number { return mutationRevision; }
+export function entryChangedSince(kind: 'food' | 'drinks', id: string, revision: number): boolean {
+  return (entryMutations.get(`${kind}:${id}`) || 0) > revision;
+}
+function recordEntryMutation(kind: string, id: string): void {
+  entryMutations.set(`${kind}:${id}`, ++mutationRevision);
+}
 
 export function activeOwner(): string {
   // Existing unscoped data belongs to the guest until the user explicitly imports it.
@@ -57,6 +74,8 @@ export function switchWorkspace(owner: string): void {
     for (const [key, value] of Object.entries(snapshot)) localStorage.setItem(key, value);
     throw error;
   }
+  workspaceRevision += 1;
+  entryMutations.clear();
   window.dispatchEvent(new Event('storage'));
 }
 
@@ -96,7 +115,8 @@ export function hasGuestData(): boolean {
   });
 }
 
-export function markPending(kind: 'food' | 'drinks' | 'workouts', id: string): void {
+export function markPending(kind: 'food' | 'drinks' | 'workouts', id: string, recordChange = true): void {
+  if (recordChange) recordEntryMutation(kind, id);
   const key = `healthsync_pending_${kind}`;
   const ids = new Set(JSON.parse(localStorage.getItem(key) || '[]') as string[]);
   ids.add(id);
@@ -115,6 +135,8 @@ export function pendingIds(kind: 'food' | 'drinks' | 'workouts'): Set<string> {
 }
 
 export function clearActiveHealthData(): void {
+  workspaceRevision += 1;
+  entryMutations.clear();
   HEALTH_DATA_KEYS.forEach(key => localStorage.removeItem(key));
   window.dispatchEvent(new Event('storage'));
 }
@@ -136,6 +158,8 @@ export function acknowledgeSettings(saved: Record<string, unknown>): void {
 }
 
 export function markDeleted<T extends { id: string }>(kind: 'food' | 'drinks', entry: T): void {
+  recordEntryMutation(kind, entry.id);
+  if (kind === 'food') clearRestoredFood(entry.id);
   const key = `healthsync_deleted_${kind}`;
   const deleted = JSON.parse(localStorage.getItem(key) || '{}') as Record<string, T>;
   deleted[entry.id] = entry;
@@ -155,6 +179,7 @@ export function clearDeleted(kind: 'food' | 'drinks', ids: string[]): void {
 }
 
 export function markRestoredFood(id: string): void {
+  recordEntryMutation('food', id);
   clearDeleted('food', [id]);
   const ids = new Set(JSON.parse(localStorage.getItem('healthsync_restored_food') || '[]') as string[]);
   ids.add(id);
