@@ -105,9 +105,47 @@ When a searched or scanned food is classified as a liquid, `foodLog.ts` writes i
 | `calsync_creatine_goal` | calculated/manual creatine goal in g |
 | `calsync_magnesium_goal` | calculated/manual magnesium goal in mg |
 | `calsync_supplements_taken` | `Record<string, Record<string, boolean>>` by date/supplement |
+| `calsync_custom_supplements` | validated `CustomSupplement[]` definitions and schedules; listed in `HEALTH_DATA_KEYS` and isolated with the active workspace |
 | `healthsync_activity_status` | `ActivityStatusRecord` JSON |
 
 `calcSupplements` in [supplements.ts](../src/app/_lib/supplements.ts) calculates at least 3 g creatine, otherwise roughly `0.1 g/kg`, and roughly `5 mg/kg` magnesium.
+
+### Custom supplement definitions and schedules
+
+`CustomSupplement` is stored separately from the dated taken map:
+
+```ts
+type SupplementSchedule =
+  | { mode: 'weekdays'; weekdays: number[] }
+  | { mode: 'interval'; everyDays: number; startDate: string };
+
+type CustomSupplement = {
+  id: string;
+  name: string;
+  dose?: string;
+  schedule: SupplementSchedule;
+};
+```
+
+IDs are non-empty and unique within the definition list; names are trimmed and
+limited to 80 characters, and the optional free-text amount is limited to 80
+characters. Weekday schedules require one or more unique integer values from 1
+through 7, where Monday is 1 and Sunday is 7. Interval schedules require an
+integer of at least 2 and a real date in `YYYY-MM-DD` form. The selected start
+date is due; dates before it are not.
+
+`isSupplementDue` in `supplements.ts` validates each schedule before use. It
+converts date-only values to UTC calendar-day numbers, then checks interval
+differences for a non-negative multiple of `everyDays`. This avoids using local
+millisecond differences across daylight-saving changes. Invalid dates or
+schedule objects are not due. Malformed Local Storage JSON or invalid
+definitions resolve to an empty local list; invalid cloud definitions are not
+written over the current local definitions.
+
+Editing a name preserves the definition ID. The tracker continues to store
+dated intake checkmarks in `calsync_supplements_taken`, keyed by the existing
+date and supplement ID. Editing a schedule does not clear or reinterpret those
+checkmarks, and removing a definition does not delete its prior intake map.
 
 ### AI, consent, onboarding and updates
 
@@ -128,6 +166,25 @@ When a searched or scanned food is classified as a liquid, `foodLog.ts` writes i
 | `healthsync_last_seen_changelog_version` | old browser-wide acknowledgement | ignored because its owner cannot be determined; retained only as legacy browser data |
 | `healthsync_pending_reload_after_update` | one-time marker consumed after a worker switch and app reload to open the Update Center | boolean string |
 | `hs_install_dismissed` | PWA install banner dismissed | `'1'` |
+
+The three AI keys remain in `HEALTH_DATA_KEYS`: activation, accepted AI terms
+and the Gemini key belong to the active guest/account workspace. Login does not
+copy them from the guest, and cloud settings do not contain these keys. Settings
+offers an explicit, device-local copy of the guest AI configuration only when
+**all three account keys are absent**. Any existing account value, including
+`calsync_ai_enabled = 'false'`, prevents the offer and copy. Choosing to keep AI
+disabled stores that explicit account preference. The tracked guest-data import
+remains separate and does not import AI configuration.
+
+`aiConfig.ts` copies only values that actually exist; activation does not imply
+a key or accepted terms. Availability requires activation, accepted AI terms,
+a non-empty saved key and current third-party consent. Settings writes and
+explicit adoption dispatch the existing `storage` event; Settings, AppShell and
+AiDetectionProvider reread active values on workspace/storage changes. Editing
+an unsaved key does not by itself show AI as active. Validation results are
+discarded after a workspace switch (including A → B → A), reset, newer validation
+request, changed AI configuration or revoked third-party consent. Keys stay local
+and are excluded from cloud settings, exports and logs.
 
 ### Weather
 
@@ -156,7 +213,7 @@ The weather code migrates older keys `weather_widget_enabled`, `weather_latitude
 
 ## Supabase schema and mapping
 
-The app code expects the four health-data tables and `profiles` described below. The SQL schema in [hosting.md](../hosting.md) is a setup/reference script. This checkout contains only one executable migration, which adds newsletter fields to an already existing `public.profiles` table; it does not create the base tables, policies, grants or reset RPC. Therefore these definitions describe the app's expected shape, not a verified live database schema.
+The app code expects the four health-data tables and `profiles` described below. The SQL schema in [hosting.md](../hosting.md) is a setup/reference script. This checkout contains only the additive custom-supplements migration, which adds one field to an already existing `public.user_settings` table; it does not create the base tables, policies, grants or reset RPC. Therefore these definitions describe the app's expected shape, not a verified live database schema.
 
 ### `calsync_entries`
 
@@ -168,7 +225,7 @@ Contains `user_id`, `entry_id`, `drink`, `emoji`, `color`, `amount`, `ts`, `date
 
 ### `user_settings`
 
-One row per user. It contains goals, optional `workout_routines` JSONB and `updated_at`. `pushSettings` uses `upsert(..., { onConflict: 'user_id' })`.
+One row per user. It contains goals, `custom_supplements` JSONB, optional `workout_routines` JSONB and `updated_at`. `pushSettings` uses `upsert(..., { onConflict: 'user_id' })`. `custom_supplements` stores definitions only; dated intake checkmarks remain in Local Storage and the existing `supplements_taken` field.
 
 ### `workout_sessions`
 
@@ -182,16 +239,12 @@ policies from the client code or reference SQL; inspect the target database
 using the preflight in [`security-migration.md`](./security-migration.md).
 
 Account identity and account preferences are read from `profiles`; health goals,
-supplement preferences and workout routines use `user_settings`. The sole
-checked-in migration, `20261002010000_profile_newsletter_preferences.sql`, adds
-`newsletter_opt_in` (false by default), `newsletter_opt_in_at` and
-`newsletter_opt_out_at`. An owner may read the preference and timestamps and
-update only the preference. A database trigger records the latest opt-in or
-opt-out transition time. This stores consent preference only; it does not
-connect a mail provider or send newsletters. The migration grants authenticated
-column access but does not create or alter the profile table's RLS policies.
-The required owner and MFA RLS authorization boundary must already exist in
-the target database and was not verified in this audit.
+supplement preferences and workout routines use `user_settings`. This checkout
+contains the additive migration `20261005010000_custom_supplements.sql`, which
+adds `custom_supplements` JSONB with an empty-array default to an existing
+`user_settings` table. It does not alter grants or RLS policies, and it has not
+been applied to or verified against an external database. The newsletter
+migration described in older notes is not present in this checkout.
 
 ## Sync algorithms
 
@@ -201,10 +254,34 @@ Before cloud operations, `sync.ts` calls `supabase.auth.getSession()` and sends 
 
 ### Food
 
-1. Cloud food and deletion tombstones are loaded in ascending timestamp order.
+1. Cloud food and deletion tombstones are paginated in stable `entry_id` order
+   with an exact total count. Offsets advance by the number actually returned,
+   so a server cap below the requested 500 rows does not truncate the history.
+   Missing/changing counts, duplicate IDs, read errors or an empty page before
+   the total is reached reject the whole read (`null`), preserving local data.
 2. Pending entries and legacy local entries absent from cloud are uploaded unless a cloud tombstone supersedes them.
-3. The confirmed cloud result replaces the local list only after a successful read; failed writes retain pending records for retry.
+3. `entrySync.ts` rereads the current local list immediately before committing.
+   Current local-only entries survive even when a successful parallel individual
+   upload already removed their pending markers. Upload failures leave both the
+   entry and durable retry information; legacy recovery is marked pending before
+   uploading. An incomplete confirmation never commits a replacement list.
 4. New local entries are stored optimistically and synchronized with an idempotent upsert.
+
+The workout history's final local reread is useful for concurrent additions,
+but food/drinks also require deletion handling. Pending local deletions and
+entries removed while a pull was running cannot be restored by stale cloud rows.
+Cloud tombstones remove old local copies; explicit food Undo made during a pull
+wins over its stale tombstone, even if its restore upload already succeeded.
+In-memory entry mutation revisions track those overlapping operations, without
+new persisted keys. Pending restoration/deletion records remain retryable after
+failure. Food Undo merges into the latest local list so it preserves later meals.
+The final merged list is sorted by `ts` as before.
+
+Workspace guards also invalidate outstanding operations on A → B → A and on
+explicit data clearing. Old entry operations cannot commit data or acknowledge
+queues in the newly activated workspace. A new Cloud Reset still explicitly
+clears all `HEALTH_DATA_KEYS`, including the three AI keys; the reset marker is
+stored before continuing sync. This reset semantics is unchanged.
 
 ### Drinks
 
@@ -212,7 +289,7 @@ Cloud and local drinks follow the same pending/legacy recovery and tombstone rul
 
 ### Settings
 
-Cloud settings are mirrored into Local Storage. On first sign-in, a settings row is created from local goals with explicit activity-status and supplement defaults for older schemas with NOT NULL constraints. Local settings changes are written with `pushSettings`; their pending keys are acknowledged only while the same owner workspace is active.
+Cloud settings are mirrored into Local Storage. On first sign-in, a settings row is created from local goals with explicit activity-status and supplement defaults for older schemas with NOT NULL constraints. Local settings changes are written with `pushSettings`; their pending keys are acknowledged only while the same owner workspace is active. Custom definitions are sent in the `custom_supplements` field through the existing settings queue and upsert. The local definition write happens first, so cloud or queue failures do not remove definitions from the active workspace.
 
 ### Workouts
 

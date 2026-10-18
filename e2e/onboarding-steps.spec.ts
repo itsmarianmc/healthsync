@@ -217,7 +217,7 @@ test.describe('Onboarding · slide 6 (All set & support links)', () => {
     test('GitHub issues link points to the repo issue tracker', async ({ page }) => {
         const link = page.locator('.onboarding-slide').nth(5).locator('a[href*="github.com"]');
         await expect(link).toBeVisible();
-        await expect(link).toHaveAttribute('href', 'https://github.com/itsmarianmc/projects/issues');
+        await expect(link).toHaveAttribute('href', 'https://github.com/itsmarianmc/healthsync/issues');
         await expect(link).toHaveAttribute('target', '_blank');
         await expect(link).toHaveAttribute('rel', /\bnoopener\b/);
     });

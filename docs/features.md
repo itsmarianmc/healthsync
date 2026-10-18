@@ -62,9 +62,31 @@ All of these conditions are required:
 - `calsync_ai_api_key` exists and has been validated
 - third-party consent is granted
 
+Import Food and Capture Food open the input sheet and its native image/camera picker in the original click handler, including the AI method chooser and extra menu on all main routes. `foodImagePicker.ts` flushes the sheet state before clicking the mounted file input so iOS keeps user activation; no timer opens the picker. Cancelling closes the empty sheet. Direct query links without a user gesture keep a clickable, keyboard-accessible waiting area as a fallback, without separate Choose Photo/Take Photo buttons.
+
 `gemini.ts` reduces images to a maximum 1280-pixel edge and JPEG quality 0.82 when browser APIs are available. Gemini is asked to return JSON containing name, brand, amount, unit, calories, protein, carbs and fat. The response is normalized and invalid/negative numbers are converted to safe fallbacks.
 
 AI errors are classified internally as `quota`, `no_json` or `api_error` and converted to UI messages by `describeGeminiError`. The API key remains local and must not enter analytics, logs or exports.
+
+AI settings are specific to the guest/account workspace on this device. After
+login, an account with no AI configuration can explicitly choose **Use guest AI
+settings, key and accepted terms** in Settings. The offer explains that it copies
+saved activation, an existing Gemini key and previously accepted AI terms only
+on this device. It never invents missing consent or a key, and existing account
+values (including a deliberate opt-out) are preserved. The offer is rendered as
+`#guestAiConfigOffer`; its actions require current third-party consent.
+**Keep AI disabled for
+this account** declines the copy and stores an explicit disabled preference.
+The usual guest food/drink/workout import does not transfer AI configuration.
+
+Settings, the extra menu and AI method availability refresh after toggling,
+adoption, login, logout, account changes and consent changes. Activation can
+remain saved while a missing key, missing AI terms or denied third-party consent
+keeps recognition unavailable. The status box uses the saved key rather than
+unvalidated input. An API-key validation started in one workspace cannot write
+into a later workspace, even when the user switches back before it completes.
+An explicit newer cloud reset continues to remove local AI configuration along
+with tracked data; it is a separate possible explanation for cleared settings.
 
 ### Pending drafts
 
@@ -102,7 +124,7 @@ Saving appends a `DrinkEntry` locally, updates UI state and calls `syncDrinkToCl
 
 ### History and deletion
 
-`HistoryModal` groups entries by date and uses “Today”, “Yesterday” or a formatted date. Individual entries and the current day's entries can be deleted. The confirmation can be disabled with `dropsync_delete_warning`.
+`HistoryModal` shows a seven-day hydration chart including today above the date-grouped entries. Missing days count as 0 ml; the average divides the seven daily totals by seven. Bars stay hydration blue; only the average is colored relative to the daily goal, with a neutral goal marker when the goal is positive. The chart remains visible when history is empty. Groups use “Today”, “Yesterday” or a formatted date. Individual entries and the current day's entries can be deleted. The confirmation can be disabled with `dropsync_delete_warning`.
 
 ## Workouts
 
@@ -141,7 +163,14 @@ Themes, header name, splash screen, sheet expansion, delete confirmation, weathe
 
 ### Supplements
 
-Creatine and magnesium goals can be calculated from body weight. Daily intake is stored locally by date. The section is exposed in the extra menu only when tracking is enabled.
+Creatine and magnesium remain daily entries, with goals optionally calculated from body weight. The **Manage custom supplements** entry appears in Settings only when Track Supplements is enabled and Preferences consent is available; it does not depend on body weight or calculated goals. Settings stays open under the separate manager sheet, and the add/edit sheet opens above the manager with its own header close button.
+
+A custom definition stores a stable ID, required name, optional free-text amount, and one schedule:
+
+- **Days**: choose one or more weekdays, Monday=1 through Sunday=7. The editor presents them as seven round, single-letter buttons with full weekday names for assistive technology.
+- **Interval**: choose a whole number of at least two days and an editable `YYYY-MM-DD` start date. The start date itself is due, and later due dates are calculated by calendar-day difference.
+
+The editor resizes its sheet when the schedule changes. Closing it returns to the manager without reopening the editor. Definitions use `calsync_custom_supplements` and signed-in changes use the existing `user_settings.custom_supplements` queue; Local Storage remains the immediate source of truth. Dated checkmarks remain in the compatible `calsync_supplements_taken` map and use the stable supplement ID. The daily view keeps Creatine and Magnesium due every day, shows custom entries only when due on the selected date, and counts only those due entries for daily progress. A day with no due supplements has an empty state rather than a completed `0/0` count. Existing date selection and future-day locking remain in effect. Renaming keeps the ID; editing a schedule preserves checkmarks, and removing a definition leaves its prior intake records untouched. The supplement section is exposed in the extra menu only when tracking is enabled.
 
 ### Export and account
 
@@ -151,13 +180,15 @@ Settings provides local export, local health-data deletion, and a separate full-
 
 The login page handles login, registration, MFA verification, password reset, MFA reset, confirmation and the logged-in state. Password login can lead to an MFA challenge. Registration passes name/avatar metadata to Supabase. The logged-in state offers Go back to app, Manage Account (to `/account`) and Logout. Password changes and TOTP setup, testing and removal happen on `/account`. The account page also reads and updates the owner profile's newsletter preference; the UI states that no email service is connected and sends no newsletter. `AuthContext` synchronizes local data after successful sign-in. A verified factor requires AAL2; the app checks verified factor status as well as assurance level. Shared OTP fields support paste and authenticator autofill. Login views respect reduced-motion preferences. When MFA is required, `AppShell` displays a gate with the pending account identity, a link to `/login` and a sign-out action. The limited `mfaUser` context value identifies that pending session; it does not authorize health-data access.
 
-The update center stores a separate acknowledged changelog version for guests and each signed-in user ID. Signed-in users combine only their own local value with their `profiles.latest_version`; failed profile reads or writes retain the local fallback without claiming cloud persistence. The old browser-wide marker is ignored. The profile-version migration is described in historical audit notes but is absent from this checkout, so its deployed column/grants and the profile's owner/MFA policies cannot be verified here. The one checked-in SQL migration adds newsletter preference columns and grants; it does not create the profile table or its base policies.
+The update center stores a separate acknowledged changelog version for guests and each signed-in user ID. Signed-in users combine only their own local value with their `profiles.latest_version`; failed profile reads or writes retain the local fallback without claiming cloud persistence. The old browser-wide marker is ignored. The profile-version and newsletter migrations are described in historical audit notes but are absent from this checkout, so their deployed columns/grants and the profile's owner/MFA policies cannot be verified here. The checked-in SQL migration adds only custom supplement definitions to `user_settings`.
 
 Session tokens are held in cookies through the Supabase SSR browser client. HealthSync does not maintain its own password database and does not store session tokens as domain data in Local Storage.
 
 ## Onboarding and tour
 
 When `calsync_onboarding_done` is missing, `AppShell` redirects unsigned users to `/onboarding`. The onboarding page sets the marker, dispatches `onboarding:done` and replaces the route with `/dash`.
+
+The final onboarding slide links to the HealthSync GitHub issue tracker.
 
 Afterwards, the tooltip tour can start or be requested again from the tour code. It waits for elements with known IDs and stops after bounded retries if a target never appears.
 

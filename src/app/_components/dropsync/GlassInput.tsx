@@ -10,7 +10,7 @@ const G_H = G_BOT - G_TOP;
 
 const SCALE_LEFT = [1000,900,800,700,600,500,400,300,200,100,0];
 const SCALE_RIGHT = [1000,900,800,700,600,500,400,300,200,100,0];
-const QUICK_AMOUNTS = [100,150,200,250,330,400,500,750,1000];
+const QUICK_AMOUNTS = [100,250,330,500,750,1000];
 
 interface GlassInputProps {
     amount: number;

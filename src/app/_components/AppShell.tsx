@@ -11,6 +11,7 @@ import Toast from './shared/Toast';
 import PullToRefresh from './shared/PullToRefresh';
 import SettingsModal from './settings/SettingsModal';
 import NotesModal from './settings/NotesModal';
+import CustomSupplementsModal from './settings/CustomSupplementsModal';
 import WorkoutModal from './settings/WorkoutModal';
 import WorkoutHistoryModal from './settings/WorkoutHistoryModal';
 import SupplementsModal from './settings/SupplementsModal';
@@ -18,7 +19,9 @@ import BarcodeSearchPopup from './calsync/BarcodeSearchPopup';
 import UpdateCenter from './update/UpdateCenter';
 import AiDetectionIndicator from './calsync/AiDetectionIndicator';
 import GlobalFoodActions from './calsync/GlobalFoodActions';
+import { isAiUsable } from '../_lib/aiConfig';
 import { logFoodEntry } from '../_lib/foodLog';
+import { openFoodImagePicker } from '../_lib/foodImagePicker';
 import type { FoodEntry } from '../_lib/types';
 import { removeHeaderBtn, addHeaderBtn } from '../_lib/headerBtns';
 import { consumePendingTour, startTourWhenReady } from '../_lib/tour';
@@ -49,7 +52,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         openFoodAction, closeFoodAction,
     } = useAppShell();
 
-    const { canUsePreferences } = useCookieConsent();
+    const { canUsePreferences, canUseThirdParty } = useCookieConsent();
     const { user, mfaRequired, mfaUser, logout, showToast } = useAuth();
 
     const [onboardingDone, setOnboardingDone] = useState(true);
@@ -58,6 +61,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const [deferredPrompt, setDeferredPrompt] = useState<InstallPromptEvent | null>(null);
     const [searchPopupOpen, setSearchPopupOpen] = useState(false);
     const [searchPopupMode, setSearchPopupMode] = useState<'search' | 'camera'>('search');
+    const [customSupplementsOpen, setCustomSupplementsOpen] = useState(false);
     const foodOwnerRef = useRef(user?.id ?? 'guest');
 
     useEffect(() => {
@@ -76,18 +80,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         const read = () => {
-            setSupplementsEnabled(localStorage.getItem('calsync_track_supplements') === 'true');
-            setAiDetectionUsable(
-                localStorage.getItem('calsync_ai_enabled') === 'true'
-                && !!localStorage.getItem('calsync_ai_api_key'),
-            );
+            setSupplementsEnabled(canUsePreferences && localStorage.getItem('calsync_track_supplements') === 'true');
+            setAiDetectionUsable(isAiUsable());
         };
-        if (canUsePreferences) {
-            read();
-            window.addEventListener('storage', read);
-        }
-        return () => window.removeEventListener('storage', read);
-    }, [canUsePreferences, user?.id]);
+        read();
+        window.addEventListener('storage', read);
+        window.addEventListener('cookieSettingsChanged', read);
+        return () => {
+            window.removeEventListener('storage', read);
+            window.removeEventListener('cookieSettingsChanged', read);
+        };
+    }, [canUsePreferences, canUseThirdParty, user?.id]);
 
     useEffect(() => {
         const handler = () => setOnboardingDone(true);
@@ -173,12 +176,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         if (action === 'describe-food') {
             if (pathname === '/food') router.push('/food?openModal=true&mode=describe');
             else openFoodAction('describe');
-        } else if (action === 'import-food') {
-            if (pathname === '/food') router.push('/food?openModal=true&mode=import');
-            else openFoodAction('import');
-        } else if (action === 'capture-food') {
-            if (pathname === '/food') router.push('/food?openModal=true&mode=capture');
-            else openFoodAction('capture');
+        } else if (action === 'import-food' || action === 'capture-food') {
+            if (!canUseThirdParty) { showToast('AI detection requires third-party consent.'); return; }
+            const mode = action === 'import-food' ? 'import' : 'capture';
+            openFoodImagePicker(mode, () => {
+                if (pathname === '/food') window.dispatchEvent(new CustomEvent('navigate:food', { detail: { openModal: true, mode } }));
+                else openFoodAction(mode);
+            });
         } else if (action === 'search-food') setSearchPopupOpen(true);
         else if (action === 'scan-barcode') setSearchPopupOpen(true);
         else if (action === 'log-drink') {
@@ -186,7 +190,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         } else if (action === 'training') openWorkout();
         else if (action === 'workout-history') openWorkoutHistory();
         else if (action === 'supplements') openSupplements();
-    }, [router, pathname, openFoodAction, setExtraMenuOpen, openWorkout, openWorkoutHistory, openSupplements, supplementsEnabled, aiDetectionUsable]);
+    }, [router, pathname, openFoodAction, setExtraMenuOpen, openWorkout, openWorkoutHistory, openSupplements, supplementsEnabled, aiDetectionUsable, canUseThirdParty, showToast]);
 
     const handleFoodLog = useCallback(async (entry: FoodEntry) => {
         const { cloudPending } = await logFoodEntry(entry, user?.id);
@@ -219,6 +223,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const handleOpenNotesFromSettings = useCallback(() => {
         openNotes();
     }, [openNotes]);
+    const handleOpenCustomSupplements = useCallback(() => {
+        setCustomSupplementsOpen(true);
+    }, []);
+    const handleCloseCustomSupplements = useCallback(() => {
+        setCustomSupplementsOpen(false);
+    }, []);
     if (mfaRequired && pathname !== '/login' && !pathname.startsWith(LEGAL_ROUTES_PREFIX)) {
         return <main className="mfa-gate">
             <div className="mfa-gate__content">
@@ -355,9 +365,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     isOpen={settingsOpen}
                     onClose={handleSettingsClose}
                     onOpenNotes={handleOpenNotesFromSettings}
+                    onOpenCustomSupplements={handleOpenCustomSupplements}
                 />
 
                 <NotesModal isOpen={notesOpen} onClose={closeNotes} />
+                <CustomSupplementsModal
+                    isOpen={customSupplementsOpen}
+                    onClose={handleCloseCustomSupplements}
+                />
                 <WorkoutModal isOpen={workoutOpen} onClose={closeWorkout} />
                 <WorkoutHistoryModal isOpen={workoutHistoryOpen} onClose={closeWorkoutHistory} />
                 <SupplementsModal isOpen={supplementsOpen} onClose={closeSupplements} />

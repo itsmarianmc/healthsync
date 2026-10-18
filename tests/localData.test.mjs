@@ -39,6 +39,27 @@ test('legacy data stays in guest workspace across two account switches', () => {
   assert.deepEqual(JSON.parse(localStorage.getItem('calsync_v1')), [{ id: 'guest-meal' }]);
 });
 
+test('custom supplement definitions stay isolated by workspace and clear with health data', () => {
+  const guestDefinitions = JSON.stringify([{ id: 'guest-supplement', name: 'Guest', schedule: { mode: 'weekdays', weekdays: [1] } }]);
+  const accountADefinitions = JSON.stringify([{ id: 'account-A-supplement', name: 'A', schedule: { mode: 'weekdays', weekdays: [2] } }]);
+  localStorage.setItem('calsync_custom_supplements', guestDefinitions);
+  local.switchWorkspace('user-A');
+  assert.equal(localStorage.getItem('calsync_custom_supplements'), null);
+
+  localStorage.setItem('calsync_custom_supplements', accountADefinitions);
+  local.switchWorkspace('user-B');
+  assert.equal(localStorage.getItem('calsync_custom_supplements'), null);
+
+  localStorage.setItem('calsync_custom_supplements', JSON.stringify([{ id: 'account-B-supplement', name: 'B', schedule: { mode: 'weekdays', weekdays: [3] } }]));
+  local.switchWorkspace('user-A');
+  assert.equal(localStorage.getItem('calsync_custom_supplements'), accountADefinitions);
+  local.clearActiveHealthData();
+  assert.equal(localStorage.getItem('calsync_custom_supplements'), null);
+
+  local.switchWorkspace('guest');
+  assert.equal(localStorage.getItem('calsync_custom_supplements'), guestDefinitions);
+});
+
 test('workspace switch leaves active data untouched when saving the snapshot fails', () => {
   local.switchWorkspace('user-A');
   localStorage.setItem('calsync_v1', '[{"id":"A-meal"}]');
@@ -160,9 +181,9 @@ test('a cloud reset invalidates an offline device queue', () => {
 test('MFA is required only for verified-factor sessions below aal2', () => {
   assert.equal(hasVerifiedMfaFactor([{ status: 'unverified' }]), false);
   assert.equal(hasVerifiedMfaFactor([{ status: 'verified' }]), true);
-  assert.equal(needsMfaVerification('aal1', false), false); // pending enrollment is not active MFA
-  assert.equal(needsMfaVerification('aal1', true), true); // verified factor, session still aal1
-  assert.equal(needsMfaVerification('aal2', true), false); // verified factor already used
+  assert.equal(needsMfaVerification('aal1', false), false);
+  assert.equal(needsMfaVerification('aal1', true), true);
+  assert.equal(needsMfaVerification('aal2', true), false);
   assert.equal(protectedApiMayProceed('aal1', false), true);
   assert.equal(protectedApiMayProceed('aal1', true), false);
   assert.equal(protectedApiMayProceed('aal2', true), true);

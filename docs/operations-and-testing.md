@@ -44,6 +44,11 @@ npx playwright test e2e/settings.spec.ts
 npx playwright test --ui
 ```
 
+`npm test` includes `tests/supplements.test.mjs`, which covers weekday selection,
+interval start and pre-start dates, two-day intervals across a week boundary,
+invalid definitions, and calendar-day arithmetic across the Berlin spring DST
+change.
+
 ## Playwright configuration
 
 `playwright.config.ts` uses `e2e/` as the test directory, calls `/dash`, `/food`, `/drinks`, `/login` and `/onboarding` in global setup, and uses `BASE_URL` or `http://localhost:3000`. In CI it starts `npm run build && npm run start` as the web server, with one worker and two retries. Locally it uses a Desktop Edge project with a fixed executable path.
@@ -67,6 +72,9 @@ For UI/data changes also check manually:
 4. Settings change and Local Storage event.
 5. Login, MFA and cloud sync when Supabase is configured.
 6. offline navigation after Service Worker installation.
+7. Settings → Track Supplements: open the manager only with tracking and
+   Preferences consent, switch between Days and Interval, confirm the sheet
+   resizes, and close the editor with its X without a reopening flash.
 
 ## Deployment
 
@@ -85,7 +93,7 @@ For Vercel, set environment variables in project settings. For a self-managed No
    RLS without defining policies and is not a complete setup procedure.
 3. Review the actual schema, policies, grants and constraints using
    [`security-migration.md`](./security-migration.md). This checkout contains
-   only the additive newsletter preference migration; it does not contain the
+   only the additive custom-supplements migration; it does not contain the
    base schema or security migration chain described in older audit notes.
 4. Do not assume that the historical reports of a clone migration establish
    the state of another project or the current remote schema.
@@ -104,6 +112,7 @@ The `updated_at` trigger on `user_settings` is important because workout routine
 ## PWA and offline behavior
 
 - `public/manifest.json` defines name, icons, standalone mode, start URL and shortcuts.
+- `src/app/layout.tsx` uses the default iOS status-bar style and a fixed 1px theme-colored background to mitigate status-bar blur without extra padding. Verify on an actual iOS Home Screen app; re-adding the app may be needed to refresh the installed metadata, so export local tracking data before removing it.
 - `src/app/sw.ts` uses Serwist precaching and runtime caching.
 - Navigation failures serve `public/offline.html`.
 - The Service Worker is registered through the generated Serwist route.
@@ -163,4 +172,42 @@ When adding an external host, update `connect-src`, `img-src`, `script-src` or `
 - Use Supabase backups or `pg_dump` as described in `hosting.md`.
 - Use the local Settings export for user export.
 - A GDPR-oriented rebuild should add a server-side portability/export feature; the current default is primarily local.
+
+## Controlled sync and AI regression evidence — October 17, 2026
+
+The original `performCloudSync` callback from revision `67ba5ae` was executed
+with a deferred final food pull. A confirmed food entry was added while that
+pull was outstanding. The old callback removed that entry both after a failed
+parallel single upload (pending ID remained) and after a successful upload
+(pending ID was already cleared). This reproduces the overwrite mechanism in a
+controlled harness, not the reported production incident. The production row
+limit and whether a reset marker was involved remain unknown.
+
+The current regression suite covers the final local reread, food/drink upload
+failures and successes, capped/incomplete cloud pages, tombstones, Undo, late
+opposite-intent acknowledgements and workspace changes including A → B → A.
+AI cases cover guest/A/B isolation, explicit adoption/decline, missing key or
+terms, denied service consent, resets and late/out-of-order key validation.
+
+Executed checks:
+
+- `npm test`: 73 passing Node tests, including existing local-data, workout and
+  supplement tests.
+- `npx playwright test e2e/ai-workspaces.spec.ts --workers=1 --reporter=line`:
+  seven passing Edge browser fixtures. These bundle the real login, AuthProvider,
+  Settings, AppShell and AI provider with **mocked Supabase transport and Next
+  navigation** (`e2e/fixtures/ai-app.ts`). Service Workers and external services
+  are blocked; Gemini validation receives only fixture responses. This does not
+  establish real cookie authentication, server authorization, RLS or cloud state.
+- Eleven existing `e2e/food-image-picker.spec.ts` cases passed against the local
+  Next development app with external requests intercepted. The consent case now
+  expects unavailable AI actions to be disabled consistently.
+- `npx tsc --noEmit` and `git diff --check` passed.
+- `npm run lint` was executed and remains failing with 121 errors and 48
+  warnings. The modified tracked TypeScript files were compared with their HEAD
+  versions through ESLint: no new findings; Settings has one fewer existing
+  error. All new source and test files have zero lint findings.
+
+No production access, deployment, schema change, real Auth/Supabase acceptance
+test or production build was performed for this change.
 

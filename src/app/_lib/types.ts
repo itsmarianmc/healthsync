@@ -47,6 +47,17 @@ export interface DrinkEntry {
 export type ActivityStatusValue = 'active' | 'sick' | 'injured' | 'on_a_break';
 export type StatusDurationValue = 'until_changed' | 'until_tomorrow' | '7_days' | '14_days' | 'custom';
 
+export type SupplementSchedule =
+  | { mode: 'weekdays'; weekdays: number[] }
+  | { mode: 'interval'; everyDays: number; startDate: string };
+
+export interface CustomSupplement {
+  id: string;
+  name: string;
+  dose?: string;
+  schedule: SupplementSchedule;
+}
+
 export interface ActivityStatusRecord {
   status: ActivityStatusValue;
   duration: StatusDurationValue;
@@ -66,6 +77,7 @@ export interface UserSettings {
   track_supplements?: boolean | null;
   weight_kg?: number | null;
   supplements_taken?: Record<string, Record<string, boolean>> | null;
+  custom_supplements?: CustomSupplement[] | null;
   workout_routines?: WorkoutRoutines | null;
   status?: ActivityStatusRecord | null;
   updated_at?: string;

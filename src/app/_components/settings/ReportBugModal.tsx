@@ -19,6 +19,7 @@ export default function ReportBugModal({ isOpen, onClose }: ReportBugModalProps)
 
     useEffect(() => {
         if (!isOpen) return;
+
         const params = new URLSearchParams({
             cnt_src: 'healthsync',
             user_id: user?.id ?? '',
@@ -27,6 +28,19 @@ export default function ReportBugModal({ isOpen, onClose }: ReportBugModalProps)
             hide_header: '1',
             hide_footer: '1',
         });
+
+        const additionalConsents = [
+            ['HealthSync AI Guidelines', 'https://healthsync.itsmarian.dev/legal/ai-guidelines'],
+            ['HealthSync Cookie Policy', 'https://healthsync.itsmarian.dev/legal/cookies'],
+            ['HealthSync Privacy Policy', 'https://healthsync.itsmarian.dev/legal/privacy'],
+            ['HealthSync Terms of Use', 'https://healthsync.itsmarian.dev/legal/terms'],
+        ];
+
+        for (const [name, url] of additionalConsents) {
+            params.append('consent_name', name);
+            params.append('consent_url', url);
+        }
+
         setSrc(`https://itsmarian.dev/report?${params.toString()}`);
     }, [isOpen, user?.id, pathname]);
 

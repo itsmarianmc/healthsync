@@ -1,5 +1,4 @@
-// The unprefixed keys are the active workspace. A saved workspace is never
-// merged into a different account, including after a browser restart.
+// Unprefixed keys hold the active workspace; snapshots remain tied to their owner across restarts.
 export const HEALTH_DATA_KEYS = [
   'calsync_v1', 'dropsync_v3', 'healthsync_workout_logs', 'healthsync_workouts',
   'calsync_pending', 'calsync_goal', 'calsync_goal_protein',
@@ -7,7 +6,7 @@ export const HEALTH_DATA_KEYS = [
   'calsync_active_draft', 'dropsync_goal',
   'calsync_goal_ml',
   'calsync_user_weight_kg', 'calsync_creatine_goal', 'calsync_magnesium_goal',
-  'calsync_track_supplements', 'calsync_supplements_taken',
+  'calsync_track_supplements', 'calsync_supplements_taken', 'calsync_custom_supplements',
   'healthsync_activity_status', 'healthsync_rest_seconds', 'healthsync_pending_food',
   'healthsync_pending_drinks', 'healthsync_pending_workouts',
   'healthsync_deleted_food', 'healthsync_deleted_drinks',
@@ -24,6 +23,23 @@ export const HEALTH_DATA_KEYS = [
 const OWNER_KEY = 'healthsync_active_owner';
 const workspaceKey = (owner: string) => `healthsync_workspace_${owner}`;
 export const GUEST_OWNER = 'guest';
+let workspaceRevision = 0;
+let mutationRevision = 0;
+const entryMutations = new Map<string, number>();
+
+// A -> B -> A and explicit resets also invalidate outstanding asynchronous work.
+export function workspaceGuard(owner = activeOwner()): () => boolean {
+  const revision = workspaceRevision;
+  return () => activeOwner() === owner && workspaceRevision === revision;
+}
+
+export function entryMutationRevision(): number { return mutationRevision; }
+export function entryChangedSince(kind: 'food' | 'drinks', id: string, revision: number): boolean {
+  return (entryMutations.get(`${kind}:${id}`) || 0) > revision;
+}
+function recordEntryMutation(kind: string, id: string): void {
+  entryMutations.set(`${kind}:${id}`, ++mutationRevision);
+}
 
 export function activeOwner(): string {
   // Existing unscoped data belongs to the guest until the user explicitly imports it.
@@ -58,6 +74,8 @@ export function switchWorkspace(owner: string): void {
     for (const [key, value] of Object.entries(snapshot)) localStorage.setItem(key, value);
     throw error;
   }
+  workspaceRevision += 1;
+  entryMutations.clear();
   window.dispatchEvent(new Event('storage'));
 }
 
@@ -80,8 +98,7 @@ export function importGuestData(owner: string): void {
     added.forEach(item => pending.add(item.id));
     localStorage.setItem(pendingKey, JSON.stringify([...pending]));
   }
-  // Consume only the entries transferred to the account. Keep guest settings,
-  // routines and preferences in their own workspace instead of discarding them.
+  // Import consumes tracked entries while preserving guest settings, routines and preferences.
   importedKeys.forEach(key => { guest[key] = '[]'; });
   for (const key of [
     'healthsync_pending_food', 'healthsync_pending_drinks', 'healthsync_pending_workouts',
@@ -98,7 +115,8 @@ export function hasGuestData(): boolean {
   });
 }
 
-export function markPending(kind: 'food' | 'drinks' | 'workouts', id: string): void {
+export function markPending(kind: 'food' | 'drinks' | 'workouts', id: string, recordChange = true): void {
+  if (recordChange) recordEntryMutation(kind, id);
   const key = `healthsync_pending_${kind}`;
   const ids = new Set(JSON.parse(localStorage.getItem(key) || '[]') as string[]);
   ids.add(id);
@@ -117,6 +135,8 @@ export function pendingIds(kind: 'food' | 'drinks' | 'workouts'): Set<string> {
 }
 
 export function clearActiveHealthData(): void {
+  workspaceRevision += 1;
+  entryMutations.clear();
   HEALTH_DATA_KEYS.forEach(key => localStorage.removeItem(key));
   window.dispatchEvent(new Event('storage'));
 }
@@ -138,6 +158,8 @@ export function acknowledgeSettings(saved: Record<string, unknown>): void {
 }
 
 export function markDeleted<T extends { id: string }>(kind: 'food' | 'drinks', entry: T): void {
+  recordEntryMutation(kind, entry.id);
+  if (kind === 'food') clearRestoredFood(entry.id);
   const key = `healthsync_deleted_${kind}`;
   const deleted = JSON.parse(localStorage.getItem(key) || '{}') as Record<string, T>;
   deleted[entry.id] = entry;
@@ -157,6 +179,7 @@ export function clearDeleted(kind: 'food' | 'drinks', ids: string[]): void {
 }
 
 export function markRestoredFood(id: string): void {
+  recordEntryMutation('food', id);
   clearDeleted('food', [id]);
   const ids = new Set(JSON.parse(localStorage.getItem('healthsync_restored_food') || '[]') as string[]);
   ids.add(id);

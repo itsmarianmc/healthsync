@@ -143,8 +143,7 @@ export default function UpdateCenter() {
         const serwist = new Serwist('/serwist/sw.js', { type: 'module', scope: '/' });
         globalWindow.serwist = serwist;
 
-        // The pending marker survives the reload initiated after a waiting worker activates.
-        // Consume it on the next app boot so fresh installs and ordinary visits stay quiet.
+        // Consume the post-update reload marker once; fresh installs and ordinary visits stay quiet.
         if (readPendingReloadAfterUpdate()) {
             writePendingReloadAfterUpdate(false);
             showChangelogAfterUpdateRef.current = true;
