@@ -392,38 +392,6 @@ input[type=number]::-webkit-inner-spin-button {
 	opacity: 0.65;
 }
 
-.btn--primary {
-	width: 100%;
-	padding: 0.9rem;
-	background: var(--accent);
-	border: none;
-	border-radius: var(--radius-sm);
-	color: #fff;
-	font-family: "DM Sans", sans-serif;
-	font-size: 1rem;
-	font-weight: 600;
-	cursor: pointer;
-	transition: transform 0.18s var(--ease), box-shadow 0.18s;
-	margin-top: 0.4rem;
-	position: relative;
-	overflow: hidden;
-	letter-spacing: 0.1px;
-}
-
-.btn--primary:hover:not(:disabled) {
-	transform: translateY(-2px);
-	box-shadow: 0 8px 32px var(--shadow-app);
-}
-
-.btn--primary:active:not(:disabled) {
-	transform: scale(0.98);
-}
-
-.btn--primary:disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
-}
-
 .btn-ghost {
 	width: 100%;
 	padding: 0.85rem;

@@ -215,7 +215,7 @@ export default function DropSync({
             </div>
 
             <DrinkLog entries={entries} onDelete={handleDeleteEntry} onClearAll={handleClearAll} />
-            <HistoryModal entries={entries} isOpen={historyOpen} onClose={() => setHistoryOpen(false)} />
+            <HistoryModal entries={entries} goal={goal} isOpen={historyOpen} onClose={() => setHistoryOpen(false)} />
 
             <DropSyncModal
                 isOpen={modalOpen}

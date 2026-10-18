@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
+## [4.3.0] - 2026-10-18
+
+### Added
+- **Seven-day hydration history**: `HistoryModal` now charts the last seven local calendar days, including zero-entry days, with daily amounts, a goal marker and a goal-colored seven-day average. `DropSync` passes the current goal to the history sheet. Added Playwright coverage for empty history, goal changes, chart geometry and the existing CalSync chart.
+- **Source-code license**: Added a root `LICENSE` containing the full MIT text for HealthSync's original source code. The README and About & Licenses view now distinguish that scope from marks, exercise media, datasets and third-party material, and from the hosted service's terms.
+- **In-context data credits**: Added Open-Meteo and OpenStreetMap links in the weather widget and an Open Food Facts database/content credit below product search results.
+
+### Changed
+- **Third-party license details**: Revised About & Licenses to identify the referenced Font Awesome Free 7.2.0 CSS and webfonts separately, installed Supabase SDK packages separately from the hosted service, ZXing Browser 0.2.1, the locally observed DM Sans metadata, and the reused Material Icons SVG. Included the relevant MIT, OFL and Apache license text or links, and removed the Supabase Apache/Creative Commons mismatch.
+- **Data and media provenance**: Distinguished Open Food Facts database, contents and image terms; separated the ODbL's `DATABASE NAME` example from HealthSync's own credit; linked the Nominatim service policy separately from OpenStreetMap data attribution; and marked the exercise catalog text mapping and exercise media rights as unverified.
+- **Rights footers and layout**: Replaced blanket “All rights reserved” footers with the source-code license scope. Moved the shared primary-button styles out of login-only CSS, added a visible keyboard focus outline, reserved scrollbar space and tightened About, hydration-history and onboarding-tooltip spacing.
+
+### Fixed
+- **Global error styling**: Imported the shared stylesheet in `global-error.tsx` so the fallback screen and its retry button can use the same styles as other app error screens.
+
 ## [4.2.0] - 2026-10-17
 
 ### Added

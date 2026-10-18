@@ -116,10 +116,18 @@ HealthSync can be self-hosted on Vercel, any Node.js host, or in Docker. The cur
 
 ## License
 
-MIT
+HealthSync's original source code is licensed under the [MIT License](./LICENSE),
+copyright © 2026 itsmarian. This license does not grant rights to HealthSync's
+name or trademarks, logo, favicons, exercise media, datasets, or third-party
+software and content. Those materials retain their own rights and terms; the
+rights to the exercise media remain to be verified.
+
+The source-code license does not grant permission to use the hosted HealthSync
+service commercially or relicense third-party material. The hosted service has
+separate [Terms of Use](https://healthsync.itsmarian.dev/legal/terms).
 
 
 <h1></h1>
 <p align="center">
-    <span>&copy; 2026 HEALTHSYNC via <a href="https://github.com/itsmarianmc/">itsmarian</a> | All rights reserved.</span>
+    <span>&copy; 2026 <a href="https://github.com/itsmarianmc/">itsmarian</a> | Original source code: <a href="./LICENSE">MIT</a>; other materials retain their own rights.</span>
 </p>

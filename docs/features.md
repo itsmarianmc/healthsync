@@ -124,7 +124,7 @@ Saving appends a `DrinkEntry` locally, updates UI state and calls `syncDrinkToCl
 
 ### History and deletion
 
-`HistoryModal` groups entries by date and uses “Today”, “Yesterday” or a formatted date. Individual entries and the current day's entries can be deleted. The confirmation can be disabled with `dropsync_delete_warning`.
+`HistoryModal` shows a seven-day hydration chart including today above the date-grouped entries. Missing days count as 0 ml; the average divides the seven daily totals by seven. Bars stay hydration blue; only the average is colored relative to the daily goal, with a neutral goal marker when the goal is positive. The chart remains visible when history is empty. Groups use “Today”, “Yesterday” or a formatted date. Individual entries and the current day's entries can be deleted. The confirmation can be disabled with `dropsync_delete_warning`.
 
 ## Workouts
 
