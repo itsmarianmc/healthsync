@@ -9,7 +9,7 @@ test.use({ serviceWorkers: 'block' });
 const origin = new URL(process.env.BASE_URL ?? 'http://localhost:3000').origin;
 const accounts = { A: '11111111-1111-4111-8111-111111111111', B: '22222222-2222-4222-8222-222222222222' };
 
-async function prepare(page: Page, missing?: 'key' | 'terms') {
+async function prepare(page: Page, accountA?: { enabled: string; terms?: string; key?: string }) {
   let releaseValidation: (() => void) | undefined;
   let validationStarted: (() => void) | undefined;
   const started = new Promise<void>(resolve => { validationStarted = resolve; });
@@ -29,7 +29,7 @@ async function prepare(page: Page, missing?: 'key' | 'terms') {
     if (route.request().isNavigationRequest()) return route.fulfill({ contentType: 'text/html', body: fixture.html });
     return route.abort();
   });
-  await page.addInitScript(({ missing, accountB }) => {
+  await page.addInitScript(({ accountA, accountB, accountAId }) => {
     if (localStorage.getItem('ai_fixture_initialized')) return;
     localStorage.clear();
     localStorage.setItem('ai_fixture_initialized', 'true');
@@ -37,12 +37,17 @@ async function prepare(page: Page, missing?: 'key' | 'terms') {
     localStorage.setItem('bannerAccepted', 'true');
     localStorage.setItem('cookieSettings', JSON.stringify({ analytics: false, preferences: true, thirdparty: true }));
     localStorage.setItem('calsync_ai_enabled', 'true');
-    if (missing !== 'terms') localStorage.setItem('calsync_ai_terms_accepted', 'true');
-    if (missing !== 'key') localStorage.setItem('calsync_ai_api_key', 'guest-fixture');
+    localStorage.setItem('calsync_ai_terms_accepted', 'true');
+    localStorage.setItem('calsync_ai_api_key', 'guest-fixture');
+    if (accountA) localStorage.setItem(`healthsync_workspace_${accountAId}`, JSON.stringify({
+      calsync_ai_enabled: accountA.enabled,
+      ...(accountA.terms === undefined ? {} : { calsync_ai_terms_accepted: accountA.terms }),
+      ...(accountA.key === undefined ? {} : { calsync_ai_api_key: accountA.key }),
+    }));
     localStorage.setItem(`healthsync_workspace_${accountB}`, JSON.stringify({
       calsync_ai_enabled: 'false', calsync_ai_terms_accepted: 'true', calsync_ai_api_key: 'B-fixture',
     }));
-  }, { missing, accountB: accounts.B });
+  }, { accountA, accountB: accounts.B, accountAId: accounts.A });
   return { hold: () => { holdValidation = true; }, started, release: () => releaseValidation?.() };
 }
 
@@ -81,7 +86,9 @@ async function shellAvailability(page: Page, enabled: boolean) {
   await page.locator('#extraActionBtn').click();
   if (enabled) await expect(page.locator('[data-action="import-food"]')).toBeEnabled();
   else await expect(page.locator('[data-action="import-food"]')).toBeDisabled();
-  await page.locator('#extraActionBtn').click();
+  // The expanded grid covers its trigger; close via the normal outside-click handler.
+  await page.mouse.click(5, 5);
+  await expect(page.locator('#extraActionBtn')).not.toHaveClass(/open/);
 }
 
 
@@ -93,13 +100,11 @@ async function providerAvailability(page: Page, enabled: boolean) {
   await page.getByRole('link', { name: 'Home', exact: true }).click();
 }
 
-test('guest config -> empty A: explicit adoption, toggle refresh, own B and guest remain separate', async ({ page }) => {
-  await prepare(page);
+test('own A configuration, toggle refresh, own B and guest remain separate', async ({ page }) => {
+  await prepare(page, { enabled: 'true', terms: 'true', key: 'A-fixture' });
   await login(page, 'A');
   await settings(page);
-  await expect(page.locator('#aiEnabledToggle')).toHaveAttribute('aria-checked', 'false');
-  await expect(page.locator('#guestAiConfigOffer')).toBeVisible();
-  await page.getByRole('button', { name: 'Use guest AI settings, key and accepted terms' }).click();
+  await expect(page.locator('#aiApiKeyInput')).toHaveValue('A-fixture');
   await expect(page.locator('#aiEnabledToggle')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#aiStatusBox')).toBeVisible();
   await shellAvailability(page, true);
@@ -126,38 +131,57 @@ test('guest config -> empty A: explicit adoption, toggle refresh, own B and gues
   await expect(page.locator('#aiApiKeyInput')).toHaveValue('guest-fixture');
 });
 
-test('declining guest adoption persists across reload without copying a key', async ({ page }) => {
+test('empty account keeps the standard disabled view across reload without copying guest values', async ({ page }) => {
   await prepare(page);
   await login(page, 'A');
+  for (let visit = 0; visit < 2; visit++) {
+    if (visit) await page.reload();
+    await settings(page);
+    await expect(page.locator('#guestAiConfigOffer')).toHaveCount(0);
+    await expect(page.locator('#aiDetection .settings-section-title')).toContainText('AI Detection');
+    await expect(page.locator('#aiEnabledToggle')).toBeVisible();
+    await expect(page.locator('#aiEnabledToggle')).toHaveAttribute('aria-checked', 'false');
+    await expect(page.locator('#aiInfoBox')).toBeVisible();
+    await expect(page.locator('#aiInfoBox')).toContainText('Gemini API');
+    await expect(page.locator('#aiSettings')).toHaveCount(0);
+    expect(await page.evaluate(() => ['calsync_ai_enabled', 'calsync_ai_terms_accepted', 'calsync_ai_api_key'].map(key => localStorage.getItem(key)))).toEqual([null, null, null]);
+    expect(await page.evaluate(() => {
+      const guest = JSON.parse(localStorage.getItem('healthsync_workspace_guest') || '{}');
+      return [guest.calsync_ai_enabled, guest.calsync_ai_terms_accepted, guest.calsync_ai_api_key];
+    })).toEqual(['true', 'true', 'guest-fixture']);
+    await shellAvailability(page, false);
+    await providerAvailability(page, false);
+  }
   await settings(page);
-  await page.getByRole('button', { name: 'Keep AI disabled for this account' }).click();
-  await page.reload();
-  await settings(page);
-  await expect(page.locator('#guestAiConfigOffer')).toHaveCount(0);
-  await expect(page.locator('#aiEnabledToggle')).toHaveAttribute('aria-checked', 'false');
-  expect(await page.evaluate(() => localStorage.getItem('calsync_ai_api_key'))).toBeNull();
+  await page.locator('#aiEnabledToggle').click();
+  await expect(page.locator('#aiTermsBox')).toBeVisible();
+  await page.locator('#aiTermsAccept').click();
+  await expect(page.locator('#aiApiKeyInput')).toHaveValue('');
+  await page.locator('#aiApiKeyInput').fill('A-fixture');
+  await page.locator('#saveApiKeyBtn').click();
+  await expect(page.locator('#aiStatusBox')).toBeVisible();
+  await shellAvailability(page, true);
+  await providerAvailability(page, true);
 });
 
 for (const missing of ['key', 'terms'] as const) {
-  test(`adoption keeps missing ${missing} distinct from stored activation`, async ({ page }) => {
-    await prepare(page, missing);
+  test(`account settings keep missing ${missing} distinct from stored activation`, async ({ page }) => {
+    await prepare(page, { enabled: 'true', ...(missing === 'terms' ? { key: 'A-fixture' } : { terms: 'true' }) });
     await login(page, 'A');
     await settings(page);
-    await page.getByRole('button', { name: 'Use guest AI settings, key and accepted terms' }).click();
     await expect(page.locator('#aiEnabledToggle')).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator('#aiStatusBox')).toHaveCount(0);
     if (missing === 'terms') await expect(page.locator('#aiTermsBox')).toBeVisible();
     else await expect(page.locator('#aiApiKeyInput')).toHaveValue('');
     await shellAvailability(page, false);
-  await providerAvailability(page, false);
+    await providerAvailability(page, false);
   });
 }
 
 test('late key validation after logout and login into B cannot change B settings', async ({ page }) => {
-  const validation = await prepare(page);
+  const validation = await prepare(page, { enabled: 'true', terms: 'true', key: 'A-fixture' });
   await login(page, 'A');
   await settings(page);
-  await page.getByRole('button', { name: 'Use guest AI settings, key and accepted terms' }).click();
   validation.hold();
   await page.locator('#aiApiKeyInput').fill('late-fixture');
   await page.locator('#saveApiKeyBtn').click();
@@ -210,7 +234,7 @@ test('a newer explicit cloud reset clears account AI configuration and food with
   await expect(page.locator('#aiEnabledToggle')).toHaveAttribute('aria-checked', 'false');
   expect(await page.evaluate(() => localStorage.getItem('calsync_ai_api_key'))).toBeNull();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('calsync_v1') || '[]'))).toEqual([]);
-  await expect(page.locator('#guestAiConfigOffer')).toBeVisible();
+  await expect(page.locator('#guestAiConfigOffer')).toHaveCount(0);
   await logout(page);
   await page.goto('/dash');
   await settings(page);

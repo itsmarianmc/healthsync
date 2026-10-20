@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
+## [4.3.1] - 2026-10-20
+
+### Removed
+- **Guest AI settings transfer**: Removed `#guestAiConfigOffer`, both transfer/decline actions and their state from `SettingsModal.tsx`, plus the unused `guestAiValues`, `canOfferGuestAiConfig` and `adoptGuestAiConfig` logic in `aiConfig.ts`. Empty accounts now show the standard AI Detection title, disabled switch and information text; terms and key inputs still follow normal activation. Existing guest/account values, workspace boundaries, consent checks and stale-validation guards remain unchanged.
+- **Weather-widget source footer**: Removed the inline Open-Meteo, CC BY 4.0 and OpenStreetMap attribution links from `WeatherWidget.tsx` without changing weather fetching or location handling.
+
+### Changed
+- **AI regression coverage**: Replaced transfer-specific unit and browser cases with empty-account defaults, absence of the transfer card, preserved guest values and normal account activation. Account fixtures now use their own AI values; the browser helper closes the expanded quick menu with an outside click. Workspace isolation, explicit reset, third-party consent and late key-validation coverage remain. Validation on 2026-10-20 passed 69 Node tests and seven Edge fixtures with mocked Supabase transport and Next navigation; lint reported 121 errors and 48 warnings, with no additional findings in changed files compared with `HEAD`.
+- **AI technical documentation**: Updated `docs/features.md`, `docs/data-model-and-storage.md` and the regression-suite description in `docs/operations-and-testing.md` for independent local AI configuration and empty-account defaults. The usual guest-data import continues to exclude AI settings.
+
 ## [4.3.0] - 2026-10-18
 
 ### Added
