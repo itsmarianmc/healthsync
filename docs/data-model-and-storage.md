@@ -169,18 +169,16 @@ checkmarks, and removing a definition does not delete its prior intake map.
 
 The three AI keys remain in `HEALTH_DATA_KEYS`: activation, accepted AI terms
 and the Gemini key belong to the active guest/account workspace. Login does not
-copy them from the guest, and cloud settings do not contain these keys. Settings
-offers an explicit, device-local copy of the guest AI configuration only when
-**all three account keys are absent**. Any existing account value, including
-`calsync_ai_enabled = 'false'`, prevents the offer and copy. Choosing to keep AI
-disabled stores that explicit account preference. The tracked guest-data import
-remains separate and does not import AI configuration.
+copy them from the guest, and cloud settings do not contain these keys. An account
+without AI values defaults to disabled, with no accepted terms or saved key.
+The tracked guest-data import does not import AI configuration. Existing guest
+and account settings remain separate and unchanged until edited or explicitly reset.
 
-`aiConfig.ts` copies only values that actually exist; activation does not imply
-a key or accepted terms. Availability requires activation, accepted AI terms,
-a non-empty saved key and current third-party consent. Settings writes and
-explicit adoption dispatch the existing `storage` event; Settings, AppShell and
-AiDetectionProvider reread active values on workspace/storage changes. Editing
+In `aiConfig.ts`, activation does not imply a key or accepted terms. Availability
+requires activation, accepted AI terms, a non-empty saved key and current
+third-party consent. Settings writes dispatch the existing `storage` event;
+Settings, AppShell and AiDetectionProvider reread active values on
+workspace/storage changes. Editing
 an unsaved key does not by itself show AI as active. Validation results are
 discarded after a workspace switch (including A → B → A), reset, newer validation
 request, changed AI configuration or revoked third-party consent. Keys stay local

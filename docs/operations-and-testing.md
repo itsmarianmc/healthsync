@@ -186,7 +186,7 @@ limit and whether a reset marker was involved remain unknown.
 The current regression suite covers the final local reread, food/drink upload
 failures and successes, capped/incomplete cloud pages, tombstones, Undo, late
 opposite-intent acknowledgements and workspace changes including A → B → A.
-AI cases cover guest/A/B isolation, explicit adoption/decline, missing key or
+AI cases cover guest/A/B isolation, empty-account defaults without AI transfer, missing key or
 terms, denied service consent, resets and late/out-of-order key validation.
 
 Executed checks:

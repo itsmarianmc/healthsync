@@ -303,12 +303,6 @@ export default function WeatherWidget() {
             <div className="weather-location">{weatherLocation}</div>
           </div>
         </div>
-        <div style={{ fontSize: '0.65rem', lineHeight: 1.2, textAlign: 'center' }}>
-          <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Weather: Open-Meteo</a>{' · '}
-          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>
-          <br />
-          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">Place: © OpenStreetMap contributors (ODbL)</a>
-        </div>
       </div>
     </>
   );
