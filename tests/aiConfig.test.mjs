@@ -21,14 +21,12 @@ test('guest -> A -> B -> guest restores independent configurations without autom
   local.switchWorkspace('A');
   assert.equal(ai.readAiConfig().configured, false);
   assert.equal(ai.isAiUsable(), false);
-  assert.equal(ai.canOfferGuestAiConfig(), true);
   configure(true, false, 'A-fixture');
   local.switchWorkspace('B');
   assert.equal(ai.readAiConfig().configured, false);
   configure(false, true, 'B-fixture');
   local.switchWorkspace('A');
   assert.deepEqual(ai.readAiConfig(), { configured: true, enabled: true, termsAccepted: false, apiKey: 'A-fixture' });
-  assert.equal(ai.canOfferGuestAiConfig(), false);
   local.switchWorkspace('B');
   assert.equal(ai.readAiConfig().enabled, false);
   local.switchWorkspace('guest');
@@ -36,56 +34,31 @@ test('guest -> A -> B -> guest restores independent configurations without autom
   assert.equal(ai.readAiConfig().apiKey, 'fixture-key');
 });
 
-test('explicit adoption copies only guest AI values into the active empty account and signals storage', () => {
+test('empty accounts keep AI defaults after login and tracked guest-data import', () => {
   configure();
   localStorage.setItem('calsync_v1', '[{"id":"guest-food"}]');
   local.switchWorkspace('A');
-  let events = 0;
-  window.addEventListener('storage', () => { events++; });
-  assert.equal(ai.adoptGuestAiConfig('A'), true);
-  assert.equal(events, 1);
-  assert.equal(ai.isAiUsable(), true);
-  assert.equal(localStorage.getItem('calsync_v1'), null);
-  assert.equal(localStorage.getItem('healthsync_pending_settings'), null);
-  local.switchWorkspace('B');
-  assert.equal(ai.readAiConfig().configured, false);
-  assert.equal(ai.adoptGuestAiConfig('A'), false);
+  const defaults = { configured: false, enabled: false, termsAccepted: false, apiKey: '' };
+  assert.deepEqual(ai.readAiConfig(), defaults);
+  const guest = localStorage.getItem('healthsync_workspace_guest');
+  local.importGuestData('A');
+  assert.deepEqual(ai.readAiConfig(), defaults);
+  assert.deepEqual(JSON.parse(localStorage.getItem('calsync_v1')), [{ id: 'guest-food' }]);
+  for (const key of ['calsync_ai_enabled', 'calsync_ai_terms_accepted', 'calsync_ai_api_key']) {
+    assert.equal(localStorage.getItem(key), null);
+    assert.equal(JSON.parse(localStorage.getItem('healthsync_workspace_guest'))[key], JSON.parse(guest)[key]);
+  }
   local.switchWorkspace('guest');
   assert.equal(ai.isAiUsable(), true);
-});
-
-for (const existing of ['disabled', 'own-key', 'declined-terms']) {
-  test(`adoption cannot override account ${existing}`, () => {
-    configure();
-    local.switchWorkspace('A');
-    if (existing === 'disabled') ai.writeAiConfig({ enabled: false });
-    if (existing === 'own-key') localStorage.setItem('calsync_ai_api_key', 'own-fixture');
-    if (existing === 'declined-terms') ai.writeAiConfig({ termsAccepted: false });
-    const before = ai.readAiConfig();
-    assert.equal(ai.canOfferGuestAiConfig(), false);
-    assert.equal(ai.adoptGuestAiConfig('A'), false);
-    assert.deepEqual(ai.readAiConfig(), before);
-  });
-}
-
-test('declining adoption explicitly keeps AI disabled across subsequent login', () => {
-  configure();
   local.switchWorkspace('A');
-  ai.writeAiConfig({ enabled: false });
-  local.switchWorkspace('guest');
-  local.switchWorkspace('A');
-  assert.equal(ai.canOfferGuestAiConfig(), false);
-  assert.equal(ai.isAiUsable(), false);
-  assert.equal(ai.readAiConfig().apiKey, '');
+  assert.deepEqual(ai.readAiConfig(), defaults);
 });
 
 for (const missing of ['key', 'terms', 'service-consent', 'activation']) {
   test(`activation never implies missing ${missing}`, () => {
+    local.switchWorkspace('A');
     configure(missing !== 'activation', missing !== 'terms', missing === 'key' ? '' : 'fixture');
     if (missing === 'service-consent') consent(false);
-    assert.equal(ai.isAiUsable(), false);
-    local.switchWorkspace('A');
-    assert.equal(ai.adoptGuestAiConfig('A'), missing !== 'service-consent');
     assert.equal(ai.isAiUsable(), false);
     if (missing === 'key') assert.equal(ai.readAiConfig().apiKey, '');
     if (missing === 'terms') assert.equal(ai.readAiConfig().termsAccepted, false);

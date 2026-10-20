@@ -69,18 +69,14 @@ Import Food and Capture Food open the input sheet and its native image/camera pi
 AI errors are classified internally as `quota`, `no_json` or `api_error` and converted to UI messages by `describeGeminiError`. The API key remains local and must not enter analytics, logs or exports.
 
 AI settings are specific to the guest/account workspace on this device. After
-login, an account with no AI configuration can explicitly choose **Use guest AI
-settings, key and accepted terms** in Settings. The offer explains that it copies
-saved activation, an existing Gemini key and previously accepted AI terms only
-on this device. It never invents missing consent or a key, and existing account
-values (including a deliberate opt-out) are preserved. The offer is rendered as
-`#guestAiConfigOffer`; its actions require current third-party consent.
-**Keep AI disabled for
-this account** declines the copy and stores an explicit disabled preference.
+login, an account with no AI configuration shows the normal AI Detection title,
+disabled toggle and information text. Terms and key inputs appear only after
+activation through the normal settings flow. Guest AI values stay in their own
+local workspace; accounts configure AI independently.
 The usual guest food/drink/workout import does not transfer AI configuration.
 
 Settings, the extra menu and AI method availability refresh after toggling,
-adoption, login, logout, account changes and consent changes. Activation can
+login, logout, account changes and consent changes. Activation can
 remain saved while a missing key, missing AI terms or denied third-party consent
 keeps recognition unavailable. The status box uses the saved key rather than
 unvalidated input. An API-key validation started in one workspace cannot write
