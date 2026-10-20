@@ -10,7 +10,7 @@ import { supabase } from '../../_lib/supabase';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { calcSupplements, persistSupplementGoals } from '../../_lib/supplements';
 import { reverseGeocodeLocation } from '../../_lib/location';
-import { adoptGuestAiConfig, canOfferGuestAiConfig, readAiConfig, saveValidatedAiKey, writeAiConfig } from '../../_lib/aiConfig';
+import { readAiConfig, saveValidatedAiKey, writeAiConfig } from '../../_lib/aiConfig';
 import { validateApiKey } from '../../_lib/gemini';
 import { APP_VERSION } from '../../_lib/release';
 import { writeLocalLastSeen, writePendingReloadAfterUpdate } from '../../_lib/changelog';
@@ -123,7 +123,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
     const [aiTermsAccepted, setAiTermsAccepted] = useState(false);
     const [aiApiKey, setAiApiKey] = useState('');
     const [savedAiKey, setSavedAiKey] = useState('');
-    const [guestAiAvailable, setGuestAiAvailable] = useState(false);
     const [apiKeyVisible, setApiKeyVisible] = useState(false);
     const [weatherEnabled, setWeatherEnabled] = useState(false);
     const [weatherLat, setWeatherLat] = useState('');
@@ -206,7 +205,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
             previousOwner = owner;
             isCurrent = workspaceGuard();
             previousKey = config.apiKey;
-            setGuestAiAvailable(canOfferGuestAiConfig());
         };
         read();
         window.addEventListener('storage', read);
@@ -712,19 +710,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                             AI Detection [BETA]
                         </div>
                         <div className="settings-section-body" style={{ opacity: canUseThirdParty ? 1 : 0.5, cursor: canUseThirdParty ? '' : 'default', pointerEvents: canUseThirdParty ? 'auto' : 'none' }}>
-                            {guestAiAvailable && <div className="ai-terms-box" id="guestAiConfigOffer">
-                                <p>This account has no AI settings on this device. Your guest AI settings are still saved separately.</p>
-                                <p>Use them for this account on this device? This copies the saved activation, the Gemini API key if present, and any previously accepted AI terms. Missing keys or consent still need to be provided. Nothing is uploaded.</p>
-                                <div className="ai-terms-actions">
-                                    <button type="button" className="ai-terms-btn decline" disabled={!canUseThirdParty} onClick={() => {
-                                        if (!canUseThirdParty) return;
-                                        writeAiConfig({ enabled: false });
-                                    }}>Keep AI disabled for this account</button>
-                                    <button type="button" className="ai-terms-btn accept" disabled={!canUseThirdParty} onClick={() => {
-                                        if (user && canUseThirdParty && adoptGuestAiConfig(user.id)) showToast('Guest AI settings copied to this account on this device');
-                                    }}>Use guest AI settings, key and accepted terms</button>
-                                </div>
-                            </div>}
                             <div className="settings-toggle-row">
                                 <div className="settings-toggle-label">
                                     <span>Enable AI Detection</span>

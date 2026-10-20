@@ -442,9 +442,6 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
                             </div>
                         </div>
                     )}
-                    <p style={{ fontSize: '0.75rem', lineHeight: 1.3, textAlign: 'center', marginTop: '0.75rem' }}>
-                        Product data: <a href="https://world.openfoodfacts.org/" target="_blank" rel="noopener noreferrer">Open Food Facts</a> (database: <a href="https://opendatacommons.org/licenses/odbl/1.0/" target="_blank" rel="noopener noreferrer">ODbL 1.0</a>; individual contents: <a href="https://opendatacommons.org/licenses/dbcl/1.0/" target="_blank" rel="noopener noreferrer">DbCL 1.0</a>).
-                    </p>
                 </div>
 
                 <div className="modal-footer" id="barcodeSearchFooter">
