@@ -29,6 +29,9 @@ Default URL: `http://localhost:3000`.
 | `GEMINI_API_KEY` | not required by current client flow | UI primarily uses the user-provided local key |
 | `BASE_URL` | Playwright/links | base URL, default `http://localhost:3000` |
 | `NEXT_PUBLIC_SITE_URL` | no | sitemap base, with production fallback |
+| `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` | Push only | public VAPID key; delivered by authenticated status API |
+| `WEB_PUSH_VAPID_PRIVATE_KEY` | Push only | server-only private VAPID key |
+| `WEB_PUSH_VAPID_SUBJECT` | Push only | server-only VAPID contact; see [Web Push](./web-push.md) |
 
 `.env` is ignored by `.gitignore`. Never copy values from it into documentation, logs or client code.
 
@@ -93,7 +96,7 @@ For Vercel, set environment variables in project settings. For a self-managed No
    RLS without defining policies and is not a complete setup procedure.
 3. Review the actual schema, policies, grants and constraints using
    [`security-migration.md`](./security-migration.md). This checkout contains
-   only the additive custom-supplements migration; it does not contain the
+   only the unapplied additive Web Push migration; it does not contain the custom-supplements,
    base schema or security migration chain described in older audit notes.
 4. Do not assume that the historical reports of a clone migration establish
    the state of another project or the current remote schema.

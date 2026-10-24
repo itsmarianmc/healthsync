@@ -158,3 +158,8 @@ The six OTP fields form one labelled group, support six-digit paste and authenti
 - Never trust a user ID from a URL; confirm it through the access token.
 - Convert external errors into user-friendly states and never log tokens/API keys.
 
+
+## Web-Push-API
+
+GET/POST/DELETE /api/push/subscriptions und POST /api/push/test-notification sind Node.js-Routen mit Bearer-Sitzung, Owner- und MFA-Prüfung. Status wird ohne Verschlüsselungsschlüssel und mit no-store geliefert. Der Test adressiert nur das angegebene eigene Geräteabo und ist kontoübergreifend je Konto auf einen Versuch pro Minute begrenzt. Payload und Notification-Texte sind neutral. Details und Statuscodes: [Web Push](./web-push.md).
+

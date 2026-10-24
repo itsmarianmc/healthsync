@@ -603,3 +603,7 @@ valid Gemini API key. See the [AI Guidelines](https://healthsync.itsmarian.dev/l
 
 If something is missing or unclear, please open an issue at
 <https://github.com/itsmarianmc/healthsync/issues>.
+
+## Web Push auf Vercel (v1)
+
+Die Einrichtung benötigt NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY, WEB_PUSH_VAPID_PRIVATE_KEY und WEB_PUSH_VAPID_SUBJECT unter Project → Settings → Environment Variables. Nur der öffentliche Schlüssel darf zum Browser gelangen. .env.example enthält leere Push-Platzhalter. Vor Freigabe muss die neue additive Migration 20261024010000_web_push.sql nach Schema-/RLS-Prüfung separat angewendet werden. Es wurden keine Datenbankänderungen, Vercel-Konfigurationsänderungen oder Deployments ausgeführt. Es gibt nur Einrichtung und neutralen Testversand, keine geplanten Reminder. Vollständige Konfiguration und Abnahme: [Web Push](docs/web-push.md).

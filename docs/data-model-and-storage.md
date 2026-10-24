@@ -211,7 +211,7 @@ The weather code migrates older keys `weather_widget_enabled`, `weather_latitude
 
 ## Supabase schema and mapping
 
-The app code expects the four health-data tables and `profiles` described below. The SQL schema in [hosting.md](../hosting.md) is a setup/reference script. This checkout contains only the additive custom-supplements migration, which adds one field to an already existing `public.user_settings` table; it does not create the base tables, policies, grants or reset RPC. Therefore these definitions describe the app's expected shape, not a verified live database schema.
+The app code expects the four health-data tables and `profiles` described below. The SQL schema in [hosting.md](../hosting.md) is a setup/reference script. This checkout contains only the unapplied additive Web Push migration; it does not establish the existing health-data tables, their policies, grants or reset RPC. Therefore these definitions describe the app's expected shape, not a verified live database schema.
 
 ### `calsync_entries`
 
@@ -238,11 +238,9 @@ using the preflight in [`security-migration.md`](./security-migration.md).
 
 Account identity and account preferences are read from `profiles`; health goals,
 supplement preferences and workout routines use `user_settings`. This checkout
-contains the additive migration `20261005010000_custom_supplements.sql`, which
-adds `custom_supplements` JSONB with an empty-array default to an existing
-`user_settings` table. It does not alter grants or RLS policies, and it has not
-been applied to or verified against an external database. The newsletter
-migration described in older notes is not present in this checkout.
+does not contain the historical `20261005010000_custom_supplements.sql` or
+newsletter migration. Neither of those schema requirements has been verified
+against an external database during the Web Push implementation.
 
 ## Sync algorithms
 
@@ -307,4 +305,9 @@ The login screen no longer offers a remembered-device checkbox. The former `heal
 - Settings offers a local export of food, drinks, workouts and goals. The exact scope is implemented in `SettingsModal.tsx`.
 - “Delete All Data” calls the target database's `clear_healthsync_data()` RPC and clears local health data only after the RPC succeeds. The app expects the RPC to enforce authorization, clear the account's cloud health rows and reset settings while preserving profile identity fields; its definition is absent from this checkout, so target behavior and MFA enforcement are unverified. Full account deletion goes through `/api/account/delete`; associated-row deletion depends on `ON DELETE CASCADE` foreign keys from `auth.users`, which also are not established by the migration present here.
 - `logout(true)` removes a defined list of local domain/profile keys. Not every UI, consent, update or favorite key is in that list; this is intentional or currently inconsistent and is recorded in [known-gaps.md](./known-gaps.md).
+
+
+## Web-Push-Daten (v1)
+
+Die neue vorbereitete Migration ist 20261024010000_web_push.sql; die Custom-Supplement-Migration war am 24.10.2026 nicht im Checkout vorhanden. push_subscriptions speichert user_id, eindeutigen Endpoint, p256dh, auth und created_at. Owner-RLS und verifizierte MFA/AAL2 schützen alle Operationen. push_test_limits speichert ausschließlich den letzten Testversuch pro Konto und ist nur über eine autorisierte, atomare Funktion beschreibbar. Keine neue Local-Storage-Auswahl und keine Gesundheitsdaten im Push. Tabellen, Löschsemantik und Grenzen sind unter [Web Push](./web-push.md) dokumentiert. Keine Migration angewendet.
 

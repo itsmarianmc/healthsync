@@ -182,9 +182,9 @@ Session tokens are held in cookies through the Supabase SSR browser client. Heal
 
 ## Onboarding and tour
 
-When `calsync_onboarding_done` is missing, `AppShell` redirects unsigned users to `/onboarding`. The onboarding page sets the marker, dispatches `onboarding:done` and replaces the route with `/dash`.
+When `calsync_onboarding_done` is missing, `AppShell` redirects unsigned users to `/onboarding`. The five steps are a compact product overview, Additional Notes with Terms/Privacy and health/AI disclosures, optional goal setup, optional Notifications, and “You're all set!” with the guided-tour choice. The Notes and setup content scroll inside their slide while progress and navigation stay visible. The final step retains the support and GitHub issue links.
 
-The final onboarding slide links to the HealthSync GitHub issue tracker.
+Goal setup reuses the Settings calculator's inputs and Mifflin-St Jeor, macro and hydration calculations. Values are calculated in memory; weight, height and age are not persisted by this step. “Apply goals” explicitly writes the existing calorie, hydration and macro goal keys and queues the corresponding `user_settings` fields for a signed-in owner through the established sync path. It is available only with Preferences consent. Throughout goal setup, the footer Next button reads “Skip for Now” and proceeds without writing goals, including when calculated results are available. “Apply goals” is the separate explicit save action. Without consent, the step explains why saving is unavailable and keeps the footer skip action accessible. The final slide retains its three original cards for the tour, project support and GitHub feedback. The tour choice is on by default; only an enabled choice calls `markTourPending()` at completion. The onboarding page sets the existing marker, dispatches `onboarding:done` and replaces the route with `/dash`; the header Login path remains available.
 
 Afterwards, the tooltip tour can start or be requested again from the tour code. It waits for elements with known IDs and stops after bounded retries if a target never appears.
 
@@ -209,4 +209,9 @@ The app starts with consent denied. The cookie banner also updates Google Consen
 ## Legal and support
 
 Legal pages are standalone pages built from reusable `Legal*` components. Support sends reason, description, optional email, user information, app version, timestamp and user agent to the external support API. The UI displays a 500-character limit; backend validation is outside this repository.
+
+
+## Web Push v1
+
+Notifications erscheint nach Goal-Setup und vor dem Abschluss. Settings enthält dieselbe Geräteverwaltung. Nur angemeldete Nutzer können explizit aktivieren, einen neutralen Test senden und deaktivieren. Überspringen erzeugt weder OS-Dialog noch Abo. Es werden keine Essens- oder Supplement-Reminder verschickt. Ablauf, Fehlerzustände und Nachweisgrenzen: [Web Push](./web-push.md).
 

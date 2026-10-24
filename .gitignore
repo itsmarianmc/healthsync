@@ -53,7 +53,10 @@ node_modules/
 /supabase-backup/
 /supabase/.temp/
 supabase_migration.sql
-/supabase/
+/supabase/*
+!/supabase/migrations/
+/supabase/migrations/*
+!/supabase/migrations/20261024010000_web_push.sql
 
 # AI Models
 .models

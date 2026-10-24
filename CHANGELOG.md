@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
+## [4.4.0] - 2026-10-24
+
+### Added
+- **Goals during onboarding**: Replaced the food, drink and goal explanation slides with an interactive goal setup and an optional Notifications step. Users can apply calculated calorie, macro and hydration goals with Preferences consent or skip setup; signed-in settings are queued only for the active owner and retried through the existing sync flow.
+- **Optional device test notifications**: Added shared `Notifications.tsx` controls to onboarding and Settings for explicit permission requests, subscription status, activation, test sending and removal. Guests can skip and enable after signing in; unsupported browsers, blocked permissions and iOS/iPadOS Home Screen installation receive specific guidance. Activation attempts one test after saving the subscription; scheduled meal and supplement reminders are not implemented.
+- **Regression coverage**: Added `tests/push.test.mjs`, `e2e/push.spec.ts` and `e2e/goal-modal.spec.ts`, and updated onboarding browser fixtures for goal setup, consent, notification choices and keyboard navigation. These suites were not rerun for this release-note update.
+
+### Changed
+- **Shared goal calculator**: Extracted the existing calculation into `_lib/goalCalculator.ts` and the form into `GoalCalculator.tsx` for reuse in Settings and onboarding, retaining the existing calorie, macro and hydration formulas.
+- **Goal and onboarding layout**: Reworked goal-field spacing, option grids, apply actions and the active manual/calculated mode indicator. Onboarding now has inset-aware header spacing, visible focus outlines, labeled navigation and inactive slides marked `inert` and `aria-hidden`.
+- **Push setup and technical documentation**: Added `web-push` and its types, VAPID configuration examples, `docs/web-push.md` and updates to the architecture contracts, feature/data guides, file inventory and deployment runbook. The additive `20261024010000_web_push.sql` migration is prepared but unapplied; database acceptance, deployment configuration and real-device delivery remain unverified.
+
+### Fixed
+- **Goal sheet dragging and closing**: Replaced the goal dialog's custom drag handlers with `useDraggableSheet`, capped its natural calculator height at 78% of the viewport and refreshed height when mode or results change. Saving closes through the sheet animation; dragging an expanded sheet downward first collapses it, and expanded content changes refresh the natural collapse height.
+- **Stacked-sheet keyboard handling**: Escape and Tab trapping now act only on the top visible sheet so the Settings sheet behind a goal dialog does not also handle the same key.
+
+### Security
+- **Owner-protected push delivery**: Added `/api/push/subscriptions` and `/api/push/test-notification` with server-verified identity/MFA, owner filters, same-origin checks, push-provider endpoint validation and uncached responses. The prepared migration adds owner/MFA RLS and an atomic one-test-attempt-per-minute account limit. Expired subscriptions are removed after provider 404/410 responses; the service worker displays fixed neutral text without health data, focuses an existing app window or opens `/dash`, and excludes push API requests from runtime caching.
+
 ## [4.3.1] - 2026-10-20
 
 ### Removed
@@ -86,9 +105,13 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 - **AI detection**: Fixed issue where the AI detection toggle would not switch, but the AI detection was shown as enabled, preventing users from using the AI detection.
 
 
-## [4.0.0] - 2026-10-02
+## [4.0.0] - 2026-10-24
 
 ### Added
+- **Goals during onboarding**: Replaced the food, drink and goal explanation slides with an optional goal calculator and a separate Notifications step. Applying goals requires Preferences consent, writes the existing local calorie, macro and hydration keys, and queues signed-in settings only for the active owner; skipping does not save goals.
+- **Optional device test notifications**: Added shared `Notifications.tsx` controls in onboarding and Settings for explicit browser permission, device subscription status, activation, test sending and removal. Guests can skip and configure after signing in. Blocked permissions, unsupported browsers and iOS/iPadOS Home Screen requirements receive specific guidance; activation saves the subscription before attempting one neutral test.
+- **Reminder planning foundation**: Added the disconnected, server-only `pushReminderPlan.ts` candidate generator for five shared `Europe/Berlin` windows, UTC instants and stable date/category event IDs. Random selection enforces 45-minute gaps, retries at most 32 complete candidates and then uses a valid fixed fallback. `reminderJob()` restricts future scheduler bodies to date, category and event ID. Durable plans, automatic delivery, reminder consent and scheduler routes remain unimplemented.
+- **Push and onboarding regression coverage**: Added mocked push API, authorization and service-worker tests, seven planner tests covering a full year, window boundaries, daylight-saving changes, bounded reselection and payload filtering, plus browser fixtures for notification choices, goal-sheet geometry and onboarding navigation. The latest implementation check passed 85/85 Node tests and TypeScript; targeted planner lint and diff checks passed. Repository-wide lint reported 124 errors and 50 warnings outside the new planner files; build and E2E were not rerun for the disconnected planner or this release-note change.
 - **Guest-data import into an account**: Settings can explicitly import guest food, drink, and workout history into the signed-in account. Entries are deduplicated by ID, and guest preferences remain in the guest workspace.
 - **Delete All Data**: Settings can clear the signed-in user's synced HealthSync data and local workspace without deleting the account; guest users can clear their local workspace.
 - **Workout history cloud sync**: Completed workout sessions now upload and download alongside workout routines, with pending local sessions retained for retry.
@@ -114,6 +137,10 @@ the device as part of signing out.
 - **Report a Bug from Settings**: New `ReportBugModal.tsx` plus a "Report a Bug" button in the System section of `SettingsModal.tsx`. The modal embeds `https://itsmarian.dev/report` in an `<iframe>`, pre-filled via query params (`cnt_src=healthsync`, `user_id`, `app_version` from `APP_VERSION`, current path as `ref`, plus `hide_header`/`hide_footer`) and auto-expands via `sheet.snapToExpanded()`.
 
 ### Changed
+- **Shared goal calculator**: Extracted the existing calculation into `_lib/goalCalculator.ts` and its form into `GoalCalculator.tsx` for reuse in Settings and onboarding, retaining the existing calorie, macro and hydration formulas.
+- **Goal and onboarding layout**: Updated goal-field spacing, option grids, apply actions and the active manual/calculated mode indicator. Onboarding adds inset-aware header spacing, visible focus outlines, labeled navigation and `inert`/`aria-hidden` on inactive slides.
+- **Push dependencies and setup documentation**: Added `web-push`, its types, VAPID placeholders and `docs/web-push.md`; updated feature, data, routing, file-inventory and deployment documentation. The additive `20261024010000_web_push.sql` migration is prepared but unapplied; target-database policies, deployment configuration and real-device delivery remain unverified.
+- **Reminder security design**: Added `docs/web-push-reminders.md` describing a proposed RPC-restricted database worker, daily Vercel Cron, delayed QStash jobs, separate default-off consent and durable plan/delivery claims. Global cross-user access requires explicit approval; no role, privileged migration, QStash integration, secrets or deployment configuration was added, and service-role usage remains limited to account deletion.
 - **Regression coverage for local data and account security**: Added Node test suites for workspace isolation and workout-history sync, plus Playwright coverage for local security behavior, login accessibility, and related settings/onboarding flows.
 - **Account-scoped local workspaces**: Food, drinks, workouts, goals, and health preferences are saved separately for guest use and each signed-in account. Switching identities restores only that workspace; guest entries move to an account only after an explicit import.
 - **Retryable local-first cloud sync**: Food, drink, workout, and settings writes stay queued locally when cloud operations fail. Sync checks the active account before applying results, preserves deletion and reset markers, and treats failed cloud reads separately from successful empty results.
@@ -147,6 +174,8 @@ the device as part of signing out.
 - **Lockfile housekeeping**: resolved duplicate `@swc/helpers` entry under `@serwist/turbopack` and marked `fsevents` as an optional dev dependency in `package-lock.json` (no runtime effect).
 
 ### Fixed
+- **Goal sheet dragging and closing**: Replaced the goal dialog's custom dragging with `useDraggableSheet`, capped its natural height at 78% of the viewport and refreshed measurements after calculator changes. Saving uses the sheet's close animation; a downward drag from the expanded state first collapses it.
+- **Stacked-sheet keyboard handling**: Escape and Tab trapping now act only on the top visible sheet, preventing Settings behind the goal dialog from also responding to the same key.
 - **Safer CSV exports and user-facing errors**: CSV cells beginning with spreadsheet formula characters are escaped, and authentication/provider errors are mapped to actionable messages without displaying raw provider responses.
 - **Barcode scanner recovery and lifecycle**: `BarcodeScanner.tsx` now progressively falls back from a selected device to the rear camera, generic video, and front camera when hardware IDs are stale or unsupported. It stops streams and decoder instances reliably, ignores duplicate scan callbacks, and refreshes the device list when cameras change.
 - **Barcode scan feedback and focus**: barcode scans request continuous focus where the browser supports it, and the embedded search popup now exposes live, actionable camera status messages including permission, availability, and in-use errors.
@@ -191,6 +220,9 @@ the device as part of signing out.
 - **Invalid Gemini keys are no longer saved**: `SettingsModal.handleSaveApiKey` is now `async`, runs `validateApiKey()`, and returns early on validation failure.
 - **Build & lint**: project still builds cleanly (`npm run build`, `tsc --noEmit`); lint baseline lifted from 229 → 236 by the seven `aria-*` attribute hooks introduced for the new `role="switch"` widgets (zero errors introduced).
 - **Safe-area insets on notched devices**: Fixed UI now respects `env(safe-area-inset-*)` so nothing is hidden behind the notch, rounded corners, or home indicator on phones with a display cutout. Touched: cookie banner (`cookiebanner.css`), legal pages (`legal/legal.css` - `main` padding + back-to-top button), login screen (`login/styles.css`), app views, app-shell header, `.modal`/`.modal-footer` bottom padding, toast top, onboarding header (`styles.css`), and the support page inline padding (`src/app/support/page.tsx`). Each rule keeps a fallback value so browsers without `env()` support render as before.
+
+### Security
+- **Owner-protected push APIs**: Subscription CRUD/status and test sending use server-verified identity/MFA, owner filters, same-origin checks, HTTPS push-provider validation and uncached responses. The unapplied migration adds owner/MFA RLS and an atomic account-wide test-attempt limit of 60 seconds. Provider 404/410 responses remove only the owned expired subscription; other errors retain it. The service worker shows fixed neutral test text, focuses an existing app window or opens `/dash`, and keeps push API requests out of runtime caching. The test route and its rate limit are separate from the unconnected reminder planner.
 
 ## [3.1.2] - 2026-08-06
 

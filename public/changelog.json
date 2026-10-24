@@ -1,4 +1,22 @@
 {
+    "4.4.0": {
+        "Set Your Goals During Setup": [
+            "You can now calculate and apply your calorie, nutrient and water goals during the introduction, or skip this step and set them later in Settings."
+        ],
+        "Try Optional Notifications": [
+            "When notifications are configured for this HealthSync installation, you can sign in, enable them on a supported device and send a test from setup or Settings; meal and supplement reminders are not available yet.",
+            "You choose when to allow notifications, can turn them off for this device in Settings and see guidance if your browser blocks them or your iPhone or iPad needs the Home Screen app."
+        ],
+        "Easier Goal Controls": [
+            "You can switch between manual goals and the calculator with clearer controls, scroll through the results and drag the goal window between compact and expanded views."
+        ],
+        "Better Keyboard Navigation": [
+            "You can use Tab and Escape in the top window without the Settings window behind it also responding."
+        ],
+        "Clearer Setup Navigation": [
+            "You can move through setup with clearer keyboard focus indicators and labeled navigation, while inactive steps stay out of your keyboard path."
+        ]
+    },
     "4.3.1": {
         "Simpler AI Settings": [
             "You can enable AI, accept the terms and add your own key through the normal settings flow; your saved guest settings stay separate."
@@ -81,6 +99,22 @@
         ]
     },
     "4.0.0": {
+        "Set Your Goals During Setup": [
+            "You can calculate and apply your calorie, nutrient and water goals during setup, or skip this step and set them later in Settings."
+        ],
+        "Try Optional Notifications": [
+            "When notifications are configured for this HealthSync installation, you can sign in, enable them on a supported device and send a test from setup or Settings; meal and supplement reminders are not available yet.",
+            "You choose when to allow notifications, can turn them off for this device in Settings and see guidance if your browser blocks them or your iPhone or iPad needs the Home Screen app."
+        ],
+        "Easier Goal Controls": [
+            "You can switch between manual goals and the calculator with clearer controls, scroll through the results and drag the goal window between compact and expanded views."
+        ],
+        "Better Keyboard Navigation": [
+            "You can use Tab and Escape in the top window without the Settings window behind it also responding."
+        ],
+        "Clearer Setup Navigation": [
+            "You can move through setup with clearer keyboard focus indicators and labeled navigation, while inactive steps stay out of your keyboard path."
+        ],
         "Keep your data separate": [
             "Your guest data and each signed-in account now stay in separate workspaces. You can choose when to import guest food, drinks, and workouts into an account."
         ],

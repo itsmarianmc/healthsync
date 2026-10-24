@@ -2,12 +2,13 @@
 
 ## What this checkout establishes
 
-The current repository contains the additive
-[`20261005010000_custom_supplements.sql`](../supabase/migrations/20261005010000_custom_supplements.sql).
-It adds a JSONB column with an empty-array default to an already existing
-`public.user_settings` table. It does **not** create the base schema, grants or
-RLS policies, MFA helpers, the `clear_healthsync_data()` RPC, or the foreign
-keys required for account deletion. The SQL setup section in
+The current repository contains the unapplied additive
+[`20261024010000_web_push.sql`](../supabase/migrations/20261024010000_web_push.sql).
+It creates owner/MFA-protected push subscriptions and a durable test-send limit;
+see [Web Push](./web-push.md). The historical custom-supplements migration is
+absent. This migration does **not** establish the existing health-data schema,
+its grants or RLS, the `clear_healthsync_data()` RPC, or health-data cascade
+foreign keys. The SQL setup section in
 [`hosting.md`](../hosting.md) is a reference schema, not an executable
 migration history or proof of the current remote schema. No database was
 queried or changed for this feature.
@@ -20,10 +21,10 @@ working tree. The reports are retained as historical context in
 current DEV or production database has the expected schema or policies.
 
 Before applying the available additive migration, inspect the target database
-and its Supabase migration history. Confirm that `public.user_settings` exists,
-that its owner/MFA policies are already correct, and that the pending
-migration is intended for that project. The custom-supplements migration does
-not replace or repair any existing policy or grant.
+and its Supabase migration history. Confirm Supabase Auth and check the new
+push table/function names for collisions. The Web Push migration does not
+replace or repair existing health-data policies or grants. The following
+historical health-data preflight remains necessary for the rest of the app.
 
 ## Read-only preflight
 
@@ -98,7 +99,7 @@ confirmed against the target. The reference table definitions are in
 [`hosting.md`](../hosting.md); sync mappings and local formats are in
 [`data-model-and-storage.md`](./data-model-and-storage.md).
 
-The checked-in custom-supplements migration adds
+The historical custom-supplements migration (absent here) adds
 `custom_supplements jsonb not null default '[]'::jsonb` to the expected
 `public.user_settings` table. It does not grant table or column access and does
 not modify RLS. The profile newsletter migration described in older notes is
@@ -143,3 +144,7 @@ No current production migration/deployment status is established here. Do not
 describe the security rollout as complete until the exact checked-in migration
 set, target history/schema, owner/MFA matrix, reset/deletion behavior, and
 matching deployed application have current, reviewable evidence.
+
+## Web Push – additive Migration vom 24.10.2026
+
+Neu vorhanden ist ausschließlich [20261024010000_web_push.sql](../supabase/migrations/20261024010000_web_push.sql). Diese Datei wurde nicht angewendet. Sie erstellt zwei neue Tabellen mit Auth-Cascade und zwei eng begrenzte Definer-Funktionen mit festem search_path; vorhandene Policies bleiben erhalten. Vor Anwendung zusätzlich die Namen push_subscriptions, push_test_limits, push_access_allowed und claim_push_test auf Kollisionen und die Supabase-Auth-Struktur prüfen. Die Owner-/AAL1-/AAL2-/Parallelversand-Testmatrix und Details stehen unter [Web Push](./web-push.md). Ältere Nachweise zu fünf App-Tabellen sind kein Nachweis für diese neuen Tabellen.

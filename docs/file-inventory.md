@@ -23,7 +23,12 @@ This inventory describes the currently relevant files. Historical copies under `
 | `postcss.config.mjs` | PostCSS configuration |
 | `playwright.config.ts` | Playwright browser, base URL and web server setup |
 | `.github/workflows/playwright.yml` | Playwright workflow (currently disabled with `if: false`) |
-| `supabase/migrations/20261005010000_custom_supplements.sql` | adds the custom supplement definitions JSONB field to an existing `user_settings` table; no RLS or grants changes |
+| `supabase/migrations/20261024010000_web_push.sql` | unapplied additive push subscriptions, owner/MFA policies and atomic test-send limit; historical custom-supplements migration absent |
+| `docs/web-push.md` | Push v1 flow, API, migration acceptance matrix and Vercel configuration |
+| `src/app/_components/notifications/Notifications.tsx` | Shared device push controls for onboarding and Settings |
+| `src/app/_lib/pushClient.ts`, `pushServer.ts`, `pushValidation.ts` | Browser capability/auth transport, server configuration/auth and endpoint validation |
+| `src/app/api/push/` | Node.js subscription CRUD/status and test notification routes |
+| `tests/push.test.mjs`, `e2e/push.spec.ts` | Mocked sender/auth/worker and browser opt-in tests |
 | `tests/localData.test.mjs` | Node.js unit tests for local workspace and sync-policy helpers |
 | `tests/supplements.test.mjs` | weekday and interval schedule validation and calendar-day due-date tests |
 | `tests/syncWorkouts.test.mjs` | workout-routine sync authorization, read-failure and empty-state contract tests |

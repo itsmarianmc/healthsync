@@ -59,8 +59,8 @@ Route page + global `AppShell` + feature component + local JSON data + optional 
 
 ## Supabase security rollout status
 
-This checkout contains only the additive custom-supplements migration, which
-adds a JSONB field to an existing `user_settings` table. The baseline schema,
+This checkout contains the unapplied additive Web Push migration
+`20261024010000_web_push.sql` (see [Web Push](./web-push.md)). The custom-supplements migration, baseline schema,
 newsletter migration and owner/MFA/reset migrations described in older reports
 are absent, and no remote migration history or current database state was
 queried for this implementation. Older maintainer reports are retained as

@@ -3,7 +3,7 @@
 
 import { defaultCache } from '@serwist/turbopack/worker';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { Serwist } from 'serwist';
+import { NetworkOnly, Serwist } from 'serwist';
 
 declare global {
     interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -18,7 +18,10 @@ const serwist = new Serwist({
     skipWaiting: false,
     clientsClaim: true,
     navigationPreload: true,
-    runtimeCaching: defaultCache,
+    runtimeCaching: [
+        { matcher: ({ url }) => url.origin === self.location.origin && url.pathname.startsWith('/api/push/'), handler: new NetworkOnly() },
+        ...defaultCache,
+    ],
 });
 
 serwist.setCatchHandler(async ({ request }) => {
@@ -33,6 +36,24 @@ self.addEventListener('message', (event) => {
     if (event.data?.type === 'SKIP_WAITING') {
         void self.skipWaiting();
     }
+});
+
+self.addEventListener('push', (event) => {
+    // Deliberately fixed copy: never display health data or untrusted payload text.
+    event.waitUntil(self.registration.showNotification('HealthSync', {
+        body: 'Notifications are ready. This is a test notification.',
+        icon: '/favicon.png', tag: 'healthsync-test',
+    }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    event.waitUntil((async () => {
+        const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        const existing = windows.find(client => new URL(client.url).origin === self.location.origin);
+        if (existing) await existing.focus();
+        else await self.clients.openWindow('/dash');
+    })());
 });
 
 serwist.addEventListeners();
