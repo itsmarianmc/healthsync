@@ -1410,7 +1410,7 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
                     }
                     return acc;
                 }, null);
-            if (best) prs.push(`${ex.name} ${best.weight}kg × ${best.reps}`);
+            if (best) prs.push(`${ex.name} ${best.weight}kg x ${best.reps}`);
         }
         if (prs.length) {
             const label = prs.length === 1 ? `New PR: ${prs[0]}` : `New PRs: ${prs.join(', ')}`;

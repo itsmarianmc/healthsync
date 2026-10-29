@@ -1,6 +1,7 @@
 'use client';
 
 import type { FoodEntry, PendingFoodDraft } from '../../_lib/types';
+import { formatFoodAmount } from '../../_lib/foodPortions';
 
 interface FoodListProps {
     entries: FoodEntry[];
@@ -96,7 +97,7 @@ export default function FoodList({ entries, onDelete, onClearAll, addingId, pend
                                 <span className="log-date-total">{Math.round(totalKcal)} kcal</span>
                             </div>
                             {todayEntries.map(e => {
-                                const subInfo = e.amount ? `${e.amount}${e.unit || 'g'}${e.brand ? ' · ' + e.brand : ''}` : '';
+                                const subInfo = e.amount ? `${formatFoodAmount(e.amount)}${e.unit || 'g'}${e.brand ? ' · ' + e.brand : ''}` : '';
                                 return (
                                     <div key={e.id} className="log-item" data-id={e.id}>
                                         <div className="log-emoji no-select">

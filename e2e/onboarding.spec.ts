@@ -41,7 +41,7 @@ test.describe('Onboarding flow', () => {
         await expect(page.locator('#onboardingLogin')).toBeVisible();
 
         const dots = page.locator('#onboardingProgress .onboarding-dot');
-        await expect(dots).toHaveCount(6);
+        await expect(dots).toHaveCount(5);
         await expect(dots.nth(0)).toHaveClass(/\bactive\b/);
         await expect(dots.nth(1)).not.toHaveClass(/\bactive\b/);
 
@@ -59,11 +59,14 @@ test.describe('Onboarding flow', () => {
         const back = page.locator('#onboardingBack');
 
         const totalSlides = await dots.count();
-        expect(totalSlides).toBeGreaterThan(1);
+        expect(totalSlides).toBe(5);
+        const headings = ['Welcome to HealthSync', 'Additional Notes', "Let's set up HealthSync", 'Notifications', "You're all set!"];
+        await expect(page.locator('.onboarding-slide').nth(0).locator('.onboarding-slide-title')).toHaveText(headings[0]);
 
         for (let i = 1; i < totalSlides; i++) {
             await next.click();
             await expect(dots.nth(i)).toHaveClass(/\bactive\b/);
+            await expect(page.locator('.onboarding-slide').nth(i).locator('.onboarding-slide-title')).toHaveText(headings[i]);
         }
 
         await expect(next).toHaveText(/Let's go!/);

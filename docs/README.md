@@ -1,6 +1,12 @@
 # HealthSync – Technical Documentation
 
-This documentation describes the checked-in HealthSync code and configuration as inspected on **October 5, 2026**. It is intended for developers, maintainers, rebuilds, and coding agents. Inspect `git status --short` before relying on a working-tree change as a released state. This checkout contains the additive `20261005010000_custom_supplements.sql` migration under `supabase/migrations/`; it adds one JSONB field to an existing `user_settings` table. The baseline schema, owner/MFA migrations and newsletter migration referenced in older reports are not present here, and no external database state is established by repository files.
+This documentation describes the checked-in HealthSync code and configuration,
+with the v5.0.0 local food library updated on **October 26, 2026**. Inspect
+`git status --short` before treating working-tree changes as released.
+`supabase/migrations/` contains only the newly prepared, unapplied
+`20261026010000_custom_foods.sql`; Web Push and historical baseline/security
+migrations described in older notes are absent from this checkout. Repository
+files do not establish any external database state.
 
 ## Purpose
 
@@ -27,6 +33,8 @@ The app is offline-first: domain data is written to the browser first. Signed-in
 8. [Security migration runbook](./security-migration.md)
 9. [Known gaps and technical notes](./known-gaps.md)
 10. [Quality audit status](./quality-audit.md)
+11. [Web Push v1, migration and Vercel setup](./web-push.md)
+12. [Automatic reminder preparation and required security approval](./web-push-reminders.md)
 
 The [file inventory](./file-inventory.md) is a quick index for concrete files.
 

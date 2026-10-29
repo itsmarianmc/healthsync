@@ -2,28 +2,26 @@
 
 ## What this checkout establishes
 
-The current repository contains the additive
-[`20261005010000_custom_supplements.sql`](../supabase/migrations/20261005010000_custom_supplements.sql).
-It adds a JSONB column with an empty-array default to an already existing
-`public.user_settings` table. It does **not** create the base schema, grants or
-RLS policies, MFA helpers, the `clear_healthsync_data()` RPC, or the foreign
-keys required for account deletion. The SQL setup section in
-[`hosting.md`](../hosting.md) is a reference schema, not an executable
-migration history or proof of the current remote schema. No database was
-queried or changed for this feature.
+As inspected on October 26, 2026, the checkout initially had no
+`supabase/migrations/` directory. Its only newly prepared migration is
+[`20261026010000_custom_foods.sql`](../supabase/migrations/20261026010000_custom_foods.sql),
+which adds `custom_foods jsonb NOT NULL DEFAULT '[]'::jsonb` to an existing
+`public.user_settings` table. It does not change RLS, grants, triggers or the
+`clear_healthsync_data()` RPC. It has not been applied here.
 
-Older audit notes record maintainer reports about migrations and database tests
-performed against other checkouts/projects. Those files, database query output,
-and project state are not available for independent verification from this
-working tree. The reports are retained as historical context in
-[`quality-audit.md`](./quality-audit.md); do not use them as evidence that a
-current DEV or production database has the expected schema or policies.
+The Web Push, custom-supplements, baseline and historical owner/MFA/reset
+migrations referenced in earlier notes are absent from this checkout. The SQL
+setup section in [`hosting.md`](../hosting.md) is a reference schema, not proof
+of a live database or complete migration history. No external database was
+queried or changed for the custom-food library.
 
-Before applying the available additive migration, inspect the target database
-and its Supabase migration history. Confirm that `public.user_settings` exists,
-that its owner/MFA policies are already correct, and that the pending
-migration is intended for that project. The custom-supplements migration does
-not replace or repair any existing policy or grant.
+Before any deployment/migration, inspect the intended project's schema and
+migration history. For an existing `custom_foods` column, verify type,
+nullability and default: `ADD COLUMN IF NOT EXISTS` does not repair these.
+Check owner/MFA access and effective column grants. Separately inspect how the
+actual reset RPC clears this new settings field; its source is unavailable
+here. Historical maintainer reports in [`quality-audit.md`](./quality-audit.md)
+do not establish current target-project state.
 
 ## Read-only preflight
 
@@ -90,7 +88,7 @@ The client expects these tables and conflict keys:
 | `profiles` | Account display fields, changelog acknowledgement and newsletter preference | `id = auth.users.id`; client selects the signed-in user's row |
 | `calsync_entries` | Food entries and deletion state | `(user_id, entry_id)` |
 | `dropsync_entries` | Drink entries and deletion state | `(user_id, entry_id)` |
-| `user_settings` | Goals, supplement/activity settings, custom supplement definitions, routines and reset marker | `user_id` |
+| `user_settings` | Goals, supplement/activity settings, custom supplement/food definitions, routines and reset marker | `user_id` |
 | `workout_sessions` | Completed workout history | `(user_id, session_id)` |
 
 The exact base columns, constraints, RLS policies, grants and reset RPC must be
@@ -98,7 +96,7 @@ confirmed against the target. The reference table definitions are in
 [`hosting.md`](../hosting.md); sync mappings and local formats are in
 [`data-model-and-storage.md`](./data-model-and-storage.md).
 
-The checked-in custom-supplements migration adds
+The historical custom-supplements migration (absent here) adds
 `custom_supplements jsonb not null default '[]'::jsonb` to the expected
 `public.user_settings` table. It does not grant table or column access and does
 not modify RLS. The profile newsletter migration described in older notes is
@@ -143,3 +141,7 @@ No current production migration/deployment status is established here. Do not
 describe the security rollout as complete until the exact checked-in migration
 set, target history/schema, owner/MFA matrix, reset/deletion behavior, and
 matching deployed application have current, reviewable evidence.
+
+## Web Push – additive Migration vom 24.10.2026
+
+Neu vorhanden ist ausschließlich [20261024010000_web_push.sql](../supabase/migrations/20261024010000_web_push.sql). Diese Datei wurde nicht angewendet. Sie erstellt zwei neue Tabellen mit Auth-Cascade und zwei eng begrenzte Definer-Funktionen mit festem search_path; vorhandene Policies bleiben erhalten. Vor Anwendung zusätzlich die Namen push_subscriptions, push_test_limits, push_access_allowed und claim_push_test auf Kollisionen und die Supabase-Auth-Struktur prüfen. Die Owner-/AAL1-/AAL2-/Parallelversand-Testmatrix und Details stehen unter [Web Push](./web-push.md). Ältere Nachweise zu fünf App-Tabellen sind kein Nachweis für diese neuen Tabellen.

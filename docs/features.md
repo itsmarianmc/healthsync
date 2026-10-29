@@ -41,17 +41,55 @@ Source: `src/app/_components/calsync/CalSync.tsx`, `GlobalFoodActions.tsx`, `Cal
 ### Input methods
 
 1. **Manual**: enter name, amount/unit and nutrition values. The preview scales nutrition to the chosen amount.
-2. **Search**: the search popup calls Open Food Facts with debounce and abort support. A result is confirmed with an amount.
-3. **Barcode**: ZXing accesses the camera, detects the barcode and then loads the product from Open Food Facts.
+2. **Saved Foods**: Extra → Search opens a separate local search sheet for `calsync_favourites` and `calsync_custom_foods`. Search matches name and brand without calling external APIs or opening the scanner. Select a result, enter an amount and explicitly choose Log food.
+3. **Barcode**: Extra → Scan Barcode opens `BarcodeSearchPopup` directly in camera mode. ZXing detects a barcode and only that code is looked up through Open Food Facts, subject to third-party consent. The separate scanner retains amount confirmation and has no product-name search field or search mode.
 4. **AI Detection**: text description, image import or camera capture; the result opens as an editable nutrition draft.
 
 ### Saving food
 
-After confirmation, a `FoodEntry` is built with client ID, `ts`, `date`, scaled macros and optional barcode/source metadata. The shared `logFoodEntry` helper reads the current local array, appends the entry once, writes `calsync_v1`, dispatches a local `storage` event and, if signed in, queues an idempotent Supabase upsert. It rejects a save if the active guest/user workspace has changed. A cloud failure keeps the local entry pending for retry. Barcode search and scanning use this path on `/dash`, `/food` and `/drinks`; the save acknowledgment is shown only after the local write succeeds.
+After confirmation, a `FoodEntry` is built with client ID, `ts`, `date`, scaled macros and optional barcode/source metadata. The shared `logFoodEntry` helper reads the current local array, appends the entry once, writes `calsync_v1`, dispatches a local `storage` event and, if signed in, queues an idempotent Supabase upsert. It rejects a save if the active guest/user workspace has changed. A cloud failure keeps the local entry pending for retry. Saved Foods and barcode scanning use this path on `/dash`, `/food` and `/drinks`; the save acknowledgment is shown only after the local write succeeds.
 
 A barcode product classified as a liquid sets `isDrink`; the same logging operation also mirrors it into `dropsync_v3` and queues a drink upsert. The FoodEntry and DrinkEntry share the client ID.
 
 The dashboard food action and global AI extra-menu actions open the food input sheets on the current main route. `/food` retains its own CalSync sheets for history and pending drafts. A dismissed AI result from another main route is saved into the same pending-draft list visible on `/food`.
+
+### Custom food library (v5.0.0)
+
+Extra → Create Food replaces only the former Log Drink extra action. DropSync's
+normal drink picker and logging sheet remain available. `CustomFoodsModal.tsx`
+creates, edits and deletes reusable templates with a stable client ID, trimmed
+name, optional brand, and finite non-negative calories/protein/carbs/fat per
+100 g or 100 ml, or per piece/serving/ounce/US fluid ounce with a defined
+equivalent in g/ml. All four nutrition fields are required; zero is valid.
+Names and brands are limited to 200 characters. Editing preserves the ID.
+The manager follows My Routines: a left close button, a dashed create row with
+a plus icon, routine-style cards and a muted empty state, without introductory
+instruction text.
+
+Templates never create daily entries. Changing/deleting a template leaves past
+FoodEntries untouched. `SavedFoodsModal.tsx` searches the two local sources,
+shows empty/no-match states and confirms a serving through `logFoodEntry`.
+Its detail sheet has an icon back button in the top-left header, a food card,
+an amount/unit selector, quick amounts and separate nutrient cards. Back keeps
+the search query. Unit changes retain the physical amount and nutrient preview;
+fractional pieces are supported. The editor asks for a piece/serving size below
+Nutrition per, prefills standard ounce equivalents, and requires an actual
+weight when a US fluid ounce is measured in grams instead of ml.
+`foodEntry.ts` shares the existing per-100 scaling and rounding with CalSync
+and the barcode popup (whole kcal; macros to one decimal). Liquid templates
+also retain the existing mirrored hydration entry behavior.
+
+Custom IDs remain distinct, even for identical names or nutrition. Exact
+favourite duplicates (including copies of custom templates) are collapsed using
+name, brand, unit/liquid classification, barcode, nutrition and serving size;
+different brands, barcodes or nutrition remain separate. Favourites retain their
+existing local storage and are not uploaded as custom foods.
+
+Both new sheets use `useDraggableSheet` for overlay, Escape, focus trapping and
+return, and mobile dragging/expansion. Workspace changes invalidate open edits
+and close the sheets. Local save failures leave the editor and prior list intact;
+cloud failures leave the local list pending. See [data model](./data-model-and-storage.md)
+for the settings transport and migration requirements.
 
 ### AI Detection
 
@@ -182,9 +220,9 @@ Session tokens are held in cookies through the Supabase SSR browser client. Heal
 
 ## Onboarding and tour
 
-When `calsync_onboarding_done` is missing, `AppShell` redirects unsigned users to `/onboarding`. The onboarding page sets the marker, dispatches `onboarding:done` and replaces the route with `/dash`.
+When `calsync_onboarding_done` is missing, `AppShell` redirects unsigned users to `/onboarding`. The five steps are a compact product overview, Additional Notes with Terms/Privacy and health/AI disclosures, optional goal setup, optional Notifications, and “You're all set!” with the guided-tour choice. The Notes and setup content scroll inside their slide while progress and navigation stay visible. The final step retains the support and GitHub issue links.
 
-The final onboarding slide links to the HealthSync GitHub issue tracker.
+Goal setup reuses the Settings calculator's inputs and Mifflin-St Jeor, macro and hydration calculations. Values are calculated in memory; weight, height and age are not persisted by this step. “Apply goals” explicitly writes the existing calorie, hydration and macro goal keys and queues the corresponding `user_settings` fields for a signed-in owner through the established sync path. It is available only with Preferences consent. Throughout goal setup, the footer Next button reads “Skip for Now” and proceeds without writing goals, including when calculated results are available. “Apply goals” is the separate explicit save action. Without consent, the step explains why saving is unavailable and keeps the footer skip action accessible. The final slide retains its three original cards for the tour, project support and GitHub feedback. The tour choice is on by default; only an enabled choice calls `markTourPending()` at completion. The onboarding page sets the existing marker, dispatches `onboarding:done` and replaces the route with `/dash`; the header Login path remains available.
 
 Afterwards, the tooltip tour can start or be requested again from the tour code. It waits for elements with known IDs and stops after bounded retries if a target never appears.
 
@@ -209,4 +247,9 @@ The app starts with consent denied. The cookie banner also updates Google Consen
 ## Legal and support
 
 Legal pages are standalone pages built from reusable `Legal*` components. Support sends reason, description, optional email, user information, app version, timestamp and user agent to the external support API. The UI displays a 500-character limit; backend validation is outside this repository.
+
+
+## Web Push v1
+
+Notifications erscheint nach Goal-Setup und vor dem Abschluss. Settings enthält dieselbe Geräteverwaltung. Nur angemeldete Nutzer können explizit aktivieren, einen neutralen Test senden und deaktivieren. Überspringen erzeugt weder OS-Dialog noch Abo. Es werden keine Essens- oder Supplement-Reminder verschickt. Ablauf, Fehlerzustände und Nachweisgrenzen: [Web Push](./web-push.md).
 

@@ -16,11 +16,14 @@ import WorkoutModal from './settings/WorkoutModal';
 import WorkoutHistoryModal from './settings/WorkoutHistoryModal';
 import SupplementsModal from './settings/SupplementsModal';
 import BarcodeSearchPopup from './calsync/BarcodeSearchPopup';
+import CustomFoodsModal from './calsync/CustomFoodsModal';
+import SavedFoodsModal from './calsync/SavedFoodsModal';
 import UpdateCenter from './update/UpdateCenter';
 import AiDetectionIndicator from './calsync/AiDetectionIndicator';
 import GlobalFoodActions from './calsync/GlobalFoodActions';
 import { isAiUsable } from '../_lib/aiConfig';
 import { logFoodEntry } from '../_lib/foodLog';
+import { workspaceGuard } from '../_lib/localData';
 import { openFoodImagePicker } from '../_lib/foodImagePicker';
 import type { FoodEntry } from '../_lib/types';
 import { removeHeaderBtn, addHeaderBtn } from '../_lib/headerBtns';
@@ -60,7 +63,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const [aiDetectionUsable, setAiDetectionUsable] = useState(false);
     const [deferredPrompt, setDeferredPrompt] = useState<InstallPromptEvent | null>(null);
     const [searchPopupOpen, setSearchPopupOpen] = useState(false);
-    const [searchPopupMode, setSearchPopupMode] = useState<'search' | 'camera'>('search');
+    const [savedFoodsOpen, setSavedFoodsOpen] = useState(false);
+    const [customFoodsOpen, setCustomFoodsOpen] = useState(false);
     const [customSupplementsOpen, setCustomSupplementsOpen] = useState(false);
     const foodOwnerRef = useRef(user?.id ?? 'guest');
 
@@ -183,18 +187,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 if (pathname === '/food') window.dispatchEvent(new CustomEvent('navigate:food', { detail: { openModal: true, mode } }));
                 else openFoodAction(mode);
             });
-        } else if (action === 'search-food') setSearchPopupOpen(true);
+        } else if (action === 'search-food') setSavedFoodsOpen(true);
         else if (action === 'scan-barcode') setSearchPopupOpen(true);
-        else if (action === 'log-drink') {
-            router.push('/drinks?openModal=true');
-        } else if (action === 'training') openWorkout();
+        else if (action === 'create-food') setCustomFoodsOpen(true);
+        else if (action === 'training') openWorkout();
         else if (action === 'workout-history') openWorkoutHistory();
         else if (action === 'supplements') openSupplements();
     }, [router, pathname, openFoodAction, setExtraMenuOpen, openWorkout, openWorkoutHistory, openSupplements, supplementsEnabled, aiDetectionUsable, canUseThirdParty, showToast]);
 
     const handleFoodLog = useCallback(async (entry: FoodEntry) => {
+        const isCurrent = workspaceGuard();
         const { cloudPending } = await logFoodEntry(entry, user?.id);
-        showToast(cloudPending ? 'Saved locally; cloud sync will retry when online' : `${entry.kcal} kcal logged`);
+        if (isCurrent()) showToast(cloudPending ? 'Saved locally; cloud sync will retry when online' : `${entry.kcal} kcal logged`);
     }, [user?.id, showToast]);
 
     useEffect(() => {
@@ -207,9 +211,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }, [pathname, closeFoodAction]);
 
     useEffect(() => {
-        const handler = (e: Event) => {
-            const detail = (e as CustomEvent).detail as { mode?: 'search' | 'camera' } | undefined;
-            setSearchPopupMode(detail?.mode === 'camera' ? 'camera' : 'search');
+        const handler = () => {
             setSearchPopupOpen(true);
         };
         window.addEventListener('extra:openBarcodeSearch', handler as EventListener);
@@ -295,9 +297,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                             ref={extraBtnRef}
                             onClick={() => setExtraMenuOpen(!extraMenuOpen)}
                             >
-                            <div className="extra-icon">
+                            <button type="button" className="extra-icon" id="extraActionToggle" aria-label="Extra actions" aria-expanded={extraMenuOpen}>
                                 <i className="fa-solid fa-plus" />
-                            </div>
+                            </button>
                             <div className="extra-menu-grid" id="extraMenuGrid" onClick={e => e.stopPropagation()}>
                                 <button
                                     type="button"
@@ -326,14 +328,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                                 >
                                 <i className="fa-utility-fill fa-semibold fa-camera" /><span>Capture Food</span>
                                 </button>
-                                <button type="button" className="grid-item" data-action="scan-barcode" onClick={() => { setSearchPopupMode('camera'); handleExtraAction('scan-barcode'); }}>
+                                <button type="button" className="grid-item" data-action="scan-barcode" onClick={() => handleExtraAction('scan-barcode')}>
                                 <i className="fa-solid fa-barcode" /><span>Scan Barcode</span>
                                 </button>
-                                <button type="button" className="grid-item" data-action="search-food" onClick={() => { setSearchPopupMode('search'); handleExtraAction('search-food'); }}>
+                                <button type="button" className="grid-item" data-action="search-food" onClick={() => handleExtraAction('search-food')}>
                                 <i className="fa-solid fa-magnifying-glass" /><span>Search</span>
                                 </button>
-                                <button type="button" className="grid-item" data-action="log-drink" onClick={() => handleExtraAction('log-drink')}>
-                                <i className="fa-solid fa-droplet" /><span>Log Drink</span>
+                                <button type="button" className="grid-item" data-action="create-food" onClick={() => handleExtraAction('create-food')}>
+                                <i className="fa-solid fa-utensils" /><span>Create Food</span>
                                 </button>
                                 <button type="button" className="grid-item" data-action="workout-history" onClick={() => handleExtraAction('workout-history')}>
                                 <i className="fa-solid fa-clock-rotate-left" /><span>View Workouts</span>
@@ -380,9 +382,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <BarcodeSearchPopup
                     isOpen={searchPopupOpen}
                     onClose={() => setSearchPopupOpen(false)}
-                    initialMode={searchPopupMode}
                     onLog={handleFoodLog}
                 />
+
+                {customFoodsOpen && <CustomFoodsModal onClose={() => setCustomFoodsOpen(false)} />}
+                {savedFoodsOpen && <SavedFoodsModal onClose={() => setSavedFoodsOpen(false)} onLog={handleFoodLog} />}
 
                 {pathname !== '/food' && showFooter && <GlobalFoodActions key={user?.id ?? 'guest'} />}
 

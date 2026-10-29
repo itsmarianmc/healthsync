@@ -5,6 +5,7 @@ import { useRef, useCallback, useEffect } from 'react';
 interface DraggableSheetConfig {
   onClose: () => void;
   getExpandedHeight?: () => number;
+  getNaturalHeight?: (measuredHeight: number) => number;
   transitionDurationMs?: number;
   transitionEasing?: string;
   closeTransitionDurationMs?: number;
@@ -34,10 +35,23 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
 }
 
+function isTopVisibleSheet(overlay: HTMLElement | null): boolean {
+  if (!overlay?.classList.contains('visible')) return false;
+  const visible = Array.from(document.querySelectorAll<HTMLElement>('.app-overlay.visible'));
+  const top = visible.reduce<HTMLElement | null>((currentTop, candidate) => {
+    if (!currentTop) return candidate;
+    const currentZ = Number.parseInt(getComputedStyle(currentTop).zIndex, 10) || 0;
+    const candidateZ = Number.parseInt(getComputedStyle(candidate).zIndex, 10) || 0;
+    return candidateZ >= currentZ ? candidate : currentTop;
+  }, null);
+  return top === overlay;
+}
+
 export function useDraggableSheet(config: DraggableSheetConfig) {
   const {
     onClose,
     getExpandedHeight,
+    getNaturalHeight,
     transitionDurationMs,
     transitionEasing,
     closeTransitionDurationMs,
@@ -60,6 +74,11 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
   const expandedHeight = useCallback(
     () => getExpandedHeight?.() ?? window.innerHeight - SHEET_TOP_MARGIN,
     [getExpandedHeight],
+  );
+
+  const naturalHeight = useCallback(
+    (measured: number) => Math.min(measured, getNaturalHeight?.(measured) ?? measured),
+    [getNaturalHeight],
   );
 
   const setTransition = useCallback((props: string[]) => {
@@ -99,22 +118,23 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
       requestAnimationFrame(() => {
         const el = modalRef.current;
         if (!el || stateRef.current === 'closed' || isDraggingRef.current || isOpeningRef.current || isClosingRef.current) return;
-        if (stateRef.current === 'expanded') return;
+        const wasExpanded = stateRef.current === 'expanded';
         const prevHeight = el.style.height;
         const prevTransition = el.style.transition;
         el.style.transition = 'none';
         el.style.height = 'auto';
-        const measured = el.offsetHeight;
+        const measured = naturalHeight(el.offsetHeight);
         el.style.height = prevHeight;
         void el.offsetHeight;
         el.style.transition = prevTransition;
         if (measured === naturalHeightRef.current) return;
         naturalHeightRef.current = measured;
+        if (wasExpanded) return;
         setTransition(['height', 'transform']);
         el.style.height = measured + 'px';
       });
     });
-  }, [setTransition]);
+  }, [naturalHeight, setTransition]);
 
   const close = useCallback(() => {
     if (!modalRef.current || isClosingRef.current) return;
@@ -191,7 +211,7 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
     const dy = dragDYRef.current;
     const vel = velRef.current;
 
-    if (vel > FLING_CLOSE_VEL && dy > 0) {
+    if (vel > FLING_CLOSE_VEL && dy > 0 && stateRef.current !== 'expanded') {
       close();
     } else if (dy > 80 || vel > 400) {
       if (stateRef.current === 'expanded') {
@@ -227,7 +247,7 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         if (!modalRef.current) return;
-        naturalHeightRef.current = modalRef.current.offsetHeight;
+        naturalHeightRef.current = naturalHeight(modalRef.current.offsetHeight);
         const preferExpanded = (() => {
           try {
             return (
@@ -252,11 +272,11 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
         if (firstFocusable) firstFocusable.focus();
       }),
     );
-  }, [expandedHeight, setTransition]);
+  }, [expandedHeight, naturalHeight, setTransition]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && stateRef.current !== 'closed') {
+      if (e.key === 'Escape' && stateRef.current !== 'closed' && isTopVisibleSheet(overlayRef.current)) {
         e.preventDefault();
         close();
       }
@@ -267,7 +287,7 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
 
   useEffect(() => {
     const handleTabTrap = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab' || stateRef.current === 'closed' || !modalRef.current) return;
+      if (e.key !== 'Tab' || stateRef.current === 'closed' || !modalRef.current || !isTopVisibleSheet(overlayRef.current)) return;
       const focusable = getFocusableElements(modalRef.current);
       if (focusable.length === 0) return;
       const first = focusable[0];

@@ -2,6 +2,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { markTourPending } from '../../_lib/tour';
+import { useCookieConsent } from '../../_lib/useCookieConsent';
+import { useAuth } from '../../_context/AuthContext';
+import { activeOwner, queueSettings } from '../../_lib/localData';
+import { runCalc, type CalcFields } from '../../_lib/goalCalculator';
+import GoalCalculator from '../settings/GoalCalculator';
+import Notifications from '../notifications/Notifications';
 
 const STORAGE_KEY = 'calsync_onboarding_done';
 
@@ -9,7 +15,7 @@ const SLIDES = [
     {
         icon: 'fa-solid fa-fire-flame-curved',
         title: <>Welcome to <span>HealthSync</span></>,
-        desc: 'Your personal health tracker in your browser. Log every meal and drink, hit your daily goal, and stay on track - simple, beautiful and privacy focused.',
+        desc: 'Track food, drinks and daily progress in one place. Start locally in your browser, then sync across devices if you choose to sign in.',
         features: [
             { icon: 'fa-solid fa-magnifying-glass', title: 'Search millions of foods, drinks and supplements', desc: 'Find any food by name from the Open Food Facts global database.' },
             { icon: 'fa-solid fa-bullseye', title: 'Personal calorie and hydration goals', desc: 'Calculate your individual goal using the Mifflin-St Jeor formula and hydration needs.' },
@@ -21,42 +27,22 @@ const SLIDES = [
         ]
     },
     {
-        icon: 'fa-solid fa-barcode',
-        title: <>Log <span>Food</span></>,
-        desc: 'Tap the + button to add food. Search by name, enter or scan a barcode number to instantly pull nutritional data.',
-        features: [
-            { icon: 'fas fa-check-square', title: 'Step 1 - Set your food type', desc: 'Select what meal of the day you are eating, whether you\'re eating lunch or just eating an in-between-snack.' },
-            { icon: 'fa-solid fa-magnifying-glass', title: 'Step 2 - Search, Enter or Scan', desc: 'Type a food name, enter or scan a barcode number from the packaging, describe your food in your own words, create your own stats or simply take a photo of your meal and AI will analyze your meal and automatically extract all relevant information.' },
-            { icon: 'fa-solid fa-weight-scale', title: 'Step 3 - Set amount', desc: 'Enter weight in grams/ml or pieces. Calories are calculated automatically and you can just revise them if needed.' },
-            { icon: 'fa-solid fa-check', title: 'Step 4 - Confirm', desc: 'Save the entry to your daily log.' }
-        ]
-    },
-    {
-        icon: 'fas fa-plus',
-        title: <>Log a <span>Drink</span></>,
-        desc: 'Tap the + button at the top right to add a drink. Choose the type, then set the amount by dragging the glass up and down or use one of the many common presets, used by drink manufacturers.',
-        features: [
-            { icon: 'fa-solid fa-hand-pointer', title: 'Step 1 - Pick a drink', desc: 'Select your drink from 12 different categories.' },
-            { icon: 'fa-solid fa-arrows-up-down', title: 'Step 2 - Set the amount', desc: 'Drag the glass or use quick-select buttons.' },
-            { icon: 'fa-solid fa-check', title: 'Step 3 - Confirm', desc: 'Save the entry.' }
-        ]
-    },
-    {
-        icon: 'fa-solid fa-bullseye',
-        title: <>Your Daily <span>Goal</span></>,
-        desc: 'On the main screen, you\'ll see a list of widgets showing your progress towards various health goals to help you stay on track.',
-        features: [
-            { icon: 'fa-solid fa-calculator', title: 'Goal calculator', desc: 'Mifflin-St Jeor formula - enter weight, height, age, activity and goal type.' },
-            { icon: 'fa-solid fa-glass-water', title: 'Hydration tracking', desc: 'Monitor your daily water intake and stay hydrated.' },
-            { icon: 'fa-solid fa-chart-pie', title: 'Macro tracking', desc: 'See protein, carbs and fat for every logged item.' },
-            { icon: 'fa-solid fa-clock-rotate-left', title: 'Full history', desc: 'Review all past entries and the amount you drank, all in one place.' }
-        ]
-    },
-    {
         icon: 'fas fa-file-contract',
         title: <>Additional <span>Notes</span></>,
         desc: 'Please read carefully before using HealthSync.',
         legal: true,
+    },
+    {
+        icon: 'fa-solid fa-calculator',
+        title: <>Let&apos;s set up HealthSync</>,
+        desc: 'Enter your details below to calculate your daily calorie and hydration goals.',
+        goal: true,
+    },
+    {
+        icon: 'fa-solid fa-bell',
+        title: <>Notifications</>,
+        desc: 'A little heads-up. Always your choice.',
+        notifications: true,
     },
     {
         icon: 'fas fa-rocket',
@@ -73,6 +59,13 @@ interface OnboardingProps {
 export default function Onboarding({ onDone }: OnboardingProps) {
     const [slide, setSlide] = useState(0);
     const [setupTour, setSetupTour] = useState(true);
+    const [calcFields, setCalcFields] = useState<CalcFields>({ gender: 'female', activity: 'sedentary', goalType: 'maintain', hydrationClimate: 'mild' });
+    const [calcWeight, setCalcWeight] = useState('');
+    const [calcHeight, setCalcHeight] = useState('');
+    const [calcAge, setCalcAge] = useState('');
+    const { canUsePreferences } = useCookieConsent();
+    const { user, retrySync } = useAuth();
+    const calcResult = runCalc(calcFields, parseFloat(calcWeight), parseFloat(calcHeight), parseFloat(calcAge));
     const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
     const prevSlideRef = useRef(-1);
 
@@ -94,11 +87,37 @@ export default function Onboarding({ onDone }: OnboardingProps) {
 
     const SLIDE_COUNT = SLIDES.length;
     const isLast = slide === SLIDE_COUNT - 1;
+    const isGoalStep = !!SLIDES[slide].goal;
+    const isNotificationsStep = !!SLIDES[slide].notifications;
 
     const finish = () => {
         localStorage.setItem(STORAGE_KEY, '1');
         if (setupTour) markTourPending();
         onDone();
+    };
+
+    const applyGoals = () => {
+        if (!canUsePreferences || !calcResult) return;
+        const values = {
+            calsync_goal: calcResult.kcal,
+            dropsync_goal: calcResult.hydration,
+            calsync_goal_protein: calcResult.protein,
+            calsync_goal_carbs: calcResult.carbs,
+            calsync_goal_fat: calcResult.fat,
+        };
+        for (const [key, value] of Object.entries(values)) localStorage.setItem(key, String(value));
+        window.dispatchEvent(new Event('storage'));
+        if (user && activeOwner() === user.id) {
+            queueSettings({
+                calorie_goal: calcResult.kcal,
+                goal_ml: calcResult.hydration,
+                protein_goal: calcResult.protein,
+                carbs_goal: calcResult.carbs,
+                fat_goal: calcResult.fat,
+            });
+            void retrySync();
+        }
+        setSlide(SLIDES.findIndex(step => step.notifications));
     };
 
     return (
@@ -123,10 +142,11 @@ export default function Onboarding({ onDone }: OnboardingProps) {
             <div className="onboarding-body">
                 <div className="onboarding-slides" id="onboardingSlides" style={{ transform: `translateX(-${slide * 100}%)`, transition: 'transform 0.32s cubic-bezier(0.4,0,0.2,1)' }}>
                     {SLIDES.map((s, i) => (
-                        <div key={i} className="onboarding-slide" ref={el => { slideRefs.current[i] = el; }}>
+                        <div key={i} className={`onboarding-slide${s.goal ? ' onboarding-slide--goal' : ''}${s.notifications ? ' onboarding-slide--notifications' : ''}`} inert={i !== slide} aria-hidden={i !== slide} ref={el => { slideRefs.current[i] = el; }}>
                             <div className="onboarding-slide-icon"><i className={s.icon} /></div>
                             <div className="onboarding-slide-title">{s.title}</div>
                             <div className="onboarding-slide-desc">{s.desc}</div>
+                            {s.notifications && i === slide && <Notifications variant="onboarding" onEnabled={() => setSlide(SLIDE_COUNT - 1)} />}
                             {s.features && (
                                 <div className="onboarding-feature-list">
                                 {s.features.map((f, j) => (
@@ -179,9 +199,17 @@ export default function Onboarding({ onDone }: OnboardingProps) {
                                         <p>Do not rely solely on AI-generated values for medical conditions, weight management programs, allergies, diabetes management, or other dietary decisions.</p>
                                         <p>HealthSync assumes no liability for inaccuracies, financial costs, health outcomes, or damages resulting from the use of AI-based nutrition detection.</p>
                                     </div>
-                                    <p className="onboarding-legal-agree">By tapping &quot;Let&apos;s go!&quot; you confirm that you have read and agree to the Terms of Service and acknowledge the Privacy Policy as well as the AI and Meal Scanning disclosures.</p>
+                                    <p className="onboarding-legal-agree">By continuing, you confirm that you have read and agree to the Terms of Service and acknowledge the Privacy Policy as well as the AI and Meal Scanning disclosures.</p>
                                 </div>
                             )}
+                            {s.goal && <div className="onboarding-goal-setup">
+                                <GoalCalculator fields={calcFields} weight={calcWeight} height={calcHeight} age={calcAge} result={calcResult}
+                                    onFieldChange={(key, value) => setCalcFields(current => ({ ...current, [key]: value }))}
+                                    onWeightChange={setCalcWeight} onHeightChange={setCalcHeight} onAgeChange={setCalcAge}
+                                    actions={() => null} />
+                                {!canUsePreferences && <p className="onboarding-goal-consent" role="status">Saving goals requires Preferences consent. You can change it in the cookie settings later, or skip this step and set goals in Settings.</p>}
+                                {calcResult && <button type="button" className="onboarding-apply-btn" id="onboardingApplyGoals" disabled={!canUsePreferences} onClick={applyGoals}>Apply goals</button>}
+                            </div>}
                             {s.last && (
                                 <div className="onboarding-feature-list">
                                     <div className="onboarding-feature">
@@ -207,11 +235,11 @@ export default function Onboarding({ onDone }: OnboardingProps) {
             </div>
 
             <div className="onboarding-footer">
-                <button className={`onboarding-back-btn${slide === 0 ? ' btn-hidden' : ''}`} id="onboardingBack" onClick={() => setSlide(s => Math.max(0, s - 1))}>
+                <button type="button" className={`onboarding-back-btn${slide === 0 ? ' btn-hidden' : ''}`} id="onboardingBack" aria-label="Previous step" disabled={slide === 0} onClick={() => setSlide(s => Math.max(0, s - 1))}>
                     <svg height="20" viewBox="0 -960 960 960" width="20" fill="currentColor"><path d="M640-80 240-480l400-400 71 71-329 329 329 329-71 71Z"/></svg>
                 </button>
-                <button className="onboarding-next-btn" id="onboardingNext" onClick={() => { if (isLast) finish(); else setSlide(s => s + 1); }}>
-                    {isLast ? "Let's go!" : <svg height="20" viewBox="0 -960 960 960" width="20" fill="currentColor"><path d="M321-80 250-151l329-329-329-329 71-71 400 400L321-80Z"/></svg>}
+                <button type="button" className="onboarding-next-btn" id="onboardingNext" aria-label={isLast ? "Let's go!" : isGoalStep ? 'Skip for Now' : isNotificationsStep ? 'Not now' : 'Next step'} onClick={() => { if (isLast) finish(); else setSlide(s => s + 1); }}>
+                    {isLast ? "Let's go!" : <>{isGoalStep ? 'Skip for Now' : isNotificationsStep ? 'Not now' : ''}<svg height="20" viewBox="0 -960 960 960" width="20" fill="currentColor" aria-hidden="true"><path d="M321-80 250-151l329-329-329-329 71-71 400 400L321-80Z"/></svg></>}
                 </button>
             </div>
         </div>

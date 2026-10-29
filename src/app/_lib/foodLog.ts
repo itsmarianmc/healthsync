@@ -20,7 +20,7 @@ export async function logFoodEntry(entry: FoodEntry, userId?: string): Promise<{
         drink: entry.food,
         emoji: entry.emoji,
         color: entry.color,
-        amount: entry.amount || 250,
+        amount: Math.round(entry.amount ?? 250),
         ts: entry.ts,
         date: entry.date,
         source: 'calsync',
