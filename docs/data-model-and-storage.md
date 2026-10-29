@@ -36,6 +36,43 @@ interface FoodEntry {
 
 `kcal`, `prot`, `carb` and `fat` describe the logged quantity. Search, barcode and AI results instead use per-100 values and are scaled to the chosen amount when confirmed.
 
+### CustomFood
+
+`CustomFood` extends the per-100 `FoodSearchResult` shape with a required stable
+`id` and `defaultUnit: 'g' | 'ml'`. `customFoods.ts` validates full lists:
+non-empty unique IDs, trimmed names (1–200 characters), optional trimmed brands
+(up to 200 characters), finite numeric values >= 0 for all four nutrients, and
+one of the two units. Liquid status is derived from ml. Invalid cloud lists are
+ignored; malformed local JSON reads as an empty list without writing over it.
+Editing keeps the template ID; logging generates a new independent entry ID.
+
+Optional `portion: { unit: 'pcs' | 'serving' | 'oz' | 'fl_oz'; amount: number }`
+stores the g/ml equivalent of **one** selected unit, using `defaultUnit` as its
+base. The equivalent must be finite and positive. A weight ounce requires a g
+base. Existing objects without `portion` retain their per-100 behavior; no local
+key or SQL-column migration is needed. Optional portion metadata travels with
+`custom_foods` through the existing validated settings queue and JSONB column.
+Favourites remain in their existing local key. Portion unit and size take part
+in search deduplication, so differently sized servings are not collapsed.
+
+The editor accepts nutrients per 100 g, 100 ml, one piece, one serving, one
+weight ounce or one US fluid ounce. It normalizes them to per-100 g/ml before
+saving and reconstructs the original basis for editing. Piece/serving sizes are
+provided by the user. `foodPortions.ts` defines the ounce conversions and offers
+g/kg/oz or ml/L/US fl oz plus any food-specific piece/serving unit for logging.
+US fl oz defaults to volume; selecting a g equivalent requires an explicit
+food-specific weight, with no assumed density. Definition reference:
+[NIST Handbook 44, Appendix C](https://nvlpubs.nist.gov/nistpubs/hb/2026/NIST.HB.44-2026.pdf).
+
+Confirmed quantities are converted to canonical g/ml and passed through the
+shared per-100 FoodEntry builder and `logFoodEntry`. FoodEntry `amount` now
+preserves fractions (the reference food column is numeric); display rounds only
+the amount label. Calorie/macro rounding remains unchanged. Mirrored hydration
+continues using whole ml, rounded before its local/queued write, matching the
+reference `dropsync_entries.amount integer` contract. Sub-ml quantities never
+fall back to the default 250 ml. Existing logged entries are not rewritten.
+
+
 ### DrinkEntry
 
 ```ts
@@ -73,6 +110,8 @@ All values are strings. Arrays and objects are JSON-serialized. Scope is limited
 | `calsync_pending` | multiple pending food drafts | expired drafts removed after 7 days | no |
 | `calsync_active_draft` | currently edited AI draft | one temporary draft, 7-day TTL | no |
 | `calsync_favourites` | up to 50 favorite food-result objects | `[]` | no |
+| `calsync_custom_foods` | validated `CustomFood[]` templates, separate from logged entries | `[]`; active guest/account workspace | `user_settings.custom_foods` |
+| `calsync_custom_foods_dirty` | local custom-food changes awaiting cloud confirmation | `true` before each local template write; removed after a matching pull | local retry marker only |
 | `healthsync_workouts` | `{ routines, _updated_at }` | empty/missing | `user_settings.workout_routines` |
 | `healthsync_workout_logs` | active owner's completed workout sessions | `[]` | pending sessions upload idempotently; cloud history is pulled in full |
 
@@ -211,7 +250,7 @@ The weather code migrates older keys `weather_widget_enabled`, `weather_latitude
 
 ## Supabase schema and mapping
 
-The app code expects the four health-data tables and `profiles` described below. The SQL schema in [hosting.md](../hosting.md) is a setup/reference script. This checkout contains only the additive custom-supplements migration, which adds one field to an already existing `public.user_settings` table; it does not create the base tables, policies, grants or reset RPC. Therefore these definitions describe the app's expected shape, not a verified live database schema.
+The app code expects the four health-data tables and `profiles` described below. The SQL schema in [hosting.md](../hosting.md) is a setup/reference script. This checkout contains only the unapplied additive `20261026010000_custom_foods.sql` migration; it does not establish the existing health-data tables, their policies, grants or reset RPC. Therefore these definitions describe the app's expected shape, not a verified live database schema.
 
 ### `calsync_entries`
 
@@ -223,7 +262,7 @@ Contains `user_id`, `entry_id`, `drink`, `emoji`, `color`, `amount`, `ts`, `date
 
 ### `user_settings`
 
-One row per user. It contains goals, `custom_supplements` JSONB, optional `workout_routines` JSONB and `updated_at`. `pushSettings` uses `upsert(..., { onConflict: 'user_id' })`. `custom_supplements` stores definitions only; dated intake checkmarks remain in Local Storage and the existing `supplements_taken` field.
+One row per user. It contains goals, `custom_foods jsonb NOT NULL DEFAULT '[]'::jsonb`, `custom_supplements` JSONB, optional `workout_routines` JSONB and `updated_at`. `pushSettings` uses `upsert(..., { onConflict: 'user_id' })`. `custom_supplements` stores definitions only; dated intake checkmarks remain in Local Storage and the existing `supplements_taken` field.
 
 ### `workout_sessions`
 
@@ -238,11 +277,9 @@ using the preflight in [`security-migration.md`](./security-migration.md).
 
 Account identity and account preferences are read from `profiles`; health goals,
 supplement preferences and workout routines use `user_settings`. This checkout
-contains the additive migration `20261005010000_custom_supplements.sql`, which
-adds `custom_supplements` JSONB with an empty-array default to an existing
-`user_settings` table. It does not alter grants or RLS policies, and it has not
-been applied to or verified against an external database. The newsletter
-migration described in older notes is not present in this checkout.
+does not contain the historical `20261005010000_custom_supplements.sql` or
+newsletter migration. Neither of those schema requirements has been verified
+against an external database during the Web Push implementation.
 
 ## Sync algorithms
 
@@ -289,6 +326,28 @@ Cloud and local drinks follow the same pending/legacy recovery and tombstone rul
 
 Cloud settings are mirrored into Local Storage. On first sign-in, a settings row is created from local goals with explicit activity-status and supplement defaults for older schemas with NOT NULL constraints. Local settings changes are written with `pushSettings`; their pending keys are acknowledged only while the same owner workspace is active. Custom definitions are sent in the `custom_supplements` field through the existing settings queue and upsert. The local definition write happens first, so cloud or queue failures do not remove definitions from the active workspace.
 
+Custom foods use the same `healthsync_pending_settings` queue and owner-scoped
+`pushSettings` upsert/pull. `saveCustomFoods` checks the active owner and writes
+the dirty marker before the local list, then queues `custom_foods` for accounts.
+If queueing fails, the list and marker remain; `queueDirtyCustomFoods` restores
+the queue at the next signed-in sync before cloud settings can be applied.
+Acknowledgements retain newer pending values. A pull cannot replace dirty or
+pending custom foods; only a matching, validated cloud list without a pending
+custom-food write clears the dirty marker. Failed uploads and stale pulls thus
+preserve edits and deletions. Across devices this remains the settings system's
+whole-list last-write behavior, not a per-template merge.
+
+Both new keys are in `HEALTH_DATA_KEYS`: account switching, logout with deletion,
+Delete All Data and explicit cloud-reset behavior include them. Guest templates
+stay in the guest workspace, and the existing explicit tracked-data import does
+not import custom foods or favourites. Favourites remain local in their original
+key and are never copied to `custom_foods`.
+
+The sole migration currently in this checkout adds the column to an existing
+`public.user_settings` table; it creates no baseline schema, policies or grants.
+It has not been applied to an external database. Setup/preflight: [hosting](../hosting.md#custom-food-library-v500)
+and [security runbook](./security-migration.md).
+
 ### Workouts
 
 Routines use `_updated_at`. If only local or only cloud data exists, it is copied to the other side. If both exist, the newer timestamp wins. Completed sessions are stored in the active owner's `healthsync_workout_logs` and uploaded by `(user_id, session_id)`. Pending sessions and older local sessions absent from cloud are uploaded before the confirmed cloud history is stored; local additions made during sync remain in the active workspace.
@@ -307,4 +366,9 @@ The login screen no longer offers a remembered-device checkbox. The former `heal
 - Settings offers a local export of food, drinks, workouts and goals. The exact scope is implemented in `SettingsModal.tsx`.
 - “Delete All Data” calls the target database's `clear_healthsync_data()` RPC and clears local health data only after the RPC succeeds. The app expects the RPC to enforce authorization, clear the account's cloud health rows and reset settings while preserving profile identity fields; its definition is absent from this checkout, so target behavior and MFA enforcement are unverified. Full account deletion goes through `/api/account/delete`; associated-row deletion depends on `ON DELETE CASCADE` foreign keys from `auth.users`, which also are not established by the migration present here.
 - `logout(true)` removes a defined list of local domain/profile keys. Not every UI, consent, update or favorite key is in that list; this is intentional or currently inconsistent and is recorded in [known-gaps.md](./known-gaps.md).
+
+
+## Web-Push-Daten (v1)
+
+Die neue vorbereitete Migration ist 20261024010000_web_push.sql; die Custom-Supplement-Migration war am 24.10.2026 nicht im Checkout vorhanden. push_subscriptions speichert user_id, eindeutigen Endpoint, p256dh, auth und created_at. Owner-RLS und verifizierte MFA/AAL2 schützen alle Operationen. push_test_limits speichert ausschließlich den letzten Testversuch pro Konto und ist nur über eine autorisierte, atomare Funktion beschreibbar. Keine neue Local-Storage-Auswahl und keine Gesundheitsdaten im Push. Tabellen, Löschsemantik und Grenzen sind unter [Web Push](./web-push.md) dokumentiert. Keine Migration angewendet.
 
