@@ -4,7 +4,7 @@ import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from
 import type { FoodEntry, FoodSearchResult, DraftChange } from '../../_lib/types';
 import { useCookieConsent } from '../../_lib/useCookieConsent';
 import type { Detection, DetectionMode } from '../../_context/AiDetectionContext';
-import { generateEntryId } from '../../_lib/ids';
+import { buildFoodEntry } from '../../_lib/foodEntry';
 import { logger } from '@/lib/logger';
 import { describeGeminiError, toGeminiFoodSearchResult } from '../../_lib/gemini';
 
@@ -145,32 +145,6 @@ export default function CalSyncModal({
         setTrans(['height', 'transform']);
         if (modalRef.current) { modalRef.current.style.height = expandedH() + 'px'; modalRef.current.style.transform = 'translateY(0)'; }
     }, []);
-
-    const buildFoodEntry = (food: FoodSearchResult, amt: number, u: 'g' | 'ml' | 'pcs'): FoodEntry => {
-        const kcal = Math.round(food.kcalPer100 * amt / 100);
-        const prot = Math.round(food.protPer100 * amt / 100 * 10) / 10;
-        const carb = Math.round(food.carbPer100 * amt / 100 * 10) / 10;
-        const fat  = Math.round(food.fatPer100  * amt / 100 * 10) / 10;
-        const ts = entryCreatedAt ?? Date.now();
-        return {
-            id: generateEntryId(),
-            food: food.name,
-            brand: food.brand || '',
-            emoji: food.emoji || 'fa-solid fa-utensils',
-            color: food.color || 'var(--accent)',
-            kcal,
-            amount: Math.round(amt),
-            unit: u || 'g',
-            prot,
-            carb,
-            fat,
-            ts,
-            date: new Date(ts).toDateString(),
-            isDrink: false,
-            isBarcode: !!food.isBarcode,
-            barcode: food.barcode || undefined,
-        };
-    };
 
     const resultToFoodSearchResult = (result: NonNullable<Detection['result']>, cat: Category): FoodSearchResult => {
         return toGeminiFoodSearchResult(result, {
@@ -614,8 +588,8 @@ export default function CalSyncModal({
     const logFood = async () => {
         if (!selFood || loggingRef.current) return;
         loggingRef.current = true;
-        const entry = buildFoodEntry(selFood, amount, unit || 'g');
         try {
+            const entry = buildFoodEntry(selFood, amount, unit || 'g', entryCreatedAt ?? Date.now(), false);
             const outcome = await onLog(entry);
             loggedRef.current = true;
             snapToClosed();

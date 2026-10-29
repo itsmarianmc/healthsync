@@ -14,6 +14,9 @@ import { readAiConfig, saveValidatedAiKey, writeAiConfig } from '../../_lib/aiCo
 import { validateApiKey } from '../../_lib/gemini';
 import { APP_VERSION } from '../../_lib/release';
 import { writeLocalLastSeen, writePendingReloadAfterUpdate } from '../../_lib/changelog';
+import { runCalc, type CalcFields } from '../../_lib/goalCalculator';
+import GoalCalculator from './GoalCalculator';
+import Notifications from '../notifications/Notifications';
 import { Serwist } from '@serwist/window';
 import ReportBugModal from './ReportBugModal';
 
@@ -27,10 +30,6 @@ interface SettingsModalProps {
     onOpenNotes: () => void;
     onOpenCustomSupplements: () => void;
 }
-
-type CalcFields = { gender: string; activity: string; goalType: string; hydrationClimate: string };
-
-const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
 
 function downloadFile(filename: string, content: string, type: string) {
     const blob = new Blob([content], { type });
@@ -81,27 +80,6 @@ const THEMES = [
     { id: 'sunset',   label: 'Sunset',   bg: '#120808', card: '#221210', s1: '#351A16', s2: '#46231E', accent: '#E4840F' },
     { id: 'lavender', label: 'Lavender', bg: '#0E0A18', card: '#1A1428', s1: '#261E3C', s2: '#332850', accent: '#E4840F' },
 ];
-
-function runCalc(fields: CalcFields, w: number, h: number, age: number) {
-    if (!w || !h || !age) return null;
-    const bmr = fields.gender === 'male' ? 10*w + 6.25*h - 5*age + 5 : 10*w + 6.25*h - 5*age - 161;
-    const actMap: Record<string, number> = { sedentary:1.2, light:1.375, moderate:1.55, active:1.725, very_active:1.9 };
-    let tdee = bmr * (actMap[fields.activity] || 1.2);
-    if (fields.goalType === 'lose') tdee -= 500; else if (fields.goalType === 'gain') tdee += 500;
-    const kcal = Math.round(tdee);
-    const protein = Math.round(kcal * 0.30 / 4);
-    const carbs   = Math.round(kcal * 0.40 / 4);
-    const fat     = Math.round(kcal * 0.30 / 9);
-    let hydration = w * 24.33333333333333;
-    if (fields.gender === 'male') hydration += 150;
-    if (fields.gender === 'pregnant') hydration += 300;
-    if (fields.gender === 'breastfeeding') hydration += 700;
-    const actHyd: Record<string,number> = { light:150, moderate:300, active:700, very_active:700 };
-    hydration += (actHyd[fields.activity] || 0);
-    const climateAdd: Record<string,number> = { cool:0, mild:200, warm:450, hot:650 };
-    hydration += (climateAdd[fields.hydrationClimate] || 0);
-    return { kcal, protein, carbs, fat, hydration: Math.round(hydration) };
-}
 
 export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCustomSupplements }: SettingsModalProps) {
     const { user, logout, showToast, retrySync } = useAuth();
@@ -704,6 +682,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                             </div>
                         )}
                     </div>
+                    <div className="settings-section" id="notificationsSettings">
+                        <div className="settings-section-title"><i className="fa-solid fa-bell" />Notifications</div>
+                        {isOpen && <Notifications />}
+                    </div>
                     <div className="settings-section" id="aiDetection">
                         <div className="settings-section-title">
                         <i className="fa-solid fa-wand-magic-sparkles"></i>
@@ -1263,17 +1245,9 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                     if (carbs !== undefined) { setMacroCarbs(String(carbs)); saveMacro('calsync_goal_carbs', String(carbs)); }
                     if (fat !== undefined) { setMacroFat(String(fat)); saveMacro('calsync_goal_fat', String(fat)); }
                     showToast('Changes Saved!');
-                    setGoalModalOpen(false);
                 }}
                 onClose={() => setGoalModalOpen(false)}
                 showToast={showToast}
-                OptionGroup={({ id, val, opts, onChange }) => (
-                    <div className="option-group" id={id}>
-                    {opts.map((o: { label: string; v: string }) => (
-                        <button key={o.v} className={`option-btn${val === o.v ? ' active' : ''}`} data-val={o.v} onClick={() => onChange(o.v)}>{o.label}</button>
-                    ))}
-                    </div>
-                )}
             />
         )}
 
@@ -1302,98 +1276,52 @@ interface GoalModalProps {
     onSave: (kcal?: number, water?: number, prot?: number, carbs?: number, fat?: number) => void;
     onClose: () => void;
     showToast: (msg: string) => void;
-    OptionGroup: (props: { id: string; val: string; opts: { label: string; v: string }[]; onChange: (v: string) => void }) => React.ReactElement;
 }
 
-function GoalModal({ mode, onModeChange, calGoal, waterGoal, macroProtein, macroCarbs, macroFat, calcFields, calcWeight, calcHeight, calcAge, calcResult, onCalcFieldChange, onCalcWeightChange, onCalcHeightChange, onCalcAgeChange, onCalGoalChange, onWaterGoalChange, onMacroProteinChange, onMacroCarbsChange, onMacroFatChange, onSave, onClose, showToast, OptionGroup }: GoalModalProps) {
-    const goalModalRef = useRef<HTMLDivElement>(null);
-    const goalOverlayRef = useRef<HTMLDivElement>(null);
-    const gDragStartY = useRef(0); const gDragDY = useRef(0); const gVel = useRef(0);
-    const gDragLastY = useRef(0); const gLastTime = useRef(0); const gCapturing = useRef(false);
+function GoalModal({ mode, onModeChange, calGoal, waterGoal, macroProtein, macroCarbs, macroFat, calcFields, calcWeight, calcHeight, calcAge, calcResult, onCalcFieldChange, onCalcWeightChange, onCalcHeightChange, onCalcAgeChange, onCalGoalChange, onWaterGoalChange, onMacroProteinChange, onMacroCarbsChange, onMacroFatChange, onSave, onClose, showToast }: GoalModalProps) {
+    const getNaturalHeight = useCallback(
+        (measured: number) => mode === 'calc' ? Math.min(measured, window.innerHeight * 0.78) : measured,
+        [mode],
+    );
+    const sheet = useDraggableSheet({ onClose, getNaturalHeight });
 
-    const gSnapToClosed = useCallback(() => {
-        if (!goalModalRef.current) return;
-        const curH = goalModalRef.current.offsetHeight;
-        goalModalRef.current.style.transition = 'none';
-        goalModalRef.current.style.height = curH + 'px';
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            if (!goalModalRef.current) return;
-            goalModalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4,0,0.2,1)';
-            goalModalRef.current.style.transform = 'translateY(110%)';
-        }));
-        if (goalOverlayRef.current) goalOverlayRef.current.classList.remove('visible');
-        setTimeout(() => { onClose(); }, 400);
-    }, [onClose]);
+    useEffect(() => { sheet.open(); }, [sheet.open]);
+    useEffect(() => { sheet.refreshHeight(); }, [mode, calcResult, sheet.refreshHeight]);
 
-    useEffect(() => {
-        if (!goalModalRef.current) return;
-        goalModalRef.current.style.transition = 'none';
-        goalModalRef.current.style.transform = 'translateY(100%)';
-        if (goalOverlayRef.current) goalOverlayRef.current.classList.add('visible');
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            if (!goalModalRef.current) return;
-            goalModalRef.current.style.transition = `transform 0.42s ${EASE}`;
-            goalModalRef.current.style.transform = 'translateY(0)';
-        }));
-    }, []);
-
-    const gHandlePointerDown = (e: React.PointerEvent) => {
-        gDragStartY.current = e.clientY; gDragLastY.current = e.clientY;
-        gVel.current = 0; gDragDY.current = 0;
-        gLastTime.current = Date.now(); gCapturing.current = true;
-        if (goalModalRef.current) goalModalRef.current.style.transition = 'none';
-        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    };
-    const gHandlePointerMove = (e: React.PointerEvent) => {
-        if (!gCapturing.current || !goalModalRef.current) return;
-        const now = Date.now(); const dt = now - gLastTime.current;
-        if (dt > 0) gVel.current = (e.clientY - gDragLastY.current) / dt * 1000;
-        gDragLastY.current = e.clientY; gLastTime.current = now;
-        const dy = e.clientY - gDragStartY.current; gDragDY.current = dy;
-        if (dy > 0) goalModalRef.current.style.transform = `translateY(${dy}px)`;
-    };
-    const gHandlePointerUp = () => {
-        if (!gCapturing.current) return; gCapturing.current = false;
-        const dy = gDragDY.current; const v = gVel.current;
-        if (dy > 90 || v > 700) gSnapToClosed();
-        else {
-            if (goalModalRef.current) {
-                goalModalRef.current.style.transition = `transform 0.36s ${EASE}`;
-                goalModalRef.current.style.transform = 'translateY(0)';
-            }
-        }
-        gDragDY.current = 0;
+    const saveAndClose = (kcal?: number, water?: number, prot?: number, carbs?: number, fat?: number) => {
+        onSave(kcal, water, prot, carbs, fat);
+        sheet.close();
     };
 
     return (
-        <div className="app-overlay" id="goalModalOverlay" ref={goalOverlayRef} onClick={e => { if (e.target === goalOverlayRef.current) gSnapToClosed(); }}>
-            <div className="modal" id="goalModal" ref={goalModalRef} style={{ maxHeight: 'calc(100dvh - 24px)' }}>
-                <div className="modal-handle-zone" id="goalModalHandleZone" onPointerDown={gHandlePointerDown} onPointerMove={gHandlePointerMove} onPointerUp={gHandlePointerUp}><div className="modal-handle" /></div>
+        <div className="app-overlay" id="goalModalOverlay" ref={sheet.overlayRef} onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); }}>
+            <div className="modal" id="goalModal" ref={sheet.modalRef}>
+                <div className="modal-handle-zone" id="goalModalHandleZone" {...sheet.handleProps}><div className="modal-handle" /></div>
                 <div className="modal-header">
                     <div className="modal-title" id="goalModalTitle">{mode === 'set' ? 'Set Calorie Goal' : 'Calculate Calorie Goal'}</div>
                 </div>
-                <div className="modal-body" id="goalModalBody" style={{ overflowY: 'auto' }}>
+                <div className="modal-body" id="goalModalBody">
                     {mode === 'set' && (
                         <div id="goalViewSet">
-                            <div className="form-row" style={{ marginTop:24 }}>
+                            <div className="form-row">
                                 <label className="form-label" style={{ color:'#5AC8FA' }}><i className="fa-solid fa-droplet" /> Daily Hydration Goal (ml)</label>
                                 <div className="goal-manual-wrap">
                                     <input className="form-input" id="dsManualGoalInput" type="number" min={500} max={6000} placeholder="e.g. 2500" inputMode="numeric" value={waterGoal} onChange={e => onWaterGoalChange(e.target.value)} />
-                                    <button className="option-btn active" id="dsManualGoalBtn" onClick={() => { const v = parseInt(waterGoal); if (v>=500&&v<=6000) { onSave(undefined, v); } else showToast('Please enter a value between 500 and 6000 ml.'); }}>Set</button>
+                                    <button className="option-btn active" id="dsManualGoalBtn" onClick={() => { const v = parseInt(waterGoal); if (v>=500&&v<=6000) { saveAndClose(undefined, v); } else showToast('Please enter a value between 500 and 6000 ml.'); }}>Set</button>
                                 </div>
                             </div>
                             <div className="form-row">
                                 <label className="form-label"><i className="fa-solid fa-bullseye" /> Daily Calorie Goal</label>
                                 <div className="goal-manual-wrap">
                                     <input className="form-input" id="manualGoalInput" type="number" min={500} max={10000} placeholder="e.g. 2000" inputMode="numeric" value={calGoal} onChange={e => onCalGoalChange(e.target.value)} />
-                                    <button className="option-btn active" id="manualGoalBtn" onClick={() => { const v = parseInt(calGoal); if (v>=500&&v<=10000) onSave(v); else showToast('Please enter a value between 500 and 10000 kcal.'); }}>Set</button>
+                                    <button className="option-btn active" id="manualGoalBtn" onClick={() => { const v = parseInt(calGoal); if (v>=500&&v<=10000) saveAndClose(v); else showToast('Please enter a value between 500 and 10000 kcal.'); }}>Set</button>
                                 </div>
                             </div>
                             {[ {label:'Protein', color:'#30D158', icon:'fa-solid fa-dumbbell', key:'protein', val:macroProtein, max:500, set:onMacroProteinChange },
                                 {label:'Carbs', color:'#FFD60A', icon:'fa-solid fa-wheat-awn', key:'carbs', val:macroCarbs, max:1000, set:onMacroCarbsChange },
                                 {label:'Fat', color:'#FF6B35', icon:'fa-solid fa-droplet', key:'fat', val:macroFat, max:500, set:onMacroFatChange },
                             ].map(m => (
-                                <div key={m.key} className="form-row" style={{ marginTop:24 }}>
+                                <div key={m.key} className="form-row">
                                     <label className="form-label" style={{ color:m.color }}><i className={m.icon} /> {m.label} (g/day)</label>
                                     <div className="goal-manual-wrap">
                                         <input className="form-input" id={`macroGoalInput_${m.key}`} type="number" min={0} max={m.max} placeholder={`e.g. ${m.key === 'protein' ? 150 : m.key === 'carbs' ? 250 : 70}`} inputMode="numeric" value={m.val} onChange={e => m.set(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { const v = parseInt(m.val)||0; m.set(String(v)); showToast('Changes Saved!'); }}} />
@@ -1401,49 +1329,23 @@ function GoalModal({ mode, onModeChange, calGoal, waterGoal, macroProtein, macro
                                     </div>
                                 </div>
                             ))}
-                            <p className="form-helper" style={{ marginTop:12 }}><i className="fa-solid fa-circle-info" /> Set macros to 0 to hide progress bars on the home screen.</p>
                         </div>
                     )}
                     {mode === 'calc' && (
                         <div id="goalViewCalc">
-                            <div className="form-row"><label className="form-label"><i className="fa-solid fa-weight-scale" /> Body weight (kg)</label><input className="form-input" id="calcWeight" type="number" min={20} max={300} placeholder="e.g. 70" inputMode="decimal" value={calcWeight} onChange={e => onCalcWeightChange(e.target.value)} /></div>
-                            <div className="form-row"><label className="form-label"><i className="fa-solid fa-ruler" /> Height (cm)</label><input className="form-input" id="calcHeight" type="number" min={100} max={250} placeholder="e.g. 170" inputMode="numeric" value={calcHeight} onChange={e => onCalcHeightChange(e.target.value)} /></div>
-                            <div className="form-row"><label className="form-label"><i className="fa-solid fa-cake-candles" /> Age</label><input className="form-input" id="calcAge" type="number" min={10} max={100} placeholder="e.g. 25" inputMode="numeric" value={calcAge} onChange={e => onCalcAgeChange(e.target.value)} /></div>
-                            <div className="form-row"><label className="form-label"><i className="fa-solid fa-venus-mars" /> Gender</label><OptionGroup id="calcGender" val={calcFields.gender} opts={[{label:'Female',v:'female'},{label:'Male',v:'male'}]} onChange={v => onCalcFieldChange('gender', v)} /></div>
-                            <div className="form-row"><label className="form-label"><i className="fa-solid fa-person-walking" /> Activity Level</label><OptionGroup id="calcActivity" val={calcFields.activity} opts={[{label:'Sedentary',v:'sedentary'},{label:'Light',v:'light'},{label:'Moderate',v:'moderate'},{label:'Active',v:'active'},{label:'Very Active',v:'very_active'}]} onChange={v => onCalcFieldChange('activity', v)} /></div>
-                            <div className="form-row"><label className="form-label"><i className="fa-solid fa-chart-line" /> Goal</label><OptionGroup id="calcGoalType" val={calcFields.goalType} opts={[{label:'Maintain',v:'maintain'},{label:'Lose weight',v:'lose'},{label:'Gain weight',v:'gain'}]} onChange={v => onCalcFieldChange('goalType', v)} /></div>
-                            <div className="form-row"><label className="form-label"><i className="fa-solid fa-temperature-low" /> Climate</label><OptionGroup id="hydrationClimate" val={calcFields.hydrationClimate} opts={[{label:'Cool',v:'cool'},{label:'Mild',v:'mild'},{label:'Warm',v:'warm'},{label:'Hot',v:'hot'}]} onChange={v => onCalcFieldChange('hydrationClimate', v)} /></div>
-                            {calcResult && (
-                                <>
-                                    <div className="result-row" id="calcResultRow">
-                                        <div className="result-label">Recommended daily calories</div>
-                                        <div className="result-value" id="calcResultVal">{calcResult.kcal} kcal</div>
-                                        <div className="macro-suggest-box">
-                                            <div className="macro-suggest-title"><i className="fa-solid fa-chart-simple" /> Suggested macros (30 / 40 / 30 split)</div>
-                                            <div className="macro-suggest-grid">
-                                                <div className="macro-suggest-item"><div className="macro-suggest-value" id="calcSuggestProtein" style={{ color:'#30D158' }}>{calcResult.protein}g</div><div className="macro-suggest-label">Protein</div></div>
-                                                <div className="macro-suggest-item"><div className="macro-suggest-value" id="calcSuggestCarbs" style={{ color:'#FFD60A' }}>{calcResult.carbs}g</div><div className="macro-suggest-label">Carbs</div></div>
-                                                <div className="macro-suggest-item"><div className="macro-suggest-value" id="calcSuggestFat" style={{ color:'#FF6B35' }}>{calcResult.fat}g</div><div className="macro-suggest-label">Fat</div></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="result-row" id="hydrationResultRow" style={{ marginTop:20, paddingTop:16, borderTop:'1px solid var(--border)' }}>
-                                        <div className="result-label"><i className="fa-solid fa-droplet" /> Recommended daily hydration</div>
-                                        <div className="result-value" id="hydrationResultVal" style={{ color:'#5AC8FA' }}>{calcResult.hydration} ml</div>
-                                    </div>
-                                    <div style={{ display:'flex', gap:10, padding:'20px 10px', flexWrap:'wrap' }}>
-                                        <button className="confirm-btn" id="applyCalorieGoalBtn" onClick={() => onSave(calcResult.kcal, undefined, calcResult.protein, calcResult.carbs, calcResult.fat)}><i className="fa-solid fa-fire-flame-curved" /></button>
-                                        <button className="confirm-btn" id="applyHydrationGoalBtn" onClick={() => onSave(undefined, calcResult.hydration)}><i className="fa-solid fa-droplet" /></button>
-                                        <button className="confirm-btn" id="applyBothGoalsBtn" onClick={() => onSave(calcResult.kcal, calcResult.hydration, calcResult.protein, calcResult.carbs, calcResult.fat)}><i className="fa-solid fa-fire-flame-curved" />&nbsp;+&nbsp;<i className="fa-solid fa-droplet" /></button>
-                                    </div>
-                                </>
-                            )}
+                            <GoalCalculator fields={calcFields} weight={calcWeight} height={calcHeight} age={calcAge} result={calcResult}
+                                onFieldChange={onCalcFieldChange} onWeightChange={onCalcWeightChange} onHeightChange={onCalcHeightChange} onAgeChange={onCalcAgeChange}
+                                actions={result => <div className="goal-apply-actions">
+                                    <button className="confirm-btn" id="applyCalorieGoalBtn" aria-label="Apply calorie goal" onClick={() => saveAndClose(result.kcal, undefined, result.protein, result.carbs, result.fat)}><i className="fa-solid fa-fire-flame-curved" /></button>
+                                    <button className="confirm-btn" id="applyHydrationGoalBtn" aria-label="Apply hydration goal" onClick={() => saveAndClose(undefined, result.hydration)}><i className="fa-solid fa-droplet" /></button>
+                                    <button className="confirm-btn" id="applyBothGoalsBtn" aria-label="Apply both goals" onClick={() => saveAndClose(result.kcal, result.hydration, result.protein, result.carbs, result.fat)}><i className="fa-solid fa-fire-flame-curved" />&nbsp;+&nbsp;<i className="fa-solid fa-droplet" /></button>
+                                </div>} />
                         </div>
                     )}
                 </div>
-                <div className="modal-footer" style={{ display:'flex', gap:8, padding:'12px 24px 24px' }}>
-                    <button className="option-btn" id="goalModeSetBtn" style={{ flex:1 }} onClick={() => onModeChange('set')}>Set Manually</button>
-                    <button className="option-btn" id="goalModeCalcBtn" style={{ flex:1 }} onClick={() => onModeChange('calc')}>Calculate</button>
+                <div className="modal-footer">
+                    <button className={`option-btn${mode === 'set' ? ' active' : ''}`} id="goalModeSetBtn" aria-pressed={mode === 'set'} onClick={() => onModeChange('set')}>Set Manually</button>
+                    <button className={`option-btn${mode === 'calc' ? ' active' : ''}`} id="goalModeCalcBtn" aria-pressed={mode === 'calc'} onClick={() => onModeChange('calc')}>Calculate</button>
                 </div>
             </div>
         </div>
