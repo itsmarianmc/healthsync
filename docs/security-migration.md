@@ -2,29 +2,26 @@
 
 ## What this checkout establishes
 
-The current repository contains the unapplied additive
-[`20261024010000_web_push.sql`](../supabase/migrations/20261024010000_web_push.sql).
-It creates owner/MFA-protected push subscriptions and a durable test-send limit;
-see [Web Push](./web-push.md). The historical custom-supplements migration is
-absent. This migration does **not** establish the existing health-data schema,
-its grants or RLS, the `clear_healthsync_data()` RPC, or health-data cascade
-foreign keys. The SQL setup section in
-[`hosting.md`](../hosting.md) is a reference schema, not an executable
-migration history or proof of the current remote schema. No database was
-queried or changed for this feature.
+As inspected on October 26, 2026, the checkout initially had no
+`supabase/migrations/` directory. Its only newly prepared migration is
+[`20261026010000_custom_foods.sql`](../supabase/migrations/20261026010000_custom_foods.sql),
+which adds `custom_foods jsonb NOT NULL DEFAULT '[]'::jsonb` to an existing
+`public.user_settings` table. It does not change RLS, grants, triggers or the
+`clear_healthsync_data()` RPC. It has not been applied here.
 
-Older audit notes record maintainer reports about migrations and database tests
-performed against other checkouts/projects. Those files, database query output,
-and project state are not available for independent verification from this
-working tree. The reports are retained as historical context in
-[`quality-audit.md`](./quality-audit.md); do not use them as evidence that a
-current DEV or production database has the expected schema or policies.
+The Web Push, custom-supplements, baseline and historical owner/MFA/reset
+migrations referenced in earlier notes are absent from this checkout. The SQL
+setup section in [`hosting.md`](../hosting.md) is a reference schema, not proof
+of a live database or complete migration history. No external database was
+queried or changed for the custom-food library.
 
-Before applying the available additive migration, inspect the target database
-and its Supabase migration history. Confirm Supabase Auth and check the new
-push table/function names for collisions. The Web Push migration does not
-replace or repair existing health-data policies or grants. The following
-historical health-data preflight remains necessary for the rest of the app.
+Before any deployment/migration, inspect the intended project's schema and
+migration history. For an existing `custom_foods` column, verify type,
+nullability and default: `ADD COLUMN IF NOT EXISTS` does not repair these.
+Check owner/MFA access and effective column grants. Separately inspect how the
+actual reset RPC clears this new settings field; its source is unavailable
+here. Historical maintainer reports in [`quality-audit.md`](./quality-audit.md)
+do not establish current target-project state.
 
 ## Read-only preflight
 
@@ -91,7 +88,7 @@ The client expects these tables and conflict keys:
 | `profiles` | Account display fields, changelog acknowledgement and newsletter preference | `id = auth.users.id`; client selects the signed-in user's row |
 | `calsync_entries` | Food entries and deletion state | `(user_id, entry_id)` |
 | `dropsync_entries` | Drink entries and deletion state | `(user_id, entry_id)` |
-| `user_settings` | Goals, supplement/activity settings, custom supplement definitions, routines and reset marker | `user_id` |
+| `user_settings` | Goals, supplement/activity settings, custom supplement/food definitions, routines and reset marker | `user_id` |
 | `workout_sessions` | Completed workout history | `(user_id, session_id)` |
 
 The exact base columns, constraints, RLS policies, grants and reset RPC must be

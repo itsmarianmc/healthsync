@@ -16,11 +16,12 @@ export async function aiAppFixture() {
         import Login from './src/app/login/page';
         import Dashboard from './src/app/dash/page';
         import Food from './src/app/food/page';
+        import Drinks from './src/app/drinks/page';
         import './src/app/styles.css';
         function App() {
           const path = usePathname();
           return <AuthProvider><AppShellProvider><AppShell>
-            {path === '/login' ? <Login/> : path === '/food' ? <Food/> : <Dashboard/>}
+            {path === '/login' ? <Login/> : path === '/food' ? <Food/> : path === '/drinks' ? <Drinks/> : <Dashboard/>}
           </AppShell></AppShellProvider></AuthProvider>;
         }
         createRoot(document.getElementById('root')).render(<App/>);
@@ -28,13 +29,21 @@ export async function aiAppFixture() {
       resolveDir: resolve('.'), loader: 'tsx',
     },
     bundle: true, write: false, outfile: 'fixture.js', jsx: 'automatic',
-    define: { 'process.env.NODE_ENV': '"test"' },
+    define: { 'process.env.NODE_ENV': '"test"', 'process.env': '{}' },
     plugins: [{
       name: 'isolated-app-transports',
       setup(plugin) {
         plugin.onResolve({ filter: /^next\/(navigation|link)$/ }, args => ({ path: args.path, namespace: 'fixture' }));
+        plugin.onResolve({ filter: /^@serwist\/window$/ }, args => ({ path: args.path, namespace: 'fixture' }));
         plugin.onResolve({ filter: /(^|\/)supabase$/ }, () => ({ path: 'supabase', namespace: 'fixture' }));
-        plugin.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ resolveDir: resolve('.'), loader: 'jsx', contents: args.path === 'next/link' ? `
+        plugin.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ resolveDir: resolve('.'), loader: 'jsx', contents: args.path === '@serwist/window' ? `
+          export class Serwist {
+            addEventListener() {}
+            removeEventListener() {}
+            async register() {}
+            messageSkipWaiting() {}
+          }
+        ` : args.path === 'next/link' ? `
           import React from 'react';
           import { useRouter } from 'next/navigation';
           export default function Link({href, children, ...props}) {
@@ -57,14 +66,20 @@ export async function aiAppFixture() {
         ` : `
           let session = JSON.parse(sessionStorage.getItem('fixture-session') || 'null');
           const listeners = new Set();
-          const settings = () => ({ user_id: session?.user.id, calorie_goal: 2000, protein_goal: 100, carbs_goal: 100, fat_goal: 50, goal_ml: 2500, workout_routines: null, data_reset_at: sessionStorage.getItem('fixture-reset') });
+          const settings = () => ({ user_id: session?.user.id, calorie_goal: 2000, protein_goal: 100, carbs_goal: 100, fat_goal: 50, goal_ml: 2500, workout_routines: null, data_reset_at: sessionStorage.getItem('fixture-reset'), custom_foods: JSON.parse(sessionStorage.getItem('fixture-custom-foods-' + session?.user.id) || '[]') });
           function query(table) {
             const result = () => ({ data: table === 'user_settings' ? [settings()] : [], error: null, count: table === 'user_settings' ? 1 : 0 });
             const chain = {
               select: () => chain, eq: () => chain, order: () => chain, range: () => chain,
               maybeSingle: async () => ({ data: table === 'user_settings' ? settings() : null, error: null }),
               single: async () => ({ data: null, error: null }),
-              upsert: async () => ({ error: null }), insert: async () => ({ error: null }),
+              upsert: async payload => {
+                if (table === 'user_settings' && payload.custom_foods !== undefined) {
+                  if (sessionStorage.getItem('fixture-custom-foods-write-fails') === '1') return { error: { code: 'fixture_offline' } };
+                  sessionStorage.setItem('fixture-custom-foods-' + payload.user_id, JSON.stringify(payload.custom_foods));
+                }
+                return { error: null };
+              }, insert: async () => ({ error: null }),
               then: (yes, no) => Promise.resolve(result()).then(yes, no),
             };
             return chain;

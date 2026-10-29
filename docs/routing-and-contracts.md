@@ -43,9 +43,9 @@ Global quick actions:
 | Describe Food | food input sheet on the current route |
 | Import Food | food input sheet on the current route |
 | Capture Food | food input sheet on the current route |
-| Search | global barcode/search popup; saves from any main route |
+| Search | local Saved Foods sheet; explicit serving confirmation from any main route |
 | Scan Barcode | global popup in camera mode; saves from any main route |
-| Log Drink | `/drinks?openModal=true` |
+| Create Food | local custom-food template manager; no daily entry is created |
 | View Workouts | global `WorkoutHistoryModal` |
 | View Templates | global `WorkoutModal` |
 | Supplements | global `SupplementsModal`, only when enabled |
@@ -133,7 +133,6 @@ Session cookies use `secure`, `sameSite: 'lax'` and a maximum age of 30 days. Th
 |---|---|---|---|
 | Google Gemini | `https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-lite:generateContent` | AI nutrition from text/image/camera | AI enabled, terms accepted, third-party consent, user key |
 | Gemini model listing | `https://generativelanguage.googleapis.com/v1/models?key=...` | API-key validation | key entry in Settings |
-| Open Food Facts Search | `https://search.openfoodfacts.org/search?...` | text search | third-party consent |
 | Open Food Facts Product | `https://world.openfoodfacts.org/api/v0/product/<barcode>.json` | barcode lookup | third-party consent and camera/barcode |
 | Open-Meteo | `https://api.open-meteo.com/v1/forecast?...` | current weather | preferences + third-party consent, location |
 | Nominatim | `https://nominatim.openstreetmap.org/reverse?...` | coordinates to place name | weather location lookup |
@@ -163,3 +162,28 @@ The six OTP fields form one labelled group, support six-digit paste and authenti
 
 GET/POST/DELETE /api/push/subscriptions und POST /api/push/test-notification sind Node.js-Routen mit Bearer-Sitzung, Owner- und MFA-Prüfung. Status wird ohne Verschlüsselungsschlüssel und mit no-store geliefert. Der Test adressiert nur das angegebene eigene Geräteabo und ist kontoübergreifend je Konto auf einen Versuch pro Minute begrenzt. Payload und Notification-Texte sind neutral. Details und Statuscodes: [Web Push](./web-push.md).
 
+
+## Local food library contracts (v5.0.0)
+
+On all three main routes, Extra `data-action="search-food"` now opens only
+`#savedFoodsOverlay` / `#savedFoodsModal`, with local `#savedFoodsSearch` and
+`#savedFoodAmount`. `data-action="create-food"` replaces `log-drink` and opens
+`#customFoodsOverlay` / `#customFoodsModal` with stable editor field IDs.
+The native `#extraActionToggle` menu button receives focus when either library
+sheet closes; the existing `#extraActionBtn` wrapper remains stable. DropSync's
+route and logging controls are unchanged.
+
+`extra:openBarcodeSearch` retains its event name and always opens the scanner
+in camera mode; the existing producer passes `{ mode: 'camera' }`. The former
+`initialMode` prop and name-search DOM IDs/UI are removed. Existing scanner,
+amount, preview and footer IDs remain. Saved Foods uses `foodEntry.ts` and
+`logFoodEntry` directly and does not dispatch the scanner event or make external
+search requests. No routes, query parameters or CSP hosts are added.
+
+Saved-food detail navigation uses the header button labelled Back to saved foods
+and keeps the existing search query. `#savedFoodUnit` selects the display amount
+unit; `#savedFoodAmount` remains stable. `#customFoodUnit` selects the nutrition
+basis; `#customFoodPortionAmount` and the Portion size unit control supply the
+per-piece/serving/ounce equivalent. No route, event or additional storage key is
+introduced. Optional portion metadata remains inside `calsync_custom_foods` and
+`user_settings.custom_foods`; the existing JSONB migration is unchanged.

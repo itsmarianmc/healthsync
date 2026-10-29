@@ -1,4 +1,29 @@
 {
+    "5.0.0": {
+        "Create Your Own Foods": [
+            "You can create, edit and delete your own foods with a name, optional brand, calories, protein, carbohydrates and fat from Create Food in the Extra menu.",
+            "You only add calories when you choose Log food; editing or deleting a saved food keeps your previously logged meals unchanged.",
+            "You can still log drinks in DropSync after Create Food replaces Log Drink in the Extra menu."
+        ],
+        "Find Saved Foods Offline": [
+            "You can search your own foods and favourites by name or brand in Saved Foods, even offline, without an internet search.",
+            "You can distinguish foods with the same name when their brands, nutrition or portion sizes differ."
+        ],
+        "Choose Your Portion": [
+            "You can enter nutrition per 100 grams, 100 milliliters, piece, serving, ounce or US fluid ounce, with a gram or milliliter equivalent where needed.",
+            "You can log fractional portions and switch between available units while keeping the same quantity and matching nutrition totals."
+        ],
+        "Easier Food Logging": [
+            "You can choose quick amounts and review calories, protein, carbs and fat in separate cards before logging your food.",
+            "You can return to your search with the back button at the top left without losing your search text."
+        ],
+        "Separate Barcode Scanning": [
+            "You now open your saved foods with Search and the camera with Scan Barcode, where you can still scan a product and confirm the amount to log."
+        ],
+        "Keep Your Library Offline": [
+            "Your own food library stays available on your device without a connection, and your guest library stays separate from your account libraries."
+        ]
+    },
     "4.4.0": {
         "Set Your Goals During Setup": [
             "You can now calculate and apply your calorie, nutrient and water goals during the introduction, or skip this step and set them later in Settings."

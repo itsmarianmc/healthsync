@@ -6,7 +6,7 @@ import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { useCookieConsent } from '../../_lib/useCookieConsent';
 import { useAuth } from '../../_context/AuthContext';
 import { friendlyCameraLabel } from '../../_lib/camera';
-import { generateEntryId } from '../../_lib/ids';
+import { buildFoodEntry, foodNutrition } from '../../_lib/foodEntry';
 import type { FoodEntry, FoodSearchResult } from '../../_lib/types';
 
 function toFiniteNumber(value: unknown, fallback = 0): number {
@@ -55,36 +55,20 @@ function mapProduct(product: Record<string, unknown>): FoodSearchResult {
     };
 }
 
-const SKEL = (
-    <div className="skeleton-item">
-        <div className="skeleton-icon" />
-        <div className="skeleton-info">
-            <div className="skeleton-line name" />
-            <div className="skeleton-line brand" />
-        </div>
-        <div className="skeleton-kcal" />
-    </div>
-);
-
-type Step = 'search' | 'camera' | 'confirm';
+type Step = 'camera' | 'confirm';
 
 interface BarcodeSearchPopupProps {
     isOpen: boolean;
     onClose: () => void;
-    initialMode?: 'search' | 'camera';
     onLog: (entry: FoodEntry) => Promise<void>;
 }
 
-export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'search', onLog }: BarcodeSearchPopupProps) {
+export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSearchPopupProps) {
     const { canUseThirdParty } = useCookieConsent();
     const { showToast } = useAuth();
     const sheet = useDraggableSheet({ onClose });
 
-    const [step, setStep] = useState<Step>('search');
-    const [query, setQuery] = useState('');
-    const [results, setResults] = useState<FoodSearchResult[]>([]);
-    const [status, setStatus] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [step, setStep] = useState<Step>('camera');
     const [saving, setSaving] = useState(false);
 
     const [cameraKey, setCameraKey] = useState(0);
@@ -96,23 +80,13 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
     const [amount, setAmount] = useState(100);
     const [unit, setUnit] = useState<'g' | 'ml' | 'pcs'>('g');
 
-    const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const searchAbortRef = useRef<AbortController | null>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
     const openedRef = useRef(false);
 
     useEffect(() => {
         if (isOpen) {
-            setStep(initialMode);
-            if (initialMode === 'search') setTimeout(() => inputRef.current?.focus(), 350);
+            setStep('camera');
         } else {
-            if (searchTimer.current) { clearTimeout(searchTimer.current); searchTimer.current = null; }
-            if (searchAbortRef.current) { searchAbortRef.current.abort(); searchAbortRef.current = null; }
             openedRef.current = false;
-            setQuery('');
-            setResults([]);
-            setStatus('');
-            setLoading(false);
             setSelFood(null);
             setAmount(100);
             setUnit('g');
@@ -121,7 +95,7 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
             setCameraList([]);
             setActiveCameraId(undefined);
         }
-    }, [isOpen, initialMode]);
+    }, [isOpen]);
 
     const prevStepRef = useRef<Step | null>(null);
     useEffect(() => {
@@ -134,53 +108,16 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
     }, [step, isOpen]);
 
     useEffect(() => {
-        if (isOpen && !openedRef.current && step === initialMode) {
+        if (isOpen && !openedRef.current && step === 'camera') {
             openedRef.current = true;
             sheet.open();
         }
-    }, [isOpen, step, initialMode, sheet]);
+    }, [isOpen, step, sheet]);
 
     useEffect(() => {
         if (!isOpen || step !== 'camera') return;
         sheet.refreshHeight();
     }, [cameraList.length, isOpen, sheet]);
-
-    const runSearch = useCallback(async (q: string) => {
-        if (!canUseThirdParty) {
-            setStatus('Search requires third-party consent.');
-            return;
-        }
-        if (!q.trim()) { setResults([]); setStatus(''); return; }
-
-        if (searchAbortRef.current) searchAbortRef.current.abort();
-        const controller = new AbortController();
-        searchAbortRef.current = controller;
-
-        setLoading(true); setStatus('');
-        try {
-            const url = `https://search.openfoodfacts.org/search?q=${encodeURIComponent(q)}&page_size=10&fields=product_name,product_name_en,brands,nutriments,serving_size,serving_quantity,quantity,categories_tags,code`;
-            const res = await fetch(url, { signal: controller.signal });
-            if (!res.ok) throw new Error('product_search_failed');
-            const data = await res.json();
-            if (controller.signal.aborted) return;
-            const products = (data.products || []) as Record<string, unknown>[];
-            setLoading(false);
-            if (!products.length) { setResults([]); setStatus('No results. Try a different term.'); return; }
-            setResults(products.map(mapProduct));
-        } catch (err) {
-            if ((err as { name?: string })?.name === 'AbortError') return;
-            setLoading(false);
-            setResults([]);
-            setStatus('Search failed. Check your connection.');
-        }
-    }, [canUseThirdParty]);
-
-    const handleInput = (v: string) => {
-        setQuery(v);
-        if (searchTimer.current) clearTimeout(searchTimer.current);
-        if (!v.trim()) { setResults([]); setStatus(''); return; }
-        searchTimer.current = setTimeout(() => runSearch(v), 400);
-    };
 
     const selectFood = (food: FoodSearchResult) => {
         setSelFood(food);
@@ -201,7 +138,7 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
             if (data?.status === 1 && data.product) {
                 selectFood(mapProduct({ ...data.product, code }));
             } else {
-                setCameraStatus('Product not found. Try again or search by name.');
+                setCameraStatus('Product not found. Try another barcode.');
                 setTimeout(() => { setCameraStatus('Scanning...'); setCameraKey(k => k + 1); }, 1500);
             }
         } catch {
@@ -215,35 +152,14 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
         sheet.close();
     }, [sheet]);
 
-    const ratio = selFood ? amount / 100 : 1;
-    const calcKcal = selFood ? Math.round(selFood.kcalPer100 * ratio) : 0;
-    const calcProt = selFood ? Math.round(selFood.protPer100 * ratio * 10) / 10 : 0;
-    const calcCarb = selFood ? Math.round(selFood.carbPer100 * ratio * 10) / 10 : 0;
-    const calcFat = selFood ? Math.round(selFood.fatPer100 * ratio * 10) / 10 : 0;
+    const { kcal: calcKcal, prot: calcProt, carb: calcCarb, fat: calcFat } = selFood
+        ? foodNutrition(selFood, amount) : { kcal: 0, prot: 0, carb: 0, fat: 0 };
 
     const logFood = async () => {
-        if (!selFood || saving) return;
-        const entry: FoodEntry = {
-            id: generateEntryId(),
-            food: selFood.name,
-            brand: selFood.brand || '',
-            emoji: selFood.emoji || 'fa-solid fa-utensils',
-            color: selFood.color || 'var(--accent)',
-            kcal: calcKcal,
-            amount: Math.round(amount),
-            unit,
-            prot: calcProt,
-            carb: calcCarb,
-            fat: calcFat,
-            ts: Date.now(),
-            date: new Date().toDateString(),
-            isDrink: !!selFood.isLiquid,
-            isBarcode: !!selFood.isBarcode,
-            barcode: selFood.barcode,
-        };
+        if (!selFood || saving || amount <= 0) return;
         setSaving(true);
         try {
-            await onLog(entry);
+            await onLog(buildFoodEntry(selFood, amount, unit));
             handleClose();
         } catch {
             showToast('Could not save food locally. Please try again.');
@@ -252,17 +168,18 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
         }
     };
 
-    const titles: Record<Step, string> = { search: 'Search Food', camera: 'Scan Barcode', confirm: 'Set Amount' };
+    const titles: Record<Step, string> = { camera: 'Scan Barcode', confirm: 'Set Amount' };
     const showBack = step === 'confirm';
 
     return (
         <div
             className="app-overlay"
             id="barcodeSearchOverlay"
+            aria-hidden={!isOpen}
             ref={sheet.overlayRef}
             onClick={e => { if (e.target === sheet.overlayRef.current) handleClose(); }}
         >
-            <div className="modal" id="barcodeSearchModal" ref={sheet.modalRef} style={{ transform: 'translateY(100%)' }}>
+            <div className="modal" id="barcodeSearchModal" ref={sheet.modalRef} role="dialog" aria-modal="true" aria-label="Barcode scanner" style={{ transform: 'translateY(100%)' }}>
                 <div className="modal-handle-zone" id="barcodeSearchHandleZone" {...sheet.handleProps}>
                     <div className="modal-handle" />
                 </div>
@@ -272,7 +189,7 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
                         <button
                             className="back-btn"
                             style={{ opacity: showBack ? 1 : 0, pointerEvents: showBack ? 'auto' : 'none' }}
-                            onClick={() => { setStep(initialMode); setSelFood(null); if (initialMode === 'camera') setCameraKey(k => k + 1); }}
+                            onClick={() => { setStep('camera'); setSelFood(null); setCameraKey(k => k + 1); }}
                         >
                             <svg height="18" viewBox="0 -960 960 960" width="18" fill="currentColor">
                                 <path d="M640-80 240-480l400-400 71 71-329 329 329 329-71 71Z" />
@@ -281,60 +198,13 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
                     </div>
                     <div className="modal-title">{titles[step]}</div>
                     <div className="modal-btn--right">
-                        {step === 'search' && (
-                            <button className="back-btn" style={{ background: 'var(--surface3)' }} title="Scan Barcode"
-                                onClick={() => { setStep('camera'); setCameraStatus('Scanning...'); setCameraKey(k => k + 1); }}>
-                                <i className="fa-solid fa-barcode" />
-                            </button>
-                        )}
-                        {step === 'camera' && (
-                            <button className="back-btn" style={{ background: 'var(--surface3)' }} title="Search by name"
-                                onClick={() => setStep('search')}>
-                                <i className="fa-solid fa-magnifying-glass" />
-                            </button>
-                        )}
+                        <button type="button" className="back-btn" aria-label="Close barcode scanner" onClick={handleClose}>
+                            <i className="fa-solid fa-xmark" aria-hidden="true" />
+                        </button>
                     </div>
                 </div>
 
                 <div className="modal-body" id="barcodeSearchBody">
-                    {step === 'search' && (
-                        <div className="search-step-inner">
-                            <div className="search-row">
-                                <div className="search-elements" id="barcodeSearchElements">
-                                    <div className="search-input-wrap" id="barcodeSearchInputWrap">
-                                        <i className="fa-solid fa-magnifying-glass search-icon" />
-                                        <input
-                                            ref={inputRef}
-                                            type="text"
-                                            id="barcodeSearchInput"
-                                            className="food-search-input"
-                                            placeholder="Search food or product name..."
-                                            autoComplete="off"
-                                            value={query}
-                                            onChange={e => handleInput(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {status && <div id="barcodeSearchStatus" className="search-status active">{status}</div>}
-
-                            <div id="barcodeSearchResults" className="search-results">
-                                {loading && [0, 1, 2].map(i => <React.Fragment key={i}>{SKEL}</React.Fragment>)}
-                                {!loading && results.map((food, i) => (
-                                    <div key={i} className="search-result-item" onClick={() => selectFood(food)}>
-                                        <div className="search-result-icon"><i className={food.emoji || 'fa-solid fa-utensils'} /></div>
-                                        <div className="search-result-info">
-                                            <div className="search-result-name">{food.name}</div>
-                                            {food.brand && <div className="search-result-brand">{food.brand}</div>}
-                                        </div>
-                                        <div className="search-result-kcal">{food.kcalPer100 ? `${Math.round(food.kcalPer100)} kcal/100${food.defaultUnit}` : '? kcal'}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
                     {step === 'camera' && (
                         <div className="search-step-inner">
                             <div className="camera-sheet" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -447,7 +317,8 @@ export default function BarcodeSearchPopup({ isOpen, onClose, initialMode = 'sea
                 <div className="modal-footer" id="barcodeSearchFooter">
                     <button
                         className="confirm-btn"
-                        disabled={step !== 'confirm' || !selFood || saving}
+                        aria-label="Log food"
+                        disabled={step !== 'confirm' || !selFood || saving || amount <= 0}
                         onClick={() => { if (step === 'confirm' && selFood) logFood(); }}
                     >
                         <svg viewBox="0 -960 960 960" fill="currentColor" height="22" width="22">

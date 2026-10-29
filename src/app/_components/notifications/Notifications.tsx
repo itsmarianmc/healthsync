@@ -147,7 +147,7 @@ function PushControls({ userId, onEnabled, variant }: NotificationsProps & { use
 
     const onboarding = variant === 'onboarding';
 
-    return <div className={`push-controls push-controls--${variant}`} aria-label="Notification settings" aria-busy={busy}>
+    return <div className={`push-controls push-controls--${variant} settings-section-body`} aria-label="Notification settings" aria-busy={busy}>
         {onboarding ? <>
             <div className="push-preview" aria-label="Example test notification">
                 <div className="push-preview-header">

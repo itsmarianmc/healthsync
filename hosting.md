@@ -172,6 +172,7 @@ create table if not exists user_settings (
   fat_goal         integer not null default 0,
   goal_ml          integer not null default 2500,
   custom_supplements jsonb not null default '[]'::jsonb,
+  custom_foods jsonb not null default '[]'::jsonb,
   workout_routines jsonb,
   updated_at       timestamptz not null default now()
 );
@@ -259,9 +260,8 @@ additive `20261001010000_profile_latest_version.sql` migration grants the
 changelog field separately. It does not expose profiles as a directory.
 
 The profile newsletter migration described in older setup notes is not present
-in this checkout. The checked-in
-[`20261005010000_custom_supplements.sql`](supabase/migrations/20261005010000_custom_supplements.sql)
-migration adds `custom_supplements jsonb not null default '[]'::jsonb` to an
+in this checkout. The historical `20261005010000_custom_supplements.sql`
+migration (also absent) adds `custom_supplements jsonb not null default '[]'::jsonb` to an
 existing `user_settings` table. It does not create the table or modify its RLS
 policies and grants. Inspect the target schema and migration history before
 applying it; no external database state is established here.
@@ -606,4 +606,41 @@ If something is missing or unclear, please open an issue at
 
 ## Web Push auf Vercel (v1)
 
-Die Einrichtung benötigt NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY, WEB_PUSH_VAPID_PRIVATE_KEY und WEB_PUSH_VAPID_SUBJECT unter Project → Settings → Environment Variables. Nur der öffentliche Schlüssel darf zum Browser gelangen. .env.example enthält leere Push-Platzhalter. Vor Freigabe muss die neue additive Migration 20261024010000_web_push.sql nach Schema-/RLS-Prüfung separat angewendet werden. Es wurden keine Datenbankänderungen, Vercel-Konfigurationsänderungen oder Deployments ausgeführt. Es gibt nur Einrichtung und neutralen Testversand, keine geplanten Reminder. Vollständige Konfiguration und Abnahme: [Web Push](docs/web-push.md).
+Die Einrichtung benötigt NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY, WEB_PUSH_VAPID_PRIVATE_KEY und WEB_PUSH_VAPID_SUBJECT unter Project → Settings → Environment Variables. Nur der öffentliche Schlüssel darf zum Browser gelangen. .env.example enthält leere Push-Platzhalter. Die in früheren Notizen genannte Migration 20261024010000_web_push.sql fehlt in diesem Checkout; vor einer Freigabe sind die tatsächlich verfügbaren SQL-Quellen und der Zielzustand separat zu prüfen. Es wurden keine Datenbankänderungen, Vercel-Konfigurationsänderungen oder Deployments ausgeführt. Es gibt nur Einrichtung und neutralen Testversand, keine geplanten Reminder. Vollständige Konfiguration und Abnahme: [Web Push](docs/web-push.md).
+
+## Custom food library (v5.0.0)
+
+The current checkout initially had no `supabase/migrations/` directory. The new
+[`20261026010000_custom_foods.sql`](supabase/migrations/20261026010000_custom_foods.sql)
+is an additive migration for an already existing `public.user_settings` table:
+
+```sql
+alter table public.user_settings
+  add column if not exists custom_foods jsonb not null default '[]'::jsonb;
+```
+
+Review the target project's schema and migration history separately before
+applying it. If the column already exists, verify its JSONB type, NOT NULL and
+empty-array default explicitly; `IF NOT EXISTS` does not repair a different
+existing definition. Check existing owner/MFA policies and effective grants as
+explained in [the security runbook](docs/security-migration.md). This migration
+does not change RLS, grants, triggers or the reset RPC. Existing rows get an
+empty library. No remote database was queried or changed for this implementation.
+
+Signed-in template changes travel through the existing settings queue and
+`user_settings` upsert. The app remains local-first if the column is absent or
+a cloud operation fails; the dirty marker and pending settings preserve local
+work for retry after schema rollout. Favourites are not synchronized. Acceptance
+against an isolated target should include owner A/B and MFA access, offline edit
+and retry, edit/delete followed by reload/pull, and Delete All Data/reset with
+the target's actual `clear_healthsync_data()` implementation. Its behavior for
+this new column must be checked; that RPC's source is absent from this checkout.
+
+Custom-food records may also contain optional
+`portion: { unit: 'pcs' | 'serving' | 'oz' | 'fl_oz', amount: number }`
+metadata. `amount` is the g/ml equivalent of one selected unit; nutrition stays
+normalized per 100 g/ml. This is stored within the same `custom_foods` JSONB
+array and needs no additional SQL column or migration. The reference food
+`amount numeric` supports fractional canonical quantities; mirrored hydration
+continues to round to whole ml for the reference drink `amount integer` column.
+The target schema was not queried or changed for this follow-up.

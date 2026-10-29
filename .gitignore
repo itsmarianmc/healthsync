@@ -57,6 +57,7 @@ supabase_migration.sql
 !/supabase/migrations/
 /supabase/migrations/*
 !/supabase/migrations/20261024010000_web_push.sql
+!/supabase/migrations/20261026010000_custom_foods.sql
 
 # AI Models
 .models

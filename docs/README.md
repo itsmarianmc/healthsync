@@ -1,6 +1,12 @@
 # HealthSync – Technical Documentation
 
-This documentation describes the checked-in HealthSync code and configuration, with Web Push updated on **October 24, 2026**. Inspect `git status --short` before relying on a working-tree change as a released state. The current checkout contains the newly prepared `20261024010000_web_push.sql`; the custom-supplements, baseline, historical owner/MFA and newsletter migrations referenced in older reports are absent. No external database state is established by repository files.
+This documentation describes the checked-in HealthSync code and configuration,
+with the v5.0.0 local food library updated on **October 26, 2026**. Inspect
+`git status --short` before treating working-tree changes as released.
+`supabase/migrations/` contains only the newly prepared, unapplied
+`20261026010000_custom_foods.sql`; Web Push and historical baseline/security
+migrations described in older notes are absent from this checkout. Repository
+files do not establish any external database state.
 
 ## Purpose
 

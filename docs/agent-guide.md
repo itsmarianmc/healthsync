@@ -59,13 +59,11 @@ Route page + global `AppShell` + feature component + local JSON data + optional 
 
 ## Supabase security rollout status
 
-This checkout contains the unapplied additive Web Push migration
-`20261024010000_web_push.sql` (see [Web Push](./web-push.md)). The custom-supplements migration, baseline schema,
-newsletter migration and owner/MFA/reset migrations described in older reports
-are absent, and no remote migration history or current database state was
-queried for this implementation. Older maintainer reports are retained as
-historical evidence in [`quality-audit.md`](./quality-audit.md), but do not
-establish the current checkout's migration chain or target-project state. See
+As inspected on 2026-10-26, the checkout initially had no migration directory.
+It now contains only the unapplied additive `20261026010000_custom_foods.sql`.
+The Web Push, custom-supplements, baseline and owner/MFA/reset migrations
+referenced in older reports remain absent. No external database or migration
+history was queried for the food-library implementation. See
 [`security-migration.md`](./security-migration.md) before database work.
 
 Before recording the security work as complete, capture evidence for these

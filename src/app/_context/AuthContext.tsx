@@ -14,6 +14,7 @@ import { switchWorkspace, activeOwner, GUEST_OWNER, clearActiveHealthData, ackno
 import { parseCustomSupplements, SUPPLEMENT_KEYS } from '../_lib/supplements';
 import { mustDiscardAfterReset } from '../_lib/syncPolicy';
 import { syncEntries } from '../_lib/entrySync';
+import { applyCloudCustomFoods, queueDirtyCustomFoods } from '../_lib/customFoods';
 import { hasVerifiedMfaFactor, needsMfaVerification } from '../_lib/mfaPolicy';
 
 interface AuthContextType {
@@ -151,6 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const customSupplements = parseCustomSupplements(data.custom_supplements);
             if (customSupplements) localStorage.setItem(SUPPLEMENT_KEYS.custom, JSON.stringify(customSupplements));
         }
+        applyCloudCustomFoods(data.custom_foods);
         if (data.status) {
             localStorage.setItem('healthsync_activity_status', JSON.stringify(data.status));
         }
@@ -167,8 +169,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [showToast]);
 
     const fetchSettings = useCallback(async (userId: string) => {
+        const isCurrent = workspaceGuard(userId);
         const data = await pullSettings(userId);
-        if (data && activeOwner() === userId) {
+        if (data && isCurrent()) {
             setSettings(data);
             applySettingsToLocalStorage(data);
             checkAndNotifyMissingMacros(data, userId);
@@ -232,6 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // Persist the reset marker now so retries preserve entries added after this reset.
                 localStorage.setItem('healthsync_last_cloud_sync', cloudSettings.data_reset_at!);
             }
+            queueDirtyCustomFoods();
             let pendingSettings = JSON.parse(localStorage.getItem('healthsync_pending_settings') || '{}');
             const hadPendingSettings = Object.keys(pendingSettings).length > 0;
             while (Object.keys(pendingSettings).length) {

@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
+## [4.5.0] - 2026-10-29
+
+### Added
+- **Custom food library**: Added `CustomFoodsModal` for creating, editing and deleting nutrition templates with stable IDs, a trimmed name, an optional brand and validated finite, non-negative nutrition values. The Extra menu's Create Food action replaces Log Drink; DropSync retains drink logging. Template changes never create a `FoodEntry` or alter previously logged entries.
+- **Local Saved Foods search**: Added `SavedFoodsModal` to search custom foods and existing `calsync_favourites` by name and brand without external requests. Results deduplicate complete food identities rather than names alone, include empty/no-match states and require an explicit amount confirmation through `logFoodEntry`.
+- **Flexible nutrition bases and portions**: Added `foodPortions.ts` and optional `FoodPortion` metadata for nutrition per 100 g, 100 ml, piece, serving, weight ounce or US fluid ounce. Piece/serving definitions accept a gram or milliliter equivalent; ounce defaults use standard conversions, while a fluid ounce expressed in grams requires an explicit food-specific weight. Stored nutrition remains normalized per 100 g/ml.
+- **Local-first settings synchronization**: Added `calsync_custom_foods` and its dirty marker to `HEALTH_DATA_KEYS`, plus validated `UserSettings.custom_foods` settings-queue push/pull handling. Guest/account workspaces remain separate, guest import remains explicit and favorites retain their existing local storage. The prepared, unapplied `supabase/migrations/20261026010000_custom_foods.sql` adds only `user_settings.custom_foods jsonb NOT NULL DEFAULT '[]'::jsonb`; it changes no RLS policies or grants. External database state and rollout remain unverified.
+- **Food-library regression coverage**: Added custom-food validation/storage/sync and portion-conversion unit tests, `e2e/saved-foods.spec.ts` and an isolated `playwright.food-fixtures.config.ts`. Coverage includes explicit logging, snapshot preservation, workspace isolation, retry/pull conflicts, fractional portions, unit switching, keyboard/mobile sheets and simulated barcode confirmation. Camera fixtures now clear stopped callbacks and deliver frames while the decoder is active; this fixes a test race without changing scanner behavior.
+
+### Changed
+- **Shared food-entry calculation**: Extracted `buildFoodEntry` and `foodNutrition` into `foodEntry.ts` for CalSync, barcode confirmation and Saved Foods, preserving the existing calorie/macro rounding conventions and logging path.
+- **Food-library sheets and navigation**: Added shared `FoodLibrarySheet` behavior for Escape, overlay closing, focus trapping/return and mobile dragging. Create Food follows the routines layout with a dashed add row, cards and a muted empty state. Saved Foods uses a top-left back button that retains the query, food and macro cards, quick amounts, an amount/unit selector and a filled Log food action. The Extra actions toggle is now a labeled native button for keyboard access.
+- **Small UI consistency adjustments**: Applied the shared settings-section body class to notification controls, used the icon close control in the barcode overlay and standardized the workout personal-record toast's repetition separator.
+- **Feature and operations documentation**: Updated the architecture, feature, storage, routing, file inventory and agent guides, plus Supabase setup and migration instructions, to describe the food library and the migration files actually present in this checkout. Dated validation evidence remains in `docs/operations-and-testing.md`; application suites were not rerun for this release-note update.
+
+### Fixed
+- **Pending custom-food changes**: Local saves retain a recoverable dirty marker when settings queueing fails. Reload recovery requeues pending changes, delayed cloud pulls cannot overwrite newer local edits or deletions, and workspace guards invalidate open library sheets and stale saves after owner changes or resets.
+- **Fractional logging and unit changes**: Food entries retain fractional gram/milliliter amounts, unit switches preserve the physical quantity and nutrition preview, and entry/history labels use compact decimal formatting. Mirrored DropSync entries round to whole milliliters and use a nullish fallback so a sub-milliliter amount cannot become an unintended 250 ml drink.
+- **Turbopack workspace detection**: Set `turbopack.root` to the repository directory in `next.config.ts` so an unrelated ancestor lockfile does not select the wrong workspace root or trigger the multiple-lockfile warning.
+
+### Removed
+- **Product-name search inside the barcode overlay**: Removed the manual search field, mode, request state and result UI from `BarcodeSearchPopup`. Extra menu Search opens only Saved Foods; Scan Barcode opens the camera and can still look up the detected barcode through the existing consent-gated flow. The `extra:openBarcodeSearch` event remains available for camera scanning.
+
 ## [4.4.0] - 2026-10-24
 
 ### Added

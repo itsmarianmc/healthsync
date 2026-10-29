@@ -231,3 +231,27 @@ prove Supabase RLS enforcement. The database migration and real-account
 authorization matrix require the isolated-project procedure in
 [`security-migration.md`](security-migration.md).
 
+
+## v5.0.0 food library
+
+- `src/app/_lib/customFoods.ts`: template validation, storage/dirty queue recovery, local saved-food search.
+- `src/app/_lib/foodEntry.ts`: shared per-100 scaling and FoodEntry creation.
+- `src/app/_components/calsync/CustomFoodsModal.tsx`: template manager/editor.
+- `src/app/_components/calsync/SavedFoodsModal.tsx`: local selection and explicit serving logging.
+- `src/app/_components/calsync/FoodLibrarySheet.tsx`: common draggable sheet wrapper.
+- `supabase/migrations/20261026010000_custom_foods.sql`: unapplied additive settings column.
+- `tests/customFoods.test.mjs`, `e2e/saved-foods.spec.ts`: isolated logic and browser coverage.
+- `playwright.food-fixtures.config.ts`: server-independent Edge configuration for the food and existing AI/workspace fixtures.
+
+Integration changes for this feature: `AppShell.tsx`, `BarcodeSearchPopup.tsx`,
+`CalSyncModal.tsx`, `AuthContext.tsx`, `types.ts`, `localData.ts` and `styles.css`.
+`package.json`/`package-lock.json` now identify v5.0.0; `.gitignore` permits the
+new migration. The repository/agent guides, architecture, feature, routing,
+storage, setup, migration and test documents describe the new contracts and
+actual checkout state. `e2e/fixtures/ai-app.ts` supplies the controlled settings
+transport and all three main-route components for isolated browser checks.
+
+- `src/app/_lib/foodPortions.ts`: validated serving metadata, mass/volume conversion,
+  canonical g/ml quantities and compact amount labels.
+- `tests/foodPortions.test.mjs`: portion normalization, fractional logging,
+  whole-ml hydration, legacy compatibility and settings round trips.

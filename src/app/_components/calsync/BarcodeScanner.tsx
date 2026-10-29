@@ -160,7 +160,7 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded, s
     return <div className="app-overlay" id="cameraOverlay" ref={sheet.overlayRef} onClick={event => { if (event.target === sheet.overlayRef.current) sheet.close(); }}>
         <div className="modal" id="cameraModal" ref={sheet.modalRef} style={{ transform: 'translateY(100%)' }}>
             <div className="modal-handle-zone" id="cameraHandleZone" {...sheet.handleProps}><div className="modal-handle" /></div>
-            <div className="modal-header"><div className="modal-title">Scan Barcode</div><div className="modal-btn--right"><button id="closeCameraBtn" className="back-btn" style={{ background: 'var(--surface3)' }} onClick={sheet.close} aria-label="Close scanner">×</button></div></div>
+            <div className="modal-header"><div className="modal-title">Scan Barcode</div><div className="modal-btn--right"><button id="closeCameraBtn" className="back-btn" style={{ background: 'var(--surface3)' }} onClick={sheet.close} aria-label="Close scanner"><i className="fa-solid fa-x"></i></button></div></div>
             <div className="modal-body" style={{ padding: 16 }}><div style={{ position: 'relative' }}>{video}<div className="camera-frame-overlay"><div className="scan-frame" /></div></div>
                 {cameras.length > 1 && <select className="form-input camera-select" value={activeDeviceId} onChange={event => { stopCamera(); scheduleStart(event.target.value, 50); }} style={{ marginTop: 12 }}>{cameras.map((cam, index) => <option key={cam.deviceId || index} value={cam.deviceId}>{friendlyCameraLabel(cam, index)}</option>)}</select>}
                 <div id="cameraStatus" className="search-status" style={{ marginTop: 12 }}>{status}</div>

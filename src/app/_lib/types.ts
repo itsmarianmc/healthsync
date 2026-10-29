@@ -78,6 +78,7 @@ export interface UserSettings {
   weight_kg?: number | null;
   supplements_taken?: Record<string, Record<string, boolean>> | null;
   custom_supplements?: CustomSupplement[] | null;
+  custom_foods?: CustomFood[];
   workout_routines?: WorkoutRoutines | null;
   status?: ActivityStatusRecord | null;
   updated_at?: string;
@@ -130,6 +131,13 @@ export interface WorkoutSession {
   exercises: WorkoutSessionExercise[];
 }
 
+export type FoodPortionUnit = 'pcs' | 'serving' | 'oz' | 'fl_oz';
+
+export interface FoodPortion {
+  unit: FoodPortionUnit;
+  amount: number; // g or ml per one portion, according to defaultUnit
+}
+
 export interface FoodSearchResult {
   name: string;
   brand?: string;
@@ -146,11 +154,17 @@ export interface FoodSearchResult {
   defaultUnit?: string;
   isLiquid?: boolean;
   servingSize?: number | null;
+  portion?: FoodPortion;
   isBarcode?: boolean;
   isManual?: boolean;
   isPrepared?: boolean;
   isFavourite?: boolean;
   barcode?: string;
+}
+
+export interface CustomFood extends FoodSearchResult {
+  id: string;
+  defaultUnit: 'g' | 'ml';
 }
 
 export interface DashboardData {

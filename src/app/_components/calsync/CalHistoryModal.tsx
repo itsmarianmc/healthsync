@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { FoodEntry } from '../../_lib/types';
+import { formatFoodAmount } from '../../_lib/foodPortions';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 
 interface CalHistoryModalProps {
@@ -141,7 +142,7 @@ export default function CalHistoryModal({ entries, isOpen, onClose }: CalHistory
                                             </div>
                                         )}
                                         {items.map(e => {
-                                            const subInfo = e.amount ? `${e.amount}${e.unit||'g'}${e.brand ? ' · '+e.brand : ''}` : '';
+                                            const subInfo = e.amount ? `${formatFoodAmount(e.amount)}${e.unit||'g'}${e.brand ? ' · '+e.brand : ''}` : '';
                                             return (
                                                 <div key={e.id} className="log-item no-anim">
                                                     <div className="log-emoji no-select"><i className={e.emoji||'fa-solid fa-utensils'} style={{ color: e.color||'var(--accent)' }} /></div>

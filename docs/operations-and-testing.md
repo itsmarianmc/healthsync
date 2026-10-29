@@ -18,6 +18,15 @@ npm run dev
 
 Default URL: `http://localhost:3000`.
 
+`next.config.ts` explicitly sets `turbopack.root` to the configuration file's
+directory. This keeps module resolution and file watching inside HealthSync
+even when an ancestor directory contains another lockfile. The setting follows
+the checkout path on other machines; no user-specific absolute path is stored.
+On October 26, 2026, configuration loading confirmed the HealthSync root without
+the ancestor-lockfile warning; config lint and the regular Turbopack
+`npm run build` passed. This follow-up supersedes the earlier stalled default
+build recorded below for the food-library work.
+
 ### Environment variables
 
 | Variable | Required | Use |
@@ -96,7 +105,7 @@ For Vercel, set environment variables in project settings. For a self-managed No
    RLS without defining policies and is not a complete setup procedure.
 3. Review the actual schema, policies, grants and constraints using
    [`security-migration.md`](./security-migration.md). This checkout contains
-   only the unapplied additive Web Push migration; it does not contain the custom-supplements,
+   only the unapplied additive custom-food column migration; it does not contain the Web Push, custom-supplements,
    base schema or security migration chain described in older audit notes.
 4. Do not assume that the historical reports of a clone migration establish
    the state of another project or the current remote schema.
@@ -214,3 +223,67 @@ Executed checks:
 No production access, deployment, schema change, real Auth/Supabase acceptance
 test or production build was performed for this change.
 
+
+## Custom food library verification — October 26, 2026
+
+- `npm test`: 104 passing tests, including validation, local-write/queue failure,
+  stale-pull/edit/delete protection, independent logged snapshots, owner-scoped
+  settings upserts and guest/A/B isolation.
+- `npx playwright test --config playwright.food-fixtures.config.ts --workers=1 --reporter=line`:
+  14 passing Edge fixtures (the seven existing AI/workspace cases and seven
+  food-library cases). The real components use mocked Next navigation,
+  Supabase transport and Service Worker registration. The account test verifies
+  failed upload, reload, online retry and separate guest/A/B libraries; it does
+  not establish live cookie authentication, server authorization or RLS.
+- Against `npm run start -- --port 3107` with `BASE_URL=http://localhost:3107`,
+  `saved-foods.spec.ts`, `food-image-picker.spec.ts` and
+  `dropsync-week-history.spec.ts` produced 20 passing checks in the final combined
+  run, including mobile keyboard/focus/drag and immediate workspace invalidation. The account transport fixture is
+  intentionally skipped in the real-Next run. External services were intercepted;
+  the barcode case uses simulated camera decoding and a fixture product response.
+- `npx tsc --noEmit`, `git diff --check` and
+  `npm run build -- --webpack` passed. The default Turbopack build stalled and
+  was stopped; the initial development-server E2E attempt timed out. A stale,
+  empty generated dev route declaration was restored from current production
+  type generation before the final standalone type check.
+- Full lint remains failing with 124 errors and 50 warnings from pre-existing repository findings. New
+  source/test files have no lint findings; modified existing TypeScript source
+  files were compared with HEAD and have unchanged error/warning counts.
+
+No external database was inspected or changed, no migration was applied, no
+production deployment or real camera/hardware test was performed, and the full
+unrelated E2E suite was not run. Target-project schema, owner/MFA/RLS and reset
+RPC acceptance remain separate rollout checks.
+
+## Food portions and detail-sheet follow-up — October 26, 2026
+
+The food detail sheet now uses a header back button, separate macro cards and
+unit-aware quantities. Nutrition bases include per piece, serving, ounce and
+US fluid ounce; definitions still store canonical per-100 g/ml values with
+optional portion metadata inside the existing custom-food JSONB column. There
+is no additional schema migration or new local-storage key.
+
+Checks for this follow-up:
+
+- `npm test`: 118 passing tests, including normalization, unit/density
+  conversions, fractional quantities, whole-ml hydration, invalid sizes,
+  legacy favorites and settings/metadata round trips.
+- Eight passing isolated food browser cases (`--grep-invert barcode`),
+  including piece editing, header navigation, fractional logging and explicit
+  US-fl-oz weight. Seven corresponding cases passed against the local Next
+  production server on port 3107; the controlled account fixture is tested
+  only in isolated mode. The separate barcode case also passed against the
+  production server and in isolated mode (nine isolated cases and eight
+  production-server cases passed in total). Its camera fixture now clears stopped decoder callbacks
+  and delivers a frame atomically while the decoder is active, eliminating the
+  previous false confirmation timeout without changing scanner code.
+- `npx tsc --noEmit`, `npm run build` with Turbopack and `git diff --check`
+  passed. The earlier scanner `class` typo is absent in the current checkout.
+- Full lint was run and still reports 124 errors and 50 warnings. New/updated
+  food-library modules and tests have zero findings; the existing history,
+  entry-list, logging and type modules have unchanged lint counts compared to
+  HEAD.
+
+External database state, real Auth/MFA/RLS and real camera hardware remain
+unverified. Existing cloud/settings authorization and workspace boundaries are
+unchanged; no migration or deployment was performed.
