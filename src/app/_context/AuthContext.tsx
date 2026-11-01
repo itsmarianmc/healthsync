@@ -15,6 +15,8 @@ import { parseCustomSupplements, SUPPLEMENT_KEYS } from '../_lib/supplements';
 import { mustDiscardAfterReset } from '../_lib/syncPolicy';
 import { syncEntries } from '../_lib/entrySync';
 import { applyCloudCustomFoods, queueDirtyCustomFoods } from '../_lib/customFoods';
+import { syncFoodLibrary } from '../_lib/sync';
+import { recoverFoodBatch } from '../_lib/foodLog';
 import { hasVerifiedMfaFactor, needsMfaVerification } from '../_lib/mfaPolicy';
 
 interface AuthContextType {
@@ -235,6 +237,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // Persist the reset marker now so retries preserve entries added after this reset.
                 localStorage.setItem('healthsync_last_cloud_sync', cloudSettings.data_reset_at!);
             }
+            recoverFoodBatch();
             queueDirtyCustomFoods();
             let pendingSettings = JSON.parse(localStorage.getItem('healthsync_pending_settings') || '{}');
             const hadPendingSettings = Object.keys(pendingSettings).length > 0;
@@ -252,6 +255,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (!isCurrent()) return;
             setSettings(cloudSettings);
             applySettingsToLocalStorage(cloudSettings);
+            await syncFoodLibrary(userId, cloudSettings.data_reset_at);
+            if (!isCurrent()) return;
             await flushDeletedEntries(userId);
             if (!isCurrent()) return;
             await flushRestoredFood(userId);

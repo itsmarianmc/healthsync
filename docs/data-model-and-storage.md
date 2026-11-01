@@ -1,5 +1,19 @@
 # Data Model and Storage
 
+## Personal food library update — October 29, 2026
+
+The [food library contract](./food-library.md) supersedes the older custom-food
+and local-only favorite descriptions below for the new screens. Definitions,
+recipes, favorite registers, operation tombstones and pending IDs live in
+`calsync_food_library_v1`; selection and interrupted commits use
+`calsync_food_selection_v1` and `calsync_food_batch_v1`. All are workspace keys.
+The old arrays/JSONB column are preserved as migration sources, not the new
+collection transport. Cloud uses owner-scoped immutable `food_library_changes`.
+Optional `FoodEntry.catalogFoodId` / `foodSnapshot` map to additive
+`calsync_entries.catalog_food_id` / `food_snapshot` columns. Every occurrence
+keeps its own ID and nutrition snapshot. See the linked document for formats,
+conflict resolution, legacy mapping, recipe yield and reset semantics.
+
 ## Core principle
 
 HealthSync stores domain data in the browser and optionally synchronizes it to Supabase. The local representation is the one used by the visible UI. Cloud sync is an additional transport and backup channel, not a requirement for basic offline use.
@@ -372,3 +386,20 @@ The login screen no longer offers a remembered-device checkbox. The former `heal
 
 Die neue vorbereitete Migration ist 20261024010000_web_push.sql; die Custom-Supplement-Migration war am 24.10.2026 nicht im Checkout vorhanden. push_subscriptions speichert user_id, eindeutigen Endpoint, p256dh, auth und created_at. Owner-RLS und verifizierte MFA/AAL2 schützen alle Operationen. push_test_limits speichert ausschließlich den letzten Testversuch pro Konto und ist nur über eine autorisierte, atomare Funktion beschreibbar. Keine neue Local-Storage-Auswahl und keine Gesundheitsdaten im Push. Tabellen, Löschsemantik und Grenzen sind unter [Web Push](./web-push.md) dokumentiert. Keine Migration angewendet.
 
+
+
+### Reminder preparation (29 October 2026)
+
+The unapplied `20261029020000_reminder_preferences.sql` drafts an owner- and
+MFA-scoped `push_reminder_preferences` table, defaulting the global switch and
+all five categories to off. `GET` and `PUT /api/push/reminders/preferences` use
+the existing bearer-session/MFA authorization and `Cache-Control: no-store`.
+PUT accepts exactly `enabled` and the five boolean `categories`; an enabled
+record requires at least one category and records consent version 1 and a server
+timestamp. A missing record returns off; a database error returns 503. The UI
+does not yet use this API and still says Coming soon. The service worker accepts
+fixed, allowlisted reminder-category copy but there is no reminder sender.
+No migration has been applied and this is not operational scheduling. Review
+owner/MFA isolation, reset and account-deletion behavior in an isolated target
+before rollout. See [the reminder proposal](./web-push-reminders.md) for the
+unapproved cross-user worker scope and remaining scheduler configuration.

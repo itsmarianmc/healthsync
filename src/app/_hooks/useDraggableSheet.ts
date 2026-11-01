@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useCallback, useEffect } from 'react';
+import { useSheetDragGestures } from './useSheetDragGestures';
 
 interface DraggableSheetConfig {
   onClose: () => void;
@@ -10,6 +11,8 @@ interface DraggableSheetConfig {
   transitionEasing?: string;
   closeTransitionDurationMs?: number;
   closeTransitionEasing?: string;
+  additionalTransitionProperties?: string[];
+  expandable?: boolean;
 }
 
 type SheetState = 'closed' | 'open' | 'expanded';
@@ -36,7 +39,7 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
 }
 
 function isTopVisibleSheet(overlay: HTMLElement | null): boolean {
-  if (!overlay?.classList.contains('visible')) return false;
+  if (overlay?.inert || !overlay?.classList.contains('visible')) return false;
   const visible = Array.from(document.querySelectorAll<HTMLElement>('.app-overlay.visible'));
   const top = visible.reduce<HTMLElement | null>((currentTop, candidate) => {
     if (!currentTop) return candidate;
@@ -56,6 +59,8 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
     transitionEasing,
     closeTransitionDurationMs,
     closeTransitionEasing,
+    additionalTransitionProperties,
+    expandable = true,
   } = config;
   const modalRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -85,10 +90,10 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
     if (!modalRef.current) return;
     const duration = transitionDurationMs ?? 420;
     const easing = transitionEasing ?? EASE;
-    modalRef.current.style.transition = props
+    modalRef.current.style.transition = [...props, ...(additionalTransitionProperties || [])]
       .map((p) => `${p} ${duration}ms ${easing}`)
       .join(', ');
-  }, [transitionDurationMs, transitionEasing]);
+  }, [transitionDurationMs, transitionEasing, additionalTransitionProperties]);
 
   const snapToOpen = useCallback(() => {
     stateRef.current = 'open';
@@ -99,12 +104,14 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
   }, [setTransition]);
 
   const snapToExpanded = useCallback(() => {
+    if (!expandable) return;
+    if (expandedHeight() <= naturalHeightRef.current + 1) { snapToOpen(); return; }
     stateRef.current = 'expanded';
     if (!modalRef.current) return;
     setTransition(['height', 'transform']);
     modalRef.current.style.height = expandedHeight() + 'px';
     modalRef.current.style.transform = 'translateY(0)';
-  }, [expandedHeight, setTransition]);
+  }, [expandedHeight, setTransition, expandable, snapToOpen]);
 
   const refreshHeight = useCallback(() => {
     if (
@@ -146,7 +153,8 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         if (!modalRef.current) return;
-        modalRef.current.style.transition = `transform ${closeTransitionDurationMs ?? 360}ms ${closeTransitionEasing ?? CLOSE_EASE}`;
+        modalRef.current.style.transition = ['transform', ...(additionalTransitionProperties || [])]
+          .map(property => `${property} ${closeTransitionDurationMs ?? 360}ms ${closeTransitionEasing ?? CLOSE_EASE}`).join(', ');
         modalRef.current.style.transform = 'translateY(110%)';
         unlockBodyScroll();
       }),
@@ -165,27 +173,27 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
       previousFocusRef.current = null;
       onClose();
     }, 400);
-  }, [closeTransitionDurationMs, closeTransitionEasing, onClose]);
+  }, [closeTransitionDurationMs, closeTransitionEasing, additionalTransitionProperties, onClose]);
 
-  const onHandlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (!modalRef.current) return;
+  const startDrag = useCallback((clientY: number) => {
+    if (!modalRef.current || isClosingRef.current || stateRef.current === 'closed') return;
     isDraggingRef.current = true;
-    dragStartYRef.current = e.clientY;
-    dragLastYRef.current = e.clientY;
+    dragStartYRef.current = clientY;
+    dragLastYRef.current = clientY;
+    dragDYRef.current = 0;
     velRef.current = 0;
     lastTimeRef.current = Date.now();
     modalRef.current.style.transition = 'none';
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }, []);
 
-  const onHandlePointerMove = useCallback((e: React.PointerEvent) => {
+  const moveDrag = useCallback((clientY: number) => {
     if (!isDraggingRef.current || !modalRef.current) return;
-    const dy = e.clientY - dragStartYRef.current;
+    const dy = clientY - dragStartYRef.current;
     const now = Date.now();
     const dt = now - lastTimeRef.current;
     if (dt > 0)
-      velRef.current = ((e.clientY - dragLastYRef.current) / dt) * 1000;
-    dragLastYRef.current = e.clientY;
+      velRef.current = ((clientY - dragLastYRef.current) / dt) * 1000;
+    dragLastYRef.current = clientY;
     dragDYRef.current = dy;
     lastTimeRef.current = now;
 
@@ -196,30 +204,34 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
     } else {
       if (dy > 0) {
         modalRef.current.style.transform = `translateY(${dy}px)`;
-      } else {
+      } else if (expandable) {
         const baseH = naturalHeightRef.current;
         const newH = Math.min(expandedHeight(), baseH + Math.abs(dy));
         modalRef.current.style.height = newH + 'px';
         modalRef.current.style.transform = 'translateY(0)';
       }
     }
-  }, [expandedHeight]);
+  }, [expandedHeight, expandable]);
 
-  const onHandlePointerUp = useCallback(() => {
+  const finishDrag = useCallback((cancelled = false) => {
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
+    if (stateRef.current === 'closed') { dragDYRef.current = 0; velRef.current = 0; return; }
     const dy = dragDYRef.current;
-    const vel = velRef.current;
+    const vel = Date.now() - lastTimeRef.current > 100 ? 0 : velRef.current;
 
-    if (vel > FLING_CLOSE_VEL && dy > 0 && stateRef.current !== 'expanded') {
+    if (cancelled) {
+      if (stateRef.current === 'expanded') snapToExpanded();
+      else if (stateRef.current === 'open') snapToOpen();
+    } else if (vel > FLING_CLOSE_VEL && dy > 12 && stateRef.current !== 'expanded') {
       close();
-    } else if (dy > 80 || vel > 400) {
+    } else if (dy > 80 || (vel > 400 && dy > 12)) {
       if (stateRef.current === 'expanded') {
         snapToOpen();
       } else {
         close();
       }
-    } else if (dy < -60 || vel < -400) {
+    } else if (expandable && (dy < -60 || (vel < -400 && dy < -12))) {
       snapToExpanded();
     } else {
       if (stateRef.current === 'expanded') snapToExpanded();
@@ -227,7 +239,24 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
     }
     dragDYRef.current = 0;
     velRef.current = 0;
-  }, [close, snapToExpanded, snapToOpen]);
+  }, [close, snapToExpanded, snapToOpen, expandable]);
+
+  useSheetDragGestures({ modalRef, overlayRef, onStart: startDrag, onMove: moveDrag, onEnd: finishDrag });
+
+  const onHandlePointerDown = useCallback((event: React.PointerEvent) => {
+    if (event.pointerType === 'touch' || !event.isPrimary || event.button !== 0 || !isTopVisibleSheet(overlayRef.current)) return;
+    startDrag(event.clientY);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }, [startDrag]);
+  const onHandlePointerMove = useCallback((event: React.PointerEvent) => {
+    if (event.pointerType !== 'touch') moveDrag(event.clientY);
+  }, [moveDrag]);
+  const onHandlePointerUp = useCallback((event: React.PointerEvent) => {
+    if (event.pointerType !== 'touch') finishDrag();
+  }, [finishDrag]);
+  const onHandlePointerCancel = useCallback((event: React.PointerEvent) => {
+    if (event.pointerType !== 'touch') finishDrag(true);
+  }, [finishDrag]);
 
   const open = useCallback(() => {
     if (
@@ -251,7 +280,7 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
         const preferExpanded = (() => {
           try {
             return (
-              localStorage.getItem('healthsync_modals_expanded') === 'true'
+              expandable && expandedHeight() > naturalHeightRef.current + 1 && localStorage.getItem('healthsync_modals_expanded') === 'true'
             );
           } catch {
             return false;
@@ -272,7 +301,7 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
         if (firstFocusable) firstFocusable.focus();
       }),
     );
-  }, [expandedHeight, naturalHeight, setTransition]);
+  }, [expandedHeight, naturalHeight, setTransition, expandable]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -321,6 +350,8 @@ export function useDraggableSheet(config: DraggableSheetConfig) {
       onPointerDown: onHandlePointerDown,
       onPointerMove: onHandlePointerMove,
       onPointerUp: onHandlePointerUp,
+      onPointerCancel: onHandlePointerCancel,
+      onLostPointerCapture: onHandlePointerCancel,
     },
     stateRef,
   };

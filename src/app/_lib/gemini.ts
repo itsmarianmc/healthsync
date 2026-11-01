@@ -1,8 +1,13 @@
 import { logger } from '@/lib/logger';
+import type { AiRecipeCandidate, FoodSearchResult } from './types';
+import { FOOD_ICONS, validatedFoodIcon } from './foodIcons';
 
 export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-lite:generateContent';
 
 export interface GeminiAnalysis {
+    icon?: string;
+    kind?: 'food' | 'recipe';
+    recipe?: AiRecipeCandidate;
     name: string;
     brand: string;
     amount: number;
@@ -56,12 +61,21 @@ function fileToBase64(file: Blob): Promise<string> {
 const NUTRITION_RESPONSE_SCHEMA = {
     type: 'OBJECT',
     properties: {
+        kind: { type: 'STRING', enum: ['food', 'recipe'] },
+        recipe: { type: 'OBJECT', properties: {
+            name: { type: 'STRING' },
+            ingredients: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+                name: { type: 'STRING' }, amount: { type: 'NUMBER' }, unit: { type: 'STRING', enum: ['g', 'ml'] },
+            }, required: ['name', 'amount', 'unit'] } },
+            yield: { type: 'OBJECT', properties: { amount: { type: 'NUMBER' }, unit: { type: 'STRING', enum: ['g', 'ml', 'serving'] } }, required: ['amount', 'unit'] },
+        }, required: ['name', 'ingredients', 'yield'] },
         name: { type: 'STRING' }, brand: { type: 'STRING' }, amount: { type: 'NUMBER' },
+        icon: { type: 'STRING', enum: FOOD_ICONS },
         unit: { type: 'STRING', enum: ['g', 'ml'] }, calories: { type: 'NUMBER' },
         protein: { type: 'NUMBER' }, carbs: { type: 'NUMBER' }, fat: { type: 'NUMBER' },
     },
-    required: ['name', 'brand', 'amount', 'unit', 'calories', 'protein', 'carbs', 'fat'],
-    propertyOrdering: ['name', 'brand', 'amount', 'unit', 'calories', 'protein', 'carbs', 'fat'],
+    required: ['name', 'brand', 'icon', 'amount', 'unit', 'calories', 'protein', 'carbs', 'fat'],
+    propertyOrdering: ['name', 'brand', 'icon', 'amount', 'unit', 'calories', 'protein', 'carbs', 'fat'],
 };
 
 function toFiniteNumber(value: unknown, fallback = 0): number {
@@ -80,10 +94,27 @@ function toSafeString(value: unknown, fallback = ''): string {
     return String(value);
 }
 
-function sanitizeGeminiResponse(raw: unknown): GeminiAnalysis {
+export function sanitizeGeminiResponse(raw: unknown): GeminiAnalysis {
     const obj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+    if (typeof obj.name !== 'string' || !obj.name.trim() || obj.name.length > 200 ||
+        !['g', 'ml'].includes(String(obj.unit)) ||
+        ['amount', 'calories', 'protein', 'carbs', 'fat'].some(key => typeof obj[key] !== 'number' || !Number.isFinite(obj[key]) || Number(obj[key]) < 0) ||
+        Number(obj.amount) <= 0 || (obj.kind !== undefined && obj.kind !== 'food' && obj.kind !== 'recipe')) throw new Error('no_json');
+    let recipe: AiRecipeCandidate | undefined;
+    if (obj.kind === 'recipe') {
+        const candidate = obj.recipe as AiRecipeCandidate;
+        if (!candidate || typeof candidate.name !== 'string' || !candidate.name.trim() || candidate.name.length > 200 ||
+            !Array.isArray(candidate.ingredients) || !candidate.ingredients.length || candidate.ingredients.length > 100 ||
+            candidate.ingredients.some(item => !item || typeof item.name !== 'string' || !item.name.trim() || item.name.length > 200 ||
+                !Number.isFinite(item.amount) || item.amount <= 0 || !['g', 'ml'].includes(item.unit)) ||
+            !candidate.yield || !Number.isFinite(candidate.yield.amount) || candidate.yield.amount <= 0 ||
+            !['g', 'ml', 'serving'].includes(candidate.yield.unit)) throw new Error('no_json');
+        recipe = candidate;
+    }
     const unit = toSafeString(obj.unit, 'g').toLowerCase();
     return {
+        kind: obj.kind === 'recipe' ? 'recipe' : 'food', recipe,
+        icon: validatedFoodIcon(obj.icon),
         name: toSafeString(obj.name, '').trim() || 'Unknown',
         brand: toSafeString(obj.brand, '').trim(),
         amount: toFiniteNumber(obj.amount, 0),
@@ -104,8 +135,8 @@ function safePer100(amount: number, total: number): number {
 
 function extractFirstJson(text: string): unknown {
     const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-    const objectMatch = cleaned.match(/\{[\s\S]*?\}/);
-    const target = objectMatch ? objectMatch[0] : cleaned;
+    const start = cleaned.indexOf('{'), end = cleaned.lastIndexOf('}');
+    const target = start >= 0 && end >= start ? cleaned.slice(start, end + 1) : cleaned;
     try {
         return JSON.parse(target);
     } catch {
@@ -136,6 +167,7 @@ export async function analyzeWithGemini(
 
                 The JSON object must contain exactly these fields:
                 - "name": the exact name of the food item (string)
+                - "icon": the most relevant food icon from this list: ${FOOD_ICONS.join(', ')}. Use "fa-solid fa-utensils" if none fits.
                 - "brand": brand name if visible, otherwise empty string (string)
                 - "amount": estimated portion size in grams or milliliters (number)
                 - "unit": the unit of the portion, either "g" or "ml" (string)
@@ -160,6 +192,7 @@ export async function analyzeWithGemini(
 
             Return ONLY a raw JSON object with these fields:
             - "name": short descriptive food name (string)
+            - "icon": the most relevant food icon from this list: ${FOOD_ICONS.join(', ')}. Use "fa-solid fa-utensils" if none fits.
             - "brand": empty string (string)
             - "amount": portion size as a number (number)
             - "unit": "g" or "ml" (string)
@@ -178,6 +211,7 @@ export async function analyzeWithGemini(
 
             No markdown, no backticks, no explanations. Valid JSON only.` }];
     }
+    parts.push({ text: 'Also set kind to food, or recipe only when the user asks to create a recipe. For a recipe include recipe: {name, ingredients: [{name, amount, unit: g or ml}], yield: {amount, unit: serving, g or ml}}. Ingredients and quantities are editable estimates and will be matched to the personal library for review.' });
     const res = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -185,7 +219,7 @@ export async function analyzeWithGemini(
             contents: [{ parts }],
             generationConfig: {
                 temperature: 0.25,
-                maxOutputTokens: 512,
+                maxOutputTokens: 4096,
                 response_mime_type: 'application/json',
                 response_schema: NUTRITION_RESPONSE_SCHEMA,
             },
@@ -235,29 +269,18 @@ export function describeGeminiError(err: Error): string {
 export function toGeminiFoodSearchResult(
     result: GeminiAnalysis,
     fallback: { name: string; emoji: string; color: string }
-): {
-    name: string;
-    brand: string;
-    kcalPer100: number;
-    protPer100: number;
-    carbPer100: number;
-    fatPer100: number;
-    emoji: string;
-    color: string;
-    defaultUnit: 'g' | 'ml';
-    servingSize: number;
-    isManual: false;
-    isBarcode: false;
-} {
+): FoodSearchResult {
     const amount = Number.isFinite(result.amount) && result.amount > 0 ? result.amount : 100;
     return {
+        aiRecipeCandidate: result.kind === 'recipe' ? result.recipe : undefined,
+        provenance: 'ai',
         name: result.name?.trim() || fallback.name,
         brand: result.brand?.trim() || 'AI Detection',
         kcalPer100: safePer100(amount, result.calories),
         protPer100: safePer100(amount, result.protein),
         carbPer100: safePer100(amount, result.carbs),
         fatPer100: safePer100(amount, result.fat),
-        emoji: fallback.emoji,
+        emoji: validatedFoodIcon(result.icon) || fallback.emoji,
         color: fallback.color,
         defaultUnit: result.unit === 'ml' ? 'ml' : 'g',
         servingSize: amount,

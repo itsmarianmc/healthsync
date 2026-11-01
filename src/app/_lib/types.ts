@@ -18,6 +18,8 @@ export interface FoodEntry {
   isBarcode?: boolean;
   barcode?: string;
   status?: 'pending' | 'confirmed';
+  catalogFoodId?: string;
+  foodSnapshot?: FoodSearchResult;
 }
 
 export interface PendingFoodDraft {
@@ -139,6 +141,10 @@ export interface FoodPortion {
 }
 
 export interface FoodSearchResult {
+  aiRecipeCandidate?: AiRecipeCandidate;
+  catalogFoodId?: string;
+  recipeSnapshot?: RecipeSnapshot;
+  provenance?: 'manual' | 'barcode' | 'ai' | 'history';
   name: string;
   brand?: string;
   kcalPer100: number;
@@ -162,9 +168,37 @@ export interface FoodSearchResult {
   barcode?: string;
 }
 
+export interface AiRecipeCandidate {
+  name: string;
+  ingredients: { name: string; amount: number; unit: 'g' | 'ml' }[];
+  yield: { amount: number; unit: 'g' | 'ml' | 'serving' };
+}
+
 export interface CustomFood extends FoodSearchResult {
   id: string;
   defaultUnit: 'g' | 'ml';
+}
+
+export interface RecipeIngredient {
+  foodId: string;
+  amount: number;
+  unit: import('./foodPortions').FoodAmountUnit;
+}
+
+export interface FoodRecipe {
+  ingredients: RecipeIngredient[];
+  yield: { amount: number; unit: 'g' | 'ml' | 'serving' };
+}
+
+export interface CatalogFood extends CustomFood {
+  kind: 'food' | 'recipe';
+  description?: string;
+  recipe?: FoodRecipe;
+}
+
+export interface RecipeSnapshot {
+  recipe: FoodRecipe;
+  ingredients: { amount: number; unit: string; food: FoodSearchResult }[];
 }
 
 export interface DashboardData {

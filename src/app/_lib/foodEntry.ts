@@ -22,8 +22,12 @@ export function buildFoodEntry(
     return {
         id: generateEntryId(), food: food.name, brand: food.brand || '',
         emoji: food.emoji || 'fa-solid fa-utensils', color: food.color || 'var(--accent)',
-        ...nutrition, amount, unit,
+        ...nutrition,
+        amount: food.recipeSnapshot?.recipe.yield.unit === 'serving' ? amount / 100 : amount,
+        unit: food.recipeSnapshot?.recipe.yield.unit === 'serving' ? 'serving' : unit,
         ts, date: new Date(ts).toDateString(), isDrink,
         isBarcode: !!food.isBarcode, barcode: food.barcode || undefined,
+        catalogFoodId: food.catalogFoodId,
+        foodSnapshot: JSON.parse(JSON.stringify(food)),
     };
 }

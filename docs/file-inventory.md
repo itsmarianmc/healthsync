@@ -239,6 +239,10 @@ authorization matrix require the isolated-project procedure in
 - `src/app/_components/calsync/CustomFoodsModal.tsx`: template manager/editor.
 - `src/app/_components/calsync/SavedFoodsModal.tsx`: local selection and explicit serving logging.
 - `src/app/_components/calsync/FoodLibrarySheet.tsx`: common draggable sheet wrapper.
+- `src/app/_hooks/useSheetDragGestures.ts`: shared header and scroll-edge drag gestures, with native controls and cancellation preserved.
+- `src/app/_components/calsync/FoodDetailSheet.tsx`: shared food information, portions and actions for Search, Favorites and Custom Food.
+- `src/app/_components/calsync/FoodEditSheet.tsx`: shared existing-food and recipe editor above food information.
+- `src/app/_components/calsync/FoodFavoriteButton.tsx`: saved-food favorite star shared by details and editing.
 - `supabase/migrations/20261026010000_custom_foods.sql`: unapplied additive settings column.
 - `tests/customFoods.test.mjs`, `e2e/saved-foods.spec.ts`: isolated logic and browser coverage.
 - `playwright.food-fixtures.config.ts`: server-independent Edge configuration for the food and existing AI/workspace fixtures.
@@ -255,3 +259,17 @@ transport and all three main-route components for isolated browser checks.
   canonical g/ml quantities and compact amount labels.
 - `tests/foodPortions.test.mjs`: portion normalization, fractional logging,
   whole-ml hydration, legacy compatibility and settings round trips.
+
+## Personal food library additions (October 29, 2026)
+
+- `src/app/_lib/foodLibrary.ts`: versioned catalog operations, legacy import,
+  favorites, history identity/search and recipe resolution.
+- `src/app/_lib/foodLog.ts`: single/batch logging and interrupted local commit recovery.
+- `src/app/_components/calsync/FoodEditor.tsx`: shared validated candidate editor.
+- `src/app/_components/calsync/FoodCreateChoiceSheet.tsx`: compact Food/Recipe chooser above the manager.
+- `src/app/_components/calsync/RecipeEditor.tsx`: ingredients, quantities and yield.
+- `src/app/_components/calsync/SavedFoodsModal.tsx`: Search/Favorites, queue,
+  detail management and final batch review.
+- `supabase/migrations/20261029010000_food_library.sql`: unapplied additive schema.
+- `tests/foodLibrary.test.mjs`: domain, storage, recipe, journal and cloud regressions.
+- `docs/food-library.md`: storage, UI, synchronization and rollout contract.

@@ -105,9 +105,9 @@ export default function GlobalFoodActions() {
         if (input.mode !== 'describe') beginAnalysis(id);
     }, [runDetection, beginAnalysis]);
 
-    const handleClose = useCallback(() => {
+    const handleClose = useCallback((workspaceCurrent = true) => {
         setCurrentDetectionId(null);
-        clearActiveDraft();
+        if (workspaceCurrent) clearActiveDraft();
         closeFoodAction();
     }, [clearActiveDraft, closeFoodAction]);
 

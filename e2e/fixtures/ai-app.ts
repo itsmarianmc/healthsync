@@ -68,12 +68,27 @@ export async function aiAppFixture() {
           const listeners = new Set();
           const settings = () => ({ user_id: session?.user.id, calorie_goal: 2000, protein_goal: 100, carbs_goal: 100, fat_goal: 50, goal_ml: 2500, workout_routines: null, data_reset_at: sessionStorage.getItem('fixture-reset'), custom_foods: JSON.parse(sessionStorage.getItem('fixture-custom-foods-' + session?.user.id) || '[]') });
           function query(table) {
-            const result = () => ({ data: table === 'user_settings' ? [settings()] : [], error: null, count: table === 'user_settings' ? 1 : 0 });
+            let owner = session?.user.id, start = 0, end = 499;
+            const library = () => JSON.parse(sessionStorage.getItem('fixture-library-' + owner) || '[]');
+            const result = () => ({ data: table === 'user_settings' ? [settings()] : table === 'food_library_changes' ? library().sort((a,b) => a.operation_id.localeCompare(b.operation_id)).slice(start,end+1) : [], error: null, count: table === 'user_settings' ? 1 : table === 'food_library_changes' ? library().length : 0 });
             const chain = {
-              select: () => chain, eq: () => chain, order: () => chain, range: () => chain,
+              select: () => chain, eq: (key, value) => { if (key === 'user_id') owner = value; return chain; }, gt: () => chain, order: () => chain, range: (a,b) => { start=a; end=b; return chain; },
               maybeSingle: async () => ({ data: table === 'user_settings' ? settings() : null, error: null }),
               single: async () => ({ data: null, error: null }),
               upsert: async payload => {
+                if (table === 'calsync_entries') {
+                  if (sessionStorage.getItem('fixture-food-sync') === 'hold') await new Promise(resolve => window.addEventListener('fixture-food-release', resolve, { once: true }));
+                  if (sessionStorage.getItem('fixture-food-sync') === 'fail') return { error: { code: 'fixture_offline' } };
+                }
+                if (table === 'food_library_changes') {
+                  if (sessionStorage.getItem('fixture-library-write-fails') === '1') return { error: { code: 'fixture_offline' } };
+                  for (const row of payload) {
+                    const key = 'fixture-library-' + row.user_id;
+                    const rows = JSON.parse(sessionStorage.getItem(key) || '[]');
+                    if (!rows.some(item => item.operation_id === row.operation_id)) rows.push(row);
+                    sessionStorage.setItem(key, JSON.stringify(rows));
+                  }
+                }
                 if (table === 'user_settings' && payload.custom_foods !== undefined) {
                   if (sessionStorage.getItem('fixture-custom-foods-write-fails') === '1') return { error: { code: 'fixture_offline' } };
                   sessionStorage.setItem('fixture-custom-foods-' + payload.user_id, JSON.stringify(payload.custom_foods));

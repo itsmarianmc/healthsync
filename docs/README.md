@@ -1,5 +1,11 @@
 # HealthSync – Technical Documentation
 
+**October 29, 2026 update:** [Personal food library](./food-library.md) documents
+the versioned catalog, synced favorites/recipes, 14-day history and batch review.
+Two additive migrations are present: the existing custom-food column migration
+and the new unapplied `20261029010000_food_library.sql`. The older v5.0.0 status
+paragraph below records the previous implementation.
+
 This documentation describes the checked-in HealthSync code and configuration,
 with the v5.0.0 local food library updated on **October 26, 2026**. Inspect
 `git status --short` before treating working-tree changes as released.

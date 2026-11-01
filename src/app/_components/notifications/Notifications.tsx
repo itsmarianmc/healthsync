@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useAuth } from '../../_context/AuthContext';
 import { pushCapability, pushRegistration, pushRequest, vapidBytes } from '../../_lib/pushClient';
-import './notifications.css';
 
 type NotificationsProps = { onEnabled?: () => void; variant?: 'settings' | 'onboarding' };
 
@@ -158,14 +157,14 @@ function PushControls({ userId, onEnabled, variant }: NotificationsProps & { use
                 <p>A simple test to make sure notifications reach you.</p>
             </div>
             <p className="push-scope-note"><i className="fa-solid fa-shield-halved" aria-hidden="true" /><span>Test notifications only. Meal and supplement reminders aren&apos;t available yet.</span></p>
-        </> : <p className="push-intro">Manage notifications on this device. Only test notifications are available for now.</p>}
+        </> : <p className="push-intro">Manage notifications on this device.</p>}
         {capability === 'install' ? <p role="status">On iPhone or iPad, open the Share menu, choose “Add to Home Screen”, then launch HealthSync from its icon. Sign in and enable notifications in Settings.</p>
         : capability === 'insecure' ? <p role="status">Notifications require a secure HTTPS connection. You can continue using HealthSync.</p>
         : capability === 'unsupported' ? <p role="status">This browser does not support Web Push. You can continue using HealthSync and try a supported browser later.</p>
         : capability === 'supported' && <>
             {(!onboarding || userId) && <dl className="push-status">
-                <div><dt>Browser permission</dt><dd>{permission === 'default' ? 'Not requested' : permission === 'granted' ? 'Allowed' : 'Blocked'}</dd></div>
-                <div><dt>Push on this device</dt><dd className={saved ? 'push-status--enabled' : ''}>{!userId ? 'Sign-in required' : saved === null ? 'Not confirmed' : saved ? 'Enabled · saved to your account' : 'Off'}</dd></div>
+                <div><dt>Browser permission</dt><dd className={permission === 'granted' ? 'push-status--enabled' : permission === 'denied' ? 'push-status--blocked' : 'push-status--pending'}>{permission === 'default' ? 'Not requested' : permission === 'granted' ? 'Allowed' : 'Blocked'}</dd></div>
+                <div><dt>Push on this device</dt><dd className={saved ? 'push-status--enabled' : saved === null ? 'push-status--pending' : 'push-status--off'}>{!userId ? 'Sign-in required' : saved === null ? 'Not confirmed' : saved ? 'Enabled' : 'Off'}</dd></div>
             </dl>}
             {permission === 'denied' && <p>Notifications are blocked. Allow notifications for HealthSync in your browser site settings or device notification settings, then return here and retry.</p>}
             {!userId ? <>
@@ -175,12 +174,22 @@ function PushControls({ userId, onEnabled, variant }: NotificationsProps & { use
                 {saved === false && !publicKey && <p>Push setup is currently unavailable. Try again after the service has been configured.</p>}
                 <div className="push-actions">
                     {(!saved || permission !== 'granted') && <button type="button" className="btn--primary" disabled={busy || !publicKey || permission === 'denied'} onClick={() => void enable()}><i className="fa-regular fa-bell" aria-hidden="true" />Enable notifications</button>}
-                    {saved && <button type="button" className="btn--primary" disabled={busy || !publicKey || permission !== 'granted'} onClick={() => void action(false)}><i className="fa-regular fa-paper-plane" aria-hidden="true" />Send test notification</button>}
+                    {saved && <button type="button" className="btn--primary push-test" disabled={busy || !publicKey || permission !== 'granted'} onClick={() => void action(false)}><i className="fa-regular fa-paper-plane" aria-hidden="true" />Send test notification</button>}
                     {saved && <button type="button" className="settings-btn" disabled={busy} onClick={() => void action(true)}>Disable notifications</button>}
-                    {(!onboarding || message) && <button type="button" className="push-refresh" disabled={busy} onClick={() => void refresh()}><i className="fa-solid fa-rotate-right" aria-hidden="true" />Refresh status</button>}
+                    {(!onboarding || message) && <button type="button" className={onboarding ? 'push-refresh' : 'settings-btn push-refresh'} disabled={busy} onClick={() => void refresh()}><i className="fa-solid fa-rotate-right" aria-hidden="true" />Refresh status</button>}
                 </div>
             </>}
         </>}
         {(busy || message) && <p className="push-feedback" role="status" aria-live="polite">{busy ? 'Updating notification settings…' : message}</p>}
+        {!onboarding && <section className="push-reminders" aria-labelledby="push-reminders-title" aria-describedby="push-reminders-unavailable">
+            <div className="push-reminders-heading"><div><h3 id="push-reminders-title">Reminders</h3><p>Choose when HealthSync can remind you to check in.</p></div><span className="push-reminders-badge">Coming soon</span></div>
+            <p id="push-reminders-unavailable" className="push-reminders-note">Scheduled reminders aren&apos;t available yet. Browser permission and test notifications don&apos;t enable reminders.</p>
+            <div className="push-reminder-row push-reminder-row--main"><span>Enable reminders</span><button type="button" role="switch" aria-label="Enable reminders" aria-checked="false" aria-describedby="push-reminders-unavailable" disabled className="app-toggle-switch" /></div>
+            <div className="push-reminder-categories" aria-label="Reminder categories">
+                {['Breakfast', 'Lunch', 'Supplements', 'Snack', 'Dinner'].map(category => <div className="push-reminder-row" key={category}>
+                    <span>{category}</span><button type="button" role="switch" aria-label={`${category} reminders`} aria-checked="false" aria-describedby="push-reminders-unavailable" disabled className="app-toggle-switch" />
+                </div>)}
+            </div>
+        </section>}
     </div>;
 }

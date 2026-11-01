@@ -93,6 +93,11 @@ test('Not now leaves permission and subscriptions untouched; later Settings acti
     await page.waitForURL('**/dash');
     await page.locator('#db-openSettingsBtn').click();
     const settings = page.locator('#notificationsSettings');
+    await expect(settings.getByRole('switch')).toHaveCount(6);
+    for (const toggle of await settings.getByRole('switch').all()) {
+        await expect(toggle).toBeDisabled();
+        await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    }
     await expect(settings.getByRole('button', { name: 'Enable notifications', exact: true })).toBeEnabled();
     expect((await browserState(page)).requests).toBe(0);
     await settings.getByRole('button', { name: 'Enable notifications', exact: true }).click();
@@ -103,6 +108,7 @@ test('Not now leaves permission and subscriptions untouched; later Settings acti
     await settings.getByRole('button', { name: 'Send test notification' }).click();
     await expect(settings).toContainText('Test sent.');
     expect(counts.tests).toBe(2);
+    for (const toggle of await settings.getByRole('switch').all()) await expect(toggle).toHaveAttribute('aria-checked', 'false');
     await settings.getByRole('button', { name: 'Disable notifications' }).click();
     await expect(settings).toContainText('Notifications disabled for this device.');
     expect(counts.deletes).toBe(1);

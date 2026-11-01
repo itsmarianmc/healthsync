@@ -8,6 +8,7 @@ import type {
   WorkoutRoutines,
 } from './types';
 import { activeOwner, clearDeleted, clearPending, markDeleted, markRestoredFood, clearRestoredFood, restoredFoodIds, pendingDeleted, pendingIds, workspaceGuard, entryChangedSince, entryMutationRevision } from './localData';
+import { migrateLegacyLibrary, readLibraryState, mergeLibraryChanges, validChange, type LibraryChange } from './foodLibrary';
 
 function assertActiveWorkspace(userId: string): void {
   if (activeOwner() !== userId) throw new Error('Workspace changed during sync');
@@ -43,6 +44,7 @@ function foodRow(e: FoodEntry, userId: string) {
     prot: e.prot ?? 0, carb: e.carb ?? 0, fat: e.fat ?? 0,
     barcode: e.barcode || null, ts: e.ts, date: e.date,
     is_drink: e.isDrink === true,
+    catalog_food_id: e.catalogFoodId || null, food_snapshot: e.foodSnapshot || null,
   };
 }
 
@@ -166,6 +168,8 @@ export async function pullFoodFromCloud(
     isDrink: r.is_drink === true,
     isBarcode: !!r.barcode,
     barcode: r.barcode || undefined,
+    catalogFoodId: r.catalog_food_id || undefined,
+    foodSnapshot: r.food_snapshot || undefined,
   })) };
 }
 
@@ -231,6 +235,42 @@ export async function pushSettings(
     .from('user_settings')
     .upsert({ user_id: userId, ...settings }, { onConflict: 'user_id' });
   if (error) throw error;
+}
+
+export async function syncFoodLibrary(userId: string, resetAt?: string | null): Promise<void> {
+  const isCurrent = workspaceGuard(userId);
+  if (!(await assertUserAuthorized(userId)) || !isCurrent()) throw new Error('Cloud authorization failed');
+  migrateLegacyLibrary();
+  const state = readLibraryState();
+  const pending = new Set(state.pending);
+  const changes = state.changes.filter(change => pending.has(change.id));
+  for (let offset = 0; offset < changes.length; offset += 100) {
+    if (!isCurrent()) throw new Error('Workspace changed during sync');
+    const batch = changes.slice(offset, offset + 100);
+    const { error } = await supabase.from('food_library_changes').upsert(batch.map(change => ({
+      user_id: userId, operation_id: change.id, change,
+    })), { onConflict: 'user_id,operation_id', ignoreDuplicates: true });
+    if (error || !isCurrent()) throw new Error('Food library upload failed');
+    mergeLibraryChanges([], batch.map(change => change.id), userId);
+  }
+  const incoming: LibraryChange[] = [];
+  const ids = new Set<string>();
+  let total: number | null = null;
+  do {
+    let query = supabase.from('food_library_changes').select('operation_id,change', { count: 'exact' }).eq('user_id', userId);
+    if (resetAt) query = query.gt('created_at', resetAt);
+    const { data, error, count } = await query.order('operation_id', { ascending: true }).range(incoming.length, incoming.length + 499);
+    if (!isCurrent() || error || !Array.isArray(data) || !Number.isSafeInteger(count) || count === null || count < 0 ||
+        (total !== null && total !== count)) throw new Error('Food library download failed');
+    total = count;
+    for (const row of data) {
+      if (!validChange(row.change) || row.operation_id !== row.change.id || ids.has(row.operation_id)) throw new Error('Invalid food library response');
+      ids.add(row.operation_id); incoming.push(row.change);
+    }
+    if (incoming.length > total || (!data.length && incoming.length < total)) throw new Error('Incomplete food library response');
+  } while (incoming.length < total);
+  if (!isCurrent()) throw new Error('Workspace changed during sync');
+  mergeLibraryChanges(incoming, [], userId);
 }
 
 export async function pullSettings(

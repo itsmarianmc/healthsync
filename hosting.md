@@ -644,3 +644,40 @@ array and needs no additional SQL column or migration. The reference food
 `amount numeric` supports fractional canonical quantities; mirrored hydration
 continues to round to whole ml for the reference drink `amount integer` column.
 The target schema was not queried or changed for this follow-up.
+
+## Personal food library, favorites and recipes (October 29, 2026)
+
+The additive, unapplied migration
+[`20261029010000_food_library.sql`](supabase/migrations/20261029010000_food_library.sql)
+introduces `public.food_library_changes` and optional
+`calsync_entries.catalog_food_id text` / `food_snapshot jsonb` columns. Keep the
+existing custom-food JSONB column and its migration: older definitions are
+imported, without deleting legacy storage or historical log occurrences.
+
+The new client stores a versioned local operation log and uploads immutable
+per-item changes rather than replacing the settings array. Favorites and
+recipe definitions use the same owner-scoped transport. Operation upserts ignore
+existing `(user_id, operation_id)` keys; authenticated users can only select and
+insert their own operations. The new RLS helper denies verified-TOTP accounts
+below AAL2 and permits owner access at AAL1 for accounts without a verified
+factor. No existing table policy is replaced. Account deletion cascades from
+`auth.users`.
+
+Read [the migration runbook](docs/security-migration.md) and the complete
+[food library contract](docs/food-library.md) before rollout. Inspect table and
+column types/defaults/grants, existing helper/trigger names and actual
+`auth.mfa_factors` compatibility in the intended project. The reset trigger
+requires an existing `user_settings.data_reset_at` column and clears this
+owner's library operations when that marker changes. Verify the actual reset
+RPC updates that marker in its transaction and clears `custom_foods`; the RPC's
+source and older security migrations are absent from this checkout.
+
+In an isolated project verify two-account isolation, verified-factor AAL1 denial,
+AAL2 access, no-factor AAL1 access, idempotent inserts, denied operation updates,
+reset/cascade, offline edits and cross-device convergence. Coordinate the
+migration with the new client and retire old clients that edit the legacy
+custom-food array. Missing schema or network/auth failure keeps local writes
+pending and displays sync failure; it does not establish cloud availability.
+
+No migration was applied, database queried, deployment performed or live
+owner/MFA acceptance checked for this implementation.

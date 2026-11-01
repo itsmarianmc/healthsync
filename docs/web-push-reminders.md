@@ -1,9 +1,17 @@
 # Automatische Web-Push-Erinnerungen – Vorbereitung und Sicherheitsfreigabe
 
+## Settings-Vorbereitung — 29.10.2026
+
+Settings zeigt nun einen separaten Reminder-Bereich mit globalem Schalter und
+fünf Kategorien. Alle sechs Schalter sind ausdrücklich deaktiviert und aus;
+die Oberfläche speichert weder eine Einwilligung noch eine Auswahl. Die Oberfläche
+kennzeichnet geplante Erinnerungen als noch nicht verfügbar. Browserfreigabe
+und Test-Push ändern diese Zustände nicht. Eine Owner-API und eine unapplied Migration sind unten beschrieben; es gibt keine Worker-Rolle, Scheduler-Konfiguration oder Zustellung.
+Die Berechtigungen unten bleiben ein konkreter Vorschlag zur ausdrücklichen
+Freigabe; sie wurden nicht eingeführt.
+
 Stand: 24.10.2026. **Teilimplementierung, kein aktiver Reminder-Versand.**
-Der isolierte serverseitige Planer und seine Tests sind vorhanden. Persistenz,
-Cron-/QStash-Routen, Einwilligungs-API, Reminder-Anzeige im Service Worker und
-Oberfläche sind noch nicht implementiert. Es gibt keine zusätzliche Migration,
+Der isolierte serverseitige Planer und seine Tests sind vorhanden. Cron-/QStash-Routen und Zustellung sind noch nicht implementiert. Die Ergänzung unten beschreibt den aktuellen Vorbereitungsstand. Es gibt
 keine neue Datenbankrolle, keine neuen Secrets und keine externe Konfiguration.
 Der bestehende Test-Push und sein Limit bleiben unverändert.
 
@@ -231,3 +239,20 @@ mit ungültigen Bodies/Ziel-URLs/Zeiten, Paginierung unter Zeitbudget,
 Absturz-/Timeoutfälle und 404/410 gegen unveränderte/zwischenzeitlich erneuerte
 Abos. Browserprüfung der Einstellungszustände und unveränderten Test-Pushes.
 Keine dieser noch unimplementierten Garantien ist durch Planer-Tests belegt.
+
+
+### Reminder preparation (29 October 2026)
+
+The unapplied `20261029020000_reminder_preferences.sql` drafts an owner- and
+MFA-scoped `push_reminder_preferences` table, defaulting the global switch and
+all five categories to off. `GET` and `PUT /api/push/reminders/preferences` use
+the existing bearer-session/MFA authorization and `Cache-Control: no-store`.
+PUT accepts exactly `enabled` and the five boolean `categories`; an enabled
+record requires at least one category and records consent version 1 and a server
+timestamp. A missing record returns off; a database error returns 503. The UI
+does not yet use this API and still says Coming soon. The service worker accepts
+fixed, allowlisted reminder-category copy but there is no reminder sender.
+No migration has been applied and this is not operational scheduling. Review
+owner/MFA isolation, reset and account-deletion behavior in an isolated target
+before rollout. See [the reminder proposal](./web-push-reminders.md) for the
+unapproved cross-user worker scope and remaining scheduler configuration.

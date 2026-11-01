@@ -447,6 +447,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
             exportDate: new Date().toISOString(),
             calsyncEntries: calEntries,
             dropsyncEntries: dsEntries,
+            foodLibrary: JSON.parse(localStorage.getItem('calsync_food_library_v1') || 'null'),
             goals: {
                 calorie: localStorage.getItem('calsync_goal'),
                 protein: localStorage.getItem('calsync_goal_protein'),

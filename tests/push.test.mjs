@@ -157,6 +157,14 @@ test('worker shows only neutral copy and keeps push status out of runtime caches
         await pending;
         assert.equal(notifications[0][0], 'HealthSync');
         assert.equal(notifications[0][1].body, 'Notifications are ready. This is a test notification.');
+        for (const [category, expected] of Object.entries({ breakfast: 'Ready to log your breakfast in HealthSync?', lunch: 'Ready to log your lunch in HealthSync?', supplements: 'Would you like to log supplements in HealthSync?', snack: 'Ready to log your snack in HealthSync?', dinner: 'Ready to log your dinner in HealthSync?' })) {
+            listeners.push({ data: { json: () => ({ type: 'healthsync-reminder', category, body: 'private' }) }, waitUntil: promise => { pending = promise; } });
+            await pending;
+            assert.equal(notifications.at(-1)[1].body, expected);
+        }
+        listeners.push({ data: { json: () => ({ type: 'healthsync-reminder', category: '__proto__' }) }, waitUntil: promise => { pending = promise; } });
+        await pending;
+        assert.equal(notifications.at(-1)[1].body, 'Notifications are ready. This is a test notification.');
         assert.equal(config.runtimeCaching[0].matcher({ url: new URL('https://healthsync.example/api/push/subscriptions') }), true);
         assert.equal(config.runtimeCaching[0].matcher({ url: new URL('https://healthsync.example/dash') }), false);
         assert.equal(config.runtimeCaching[1], 'existing-cache-rules');

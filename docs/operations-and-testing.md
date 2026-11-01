@@ -287,3 +287,47 @@ Checks for this follow-up:
 External database state, real Auth/MFA/RLS and real camera hardware remain
 unverified. Existing cloud/settings authorization and workspace boundaries are
 unchanged; no migration or deployment was performed.
+
+## Personal food library verification — October 29, 2026
+
+The domain regression cases in `tests/foodLibrary.test.mjs` cover lossless
+legacy migration, stable IDs/latest-use grouping, the inclusive 14-day cutoff,
+favorite/history association, guest/A/B isolation, storage errors, stale pull
+and deletion behavior, calculated nested recipes, immutable logged snapshots,
+invalid/missing/cyclic ingredients, journal recovery, owner-scoped paginated
+cloud sync, failed upload/retry and A → B → A invalidation. The browser fixtures
+in `e2e/saved-foods.spec.ts` exercise the actual sheets/providers with mocked
+Supabase transport and intercepted external services. They do not verify live
+Auth cookies, SQL constraints, RLS, migration application or real camera hardware.
+
+The complete data and rollout contract is [food-library.md](./food-library.md).
+
+Executed results for this implementation:
+
+- `npm test`: **133 passed** (118 existing cases plus 15 food-library cases).
+- `npx tsc --noEmit`: passed.
+- `npm run build`: passed with the normal Turbopack builder. The first sandboxed
+  build stalled and was stopped; the successful build ran outside the sandbox.
+- `npm run lint`: still fails with **124 errors and 50 warnings**. A comparison
+  of modified tracked TypeScript with HEAD found unchanged counts; new library,
+  editor and domain-test files have no lint findings.
+- `npx playwright test --config playwright.food-fixtures.config.ts --workers=1 --reporter=line`:
+  **20 passed**, including account retry/favorite restoration, workspace
+  isolation, recipes, batch selection, portions, barcode and AI candidate review.
+- With `BASE_URL=http://localhost:3107` and `npm run start -- --port 3107`,
+  `npx playwright test e2e/saved-foods.spec.ts e2e/food-image-picker.spec.ts --workers=1 --reporter=line --output=test-results/food-production`:
+  **23 passed, 1 intentionally skipped** (the account transport fixture).
+- `git diff --check`: passed. Changed local documentation links were checked.
+
+Edge and the production server required execution outside the sandbox; the
+initial sandboxed browser launch failed before tests could run. The existing
+AI-only header action was preserved while adding the food-action button. A
+portion selector label found by browser tests was corrected and its rerun passed.
+The final production-browser run covers the complete resulting source.
+
+No full unrelated E2E suite, live Supabase/MFA/RLS or SQL migration test,
+production deployment, external provider or physical camera/device test was
+performed. External service responses were mocked/intercepted. The working tree
+was clean at the start; all earlier checked-in functionality and the original
+custom-food migration were preserved. No commit, deployment or live database
+change was made.

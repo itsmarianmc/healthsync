@@ -39,10 +39,22 @@ self.addEventListener('message', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-    // Deliberately fixed copy: never display health data or untrusted payload text.
+    // Only recognized categories select fixed copy; payload text is never displayed.
+    const copies: Record<string, string> = {
+        breakfast: 'Ready to log your breakfast in HealthSync?',
+        lunch: 'Ready to log your lunch in HealthSync?',
+        supplements: 'Would you like to log supplements in HealthSync?',
+        snack: 'Ready to log your snack in HealthSync?',
+        dinner: 'Ready to log your dinner in HealthSync?',
+    };
+    let category: string | undefined;
+    try {
+        const payload = event.data?.json();
+        if (payload?.type === 'healthsync-reminder' && typeof payload.category === 'string' && Object.hasOwn(copies, payload.category)) category = payload.category;
+    } catch { /* Legacy and malformed test payloads keep the existing test message. */ }
     event.waitUntil(self.registration.showNotification('HealthSync', {
-        body: 'Notifications are ready. This is a test notification.',
-        icon: '/favicon.png', tag: 'healthsync-test',
+        body: category ? copies[category] : 'Notifications are ready. This is a test notification.',
+        icon: '/favicon.png', tag: category ? `healthsync-reminder-${category}` : 'healthsync-test',
     }));
 });
 
