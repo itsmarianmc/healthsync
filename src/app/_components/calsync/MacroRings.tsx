@@ -208,6 +208,11 @@ export default function MacroRings({ entries, goal }: MacroRingsProps) {
             </div>
             <div className="stats-row" id="cs-statsRowSecondary">
                 <div className="stat-card">
+                    <div className="stat-icon"><i className="fa-solid fa-fire-flame-curved" /></div>
+                    <div className="stat-value" id="cs-statPct">{statPct}</div>
+                    <div className="stat-label">Progress</div>
+                </div>
+                <div className="stat-card">
                     <div className="stat-icon"><i className="fa-solid fa-utensils" /></div>
                     <div className="stat-value" id="cs-statCount">{statCount}</div>
                     <div className="stat-label">Entries today</div>
@@ -216,11 +221,6 @@ export default function MacroRings({ entries, goal }: MacroRingsProps) {
                     <div className="stat-icon"><i className="fa-solid fa-stopwatch" /></div>
                     <div className="stat-value" id="cs-statLast">{statLast}</div>
                     <div className="stat-label">Last entry</div>
-                </div>
-                <div className="stat-card">
-                    <div className="stat-icon"><i className="fa-solid fa-fire-flame-curved" /></div>
-                    <div className="stat-value" id="cs-statPct">{statPct}</div>
-                    <div className="stat-label">Progress</div>
                 </div>
             </div>
             <div className="macro-goals-section" id="cs-macroGoalsSection">

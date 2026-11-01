@@ -1,5 +1,18 @@
 # Supabase schema and security runbook
 
+## Food library addition — October 29, 2026
+
+The checkout now also contains unapplied
+[`20261029010000_food_library.sql`](../supabase/migrations/20261029010000_food_library.sql).
+It adds optional food-log link/snapshot columns and owner/MFA-protected immutable
+`food_library_changes`, plus a reset-marker trigger. Preserve the existing
+custom-food migration. The [food library rollout contract](./food-library.md)
+lists target schema/grant/function/trigger preflight and isolated acceptance
+cases. Add the new table, helper and reset trigger to the policy/grant/cascade
+inspection below. Verify that the actual reset RPC updates `data_reset_at` and
+clears the legacy custom-food field; inspect its real source before rollout.
+No SQL here was applied or tested against a database.
+
 ## What this checkout establishes
 
 As inspected on October 26, 2026, the checkout initially had no
@@ -145,3 +158,20 @@ matching deployed application have current, reviewable evidence.
 ## Web Push – additive Migration vom 24.10.2026
 
 Neu vorhanden ist ausschließlich [20261024010000_web_push.sql](../supabase/migrations/20261024010000_web_push.sql). Diese Datei wurde nicht angewendet. Sie erstellt zwei neue Tabellen mit Auth-Cascade und zwei eng begrenzte Definer-Funktionen mit festem search_path; vorhandene Policies bleiben erhalten. Vor Anwendung zusätzlich die Namen push_subscriptions, push_test_limits, push_access_allowed und claim_push_test auf Kollisionen und die Supabase-Auth-Struktur prüfen. Die Owner-/AAL1-/AAL2-/Parallelversand-Testmatrix und Details stehen unter [Web Push](./web-push.md). Ältere Nachweise zu fünf App-Tabellen sind kein Nachweis für diese neuen Tabellen.
+
+
+### Reminder preparation (29 October 2026)
+
+The unapplied `20261029020000_reminder_preferences.sql` drafts an owner- and
+MFA-scoped `push_reminder_preferences` table, defaulting the global switch and
+all five categories to off. `GET` and `PUT /api/push/reminders/preferences` use
+the existing bearer-session/MFA authorization and `Cache-Control: no-store`.
+PUT accepts exactly `enabled` and the five boolean `categories`; an enabled
+record requires at least one category and records consent version 1 and a server
+timestamp. A missing record returns off; a database error returns 503. The UI
+does not yet use this API and still says Coming soon. The service worker accepts
+fixed, allowlisted reminder-category copy but there is no reminder sender.
+No migration has been applied and this is not operational scheduling. Review
+owner/MFA isolation, reset and account-deletion behavior in an isolated target
+before rollout. See [the reminder proposal](./web-push-reminders.md) for the
+unapproved cross-user worker scope and remaining scheduler configuration.

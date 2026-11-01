@@ -1,5 +1,14 @@
 # Routing, Navigation and Contracts
 
+The [personal food library](./food-library.md) adds no route. The existing
+`search-food` menu action opens local Search. Favorites is reached through the
+tab inside Saved Foods; there is no separate Favorites menu button. The existing
+`favorite-food` handler remains available for compatibility.
+`create-food` manages foods and recipes. Existing query-driven AI and scanner
+contracts remain available. `storage` refreshes library/favorite changes;
+`calsync_food_library_v1`, `calsync_food_selection_v1` and
+`calsync_food_batch_v1` are workspace-isolated storage contracts.
+
 ## Next.js routes
 
 | Route | Implementation | Rendering / purpose | Notes |
@@ -187,3 +196,20 @@ basis; `#customFoodPortionAmount` and the Portion size unit control supply the
 per-piece/serving/ounce equivalent. No route, event or additional storage key is
 introduced. Optional portion metadata remains inside `calsync_custom_foods` and
 `user_settings.custom_foods`; the existing JSONB migration is unchanged.
+
+
+### Reminder preparation (29 October 2026)
+
+The unapplied `20261029020000_reminder_preferences.sql` drafts an owner- and
+MFA-scoped `push_reminder_preferences` table, defaulting the global switch and
+all five categories to off. `GET` and `PUT /api/push/reminders/preferences` use
+the existing bearer-session/MFA authorization and `Cache-Control: no-store`.
+PUT accepts exactly `enabled` and the five boolean `categories`; an enabled
+record requires at least one category and records consent version 1 and a server
+timestamp. A missing record returns off; a database error returns 503. The UI
+does not yet use this API and still says Coming soon. The service worker accepts
+fixed, allowlisted reminder-category copy but there is no reminder sender.
+No migration has been applied and this is not operational scheduling. Review
+owner/MFA isolation, reset and account-deletion behavior in an isolated target
+before rollout. See [the reminder proposal](./web-push-reminders.md) for the
+unapproved cross-user worker scope and remaining scheduler configuration.

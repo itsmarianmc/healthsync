@@ -1,5 +1,20 @@
 # Feature Behavior
 
+The [October 29 personal food library](./food-library.md) supersedes earlier
+food-library/favorite descriptions: local Search with 14-day history, separate
+synced Favorites, selection chips and batch review, shared candidate editing,
+food management and calculated recipes are now implemented.
+The October 30 update adds nested details, animated newest-first selections,
+fixed batch totals and shared local date/time wheels. Local logging dismisses
+promptly; local failure restores review with stable IDs, while cloud failure
+retains the existing pending entries. See the linked food-library contract.
+
+The floating navigation bar, extra-action button and extra menu share a
+translucent neutral surface with 6px backdrop blur and the existing theme
+borders. Menu icon circles are translucent too, with visible hover and keyboard
+focus states. The extra button paints its glass on the button itself, keeping
+the menu's backdrop blur independent of the surrounding wrapper.
+
 ## Dashboard
 
 Source: `src/app/_components/dashboard/*` and `src/app/_hooks/useDashboardData.ts`.
@@ -41,7 +56,7 @@ Source: `src/app/_components/calsync/CalSync.tsx`, `GlobalFoodActions.tsx`, `Cal
 ### Input methods
 
 1. **Manual**: enter name, amount/unit and nutrition values. The preview scales nutrition to the chosen amount.
-2. **Saved Foods**: Extra → Search opens a separate local search sheet for `calsync_favourites` and `calsync_custom_foods`. Search matches name and brand without calling external APIs or opening the scanner. Select a result, enter an amount and explicitly choose Log food.
+2. **Saved Foods**: Extra → Search is the food-library menu shortcut. Favorites is a tab inside that sheet, without a separate menu button. Search matches the personal catalog and recent history locally without calling external APIs or opening the scanner. Add foods to selection, adjust amounts in review, and explicitly confirm the batch.
 3. **Barcode**: Extra → Scan Barcode opens `BarcodeSearchPopup` directly in camera mode. ZXing detects a barcode and only that code is looked up through Open Food Facts, subject to third-party consent. The separate scanner retains amount confirmation and has no product-name search field or search mode.
 4. **AI Detection**: text description, image import or camera capture; the result opens as an editable nutrition draft.
 
@@ -55,7 +70,10 @@ The dashboard food action and global AI extra-menu actions open the food input s
 
 ### Custom food library (v5.0.0)
 
-Extra → Create Food replaces only the former Log Drink extra action. DropSync's
+Extra → Create Food opens the saved-food manager. Its single Create food action
+opens a compact “Create new” chooser with Food and Recipe tiles before opening
+the corresponding editor. The separate Create recipe manager button is removed.
+Create Food replaces only the former Log Drink extra action. DropSync's
 normal drink picker and logging sheet remain available. `CustomFoodsModal.tsx`
 creates, edits and deletes reusable templates with a stable client ID, trimmed
 name, optional brand, and finite non-negative calories/protein/carbs/fat per

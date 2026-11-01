@@ -7,31 +7,20 @@ import type { Detection, DetectionMode } from '../../_context/AiDetectionContext
 import { buildFoodEntry } from '../../_lib/foodEntry';
 import { logger } from '@/lib/logger';
 import { describeGeminiError, toGeminiFoodSearchResult } from '../../_lib/gemini';
+import { useAuth } from '../../_context/AuthContext';
+import { ensureLibraryFood, isFoodFavorite, setFoodFavorite, saveLibraryFood, libraryData, resolveFood } from '../../_lib/foodLibrary';
+import FoodEditor from './FoodEditor';
+import RecipeEditor from './RecipeEditor';
+import { isBarcodeFood } from './foodLibraryPresentation';
+import { workspaceGuard } from '../../_lib/localData';
+import { useSheetDragGestures } from '../../_hooks/useSheetDragGestures';
 
-const FAVS_KEY   = 'calsync_favourites';
 const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
 const SHEET_TOP_MARGIN = 24;
 
-function loadFavs(): FoodSearchResult[] {
-    try { return JSON.parse(localStorage.getItem(FAVS_KEY) || '[]'); } catch { return []; }
-}
-function saveFav(food: FoodSearchResult) {
-    const favs = loadFavs();
-    if (favs.some(f => f.name === food.name && f.brand === food.brand)) return false;
-    favs.unshift({ ...food, isFavourite: true });
-    localStorage.setItem(FAVS_KEY, JSON.stringify(favs.slice(0, 50)));
-    return true;
-}
-function removeFav(name: string, brand: string) {
-    localStorage.setItem(FAVS_KEY, JSON.stringify(loadFavs().filter(f => !(f.name === name && f.brand === brand))));
-}
-function isFav(name: string, brand: string) {
-    return loadFavs().some(f => f.name === name && f.brand === brand);
-}
-
 interface CalSyncModalProps {
     isOpen: boolean;
-    onClose: () => void;
+    onClose: (workspaceCurrent?: boolean) => void;
     onLog: (entry: FoodEntry) => Promise<{ cloudPending: boolean } | void> | { cloudPending: boolean } | void;
     onShowToast: (msg: string, dur?: number, undo?: (() => void) | null, cls?: string) => void;
     openWithAi?: 'describe' | 'import' | 'capture' | null;
@@ -68,6 +57,9 @@ export default function CalSyncModal({
         onStartDetection,
     }: CalSyncModalProps) {
     const { canUseThirdParty } = useCookieConsent();
+    const { retrySync } = useAuth();
+    const [editingCandidate, setEditingCandidate] = useState(false);
+    const [editingRecipe, setEditingRecipe] = useState(false);
 
     const [step, setStep] = useState(0);
     const [category, setCategory] = useState<Category | null>(null);
@@ -75,8 +67,6 @@ export default function CalSyncModal({
     const [unit, setUnit] = useState<'g' | 'ml' | 'pcs'>('g');
     const [amount, setAmount] = useState(100);
     const [entryCreatedAt, setEntryCreatedAt] = useState<number | null>(null);
-    const [, setFavs] = useState<FoodSearchResult[]>([]);
-    const [, forceUpdate] = useState(0);
     const [modalState, setModalState] = useState<'closed' | 'open' | 'expanded'>('closed');
     const [showNFT, setShowNFT] = useState(false);
     const [selectedFilePreview, setSelectedFilePreview] = useState<string | null>(null);
@@ -116,6 +106,19 @@ export default function CalSyncModal({
     const toastedDetectionIdRef = useRef<string | null>(null);
     const appliedResultRef = useRef<Detection['result'] | null>(null);
     const skipStepTransitionRef = useRef(false);
+    const candidateGuard = useRef<() => boolean>(() => false);
+    useEffect(() => {
+        if (!isOpen) return;
+        candidateGuard.current = workspaceGuard();
+        if (modalRef.current) modalRef.current.style.visibility = '';
+        const check = () => {
+            if (candidateGuard.current()) return;
+            if (modalRef.current) modalRef.current.style.visibility = 'hidden';
+            snapToClosedRef.current();
+        };
+        window.addEventListener('storage', check);
+        return () => window.removeEventListener('storage', check);
+    }, [isOpen]);
     useEffect(() => { stepRef.current = step; }, [step]);
 
     const expandedH = () => window.innerHeight - SHEET_TOP_MARGIN;
@@ -179,9 +182,9 @@ export default function CalSyncModal({
             currentDetectionIdRef.current = null;
             errorMessageRef.current = null;
             toastedDetectionIdRef.current = null;
-            if (detectionId && onDetectionResolved) {
+            if (candidateGuard.current() && detectionId && onDetectionResolved) {
                 onDetectionResolved(detectionId, loggedRef.current ? 'log' : 'dismiss');
-            } else if (selFood && onDraftChange) {
+            } else if (candidateGuard.current() && selFood && onDraftChange) {
                 if (loggedRef.current && editingDraftId) {
                     onDraftChange({ type: 'delete', draftId: editingDraftId });
                 } else if (loggedRef.current && !editingDraftId) {
@@ -202,13 +205,13 @@ export default function CalSyncModal({
                     }
                 }
             }
-            if (errorMessage && !onDetectionResolved) {
+            if (candidateGuard.current() && errorMessage && !onDetectionResolved) {
                 onShowToast(errorMessage);
             }
             loggedRef.current = false;
             closingRef.current = false;
             resetState();
-            onClose();
+            onClose(candidateGuard.current());
         }, 440);
     }, [onClose, selFood, amount, unit, editingDraftId, onDraftChange, onDetectionResolved, onShowToast]);
 
@@ -224,10 +227,10 @@ export default function CalSyncModal({
     }, []);
 
     const resetState = () => {
+        setEditingCandidate(false); setEditingRecipe(false);
         setStep(0); setCategory(null); setSelFood(null); setUnit('g'); setAmount(100);
         setEntryCreatedAt(null);
         setShowNFT(false);
-        setFavs(loadFavs());
         setAiTextOpen(false); setAiTextValue(''); setAiProcessing(false);
         setSelectedFilePreview(prev => {
             if (prev) URL.revokeObjectURL(prev);
@@ -511,18 +514,17 @@ export default function CalSyncModal({
         bodyRef.current.style.overflowY = step === 1 ? 'auto' : 'hidden';
     }, [step]);
 
-    const handlePointerDown = (e: React.PointerEvent) => {
-        dragStartY.current = e.clientY; dragLastY.current = e.clientY; vel.current = 0; dragDY.current = 0;
+    const startDrag = (clientY: number) => {
+        dragStartY.current = clientY; dragLastY.current = clientY; vel.current = 0; dragDY.current = 0;
         lastTime.current = Date.now(); isCapturing.current = true;
         setNoTrans();
-        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     };
-    const handlePointerMove = (e: React.PointerEvent) => {
+    const moveDrag = (clientY: number) => {
         if (!isCapturing.current) return;
         const now = Date.now(); const dt = now - lastTime.current;
-        if (dt > 0) vel.current = (e.clientY - dragLastY.current) / dt * 1000;
-        dragLastY.current = e.clientY; lastTime.current = now;
-        const dy = e.clientY - dragStartY.current; dragDY.current = dy;
+        if (dt > 0) vel.current = (clientY - dragLastY.current) / dt * 1000;
+        dragLastY.current = clientY; lastTime.current = now;
+        const dy = clientY - dragStartY.current; dragDY.current = dy;
         if (!modalRef.current) return;
         if (modalState === 'expanded') {
             if (dy > 0) modalRef.current.style.height = Math.max(naturalH.current, expandedH() - dy) + 'px';
@@ -534,15 +536,20 @@ export default function CalSyncModal({
             }
         }
     };
-    const handlePointerUp = () => {
+    const finishDrag = (cancelled: boolean) => {
         if (!isCapturing.current) return; isCapturing.current = false;
-        const dy = dragDY.current; const v = vel.current;
-        if (v > 1500 && dy > 0) { snapToClosed(); }
-        else if (dy > 80 || v > 400) { if (modalState === 'expanded') snapToOpen(); else snapToClosed(); }
-        else if (dy < -60 || v < -400) snapToExpanded();
+        if (modalState === 'closed' || closingRef.current) { dragDY.current = 0; vel.current = 0; return; }
+        const dy = dragDY.current; const v = Date.now() - lastTime.current > 100 ? 0 : vel.current;
+        if (cancelled) { if (modalState === 'expanded') snapToExpanded(); else snapToOpen(); }
+        else if (v > 1500 && dy > 12) { snapToClosed(); }
+        else if (dy > 80 || (v > 400 && dy > 12)) { if (modalState === 'expanded') snapToOpen(); else snapToClosed(); }
+        else if (dy < -60 || (v < -400 && dy < -12)) snapToExpanded();
         else { if (modalState === 'expanded') snapToExpanded(); else snapToOpen(); }
         dragDY.current = 0;
+        vel.current = 0;
     };
+
+    useSheetDragGestures({ modalRef, overlayRef, onStart: startDrag, onMove: moveDrag, onEnd: finishDrag, pointerHandle: true });
 
     const selectFoodWithAmount = (food: FoodSearchResult, amt: number, u: 'g' | 'ml' | 'pcs', createdAt: number) => {
         setSelFood(food);
@@ -554,16 +561,11 @@ export default function CalSyncModal({
     };
 
     const toggleSelFoodFav = () => {
-        if (!selFood) return;
-        if (isFav(selFood.name, selFood.brand ?? '')) {
-            removeFav(selFood.name, selFood.brand ?? '');
-            onShowToast('Removed from favourites');
-        } else {
-            saveFav(selFood);
-            onShowToast('Added to favourites');
-        }
-        setFavs(loadFavs());
-        forceUpdate(n => n + 1);
+        if (!selFood || !candidateGuard.current()) return;
+        try {
+            setSelFood({ ...setFoodFavorite(selFood, !isFoodFavorite(selFood)) });
+            void retrySync();
+        } catch { onShowToast('Could not save favorite on this device.'); }
     };
 
     const goToStep = (n: number) => { setStep(n); };
@@ -586,12 +588,15 @@ export default function CalSyncModal({
     };
 
     const logFood = async () => {
-        if (!selFood || loggingRef.current) return;
+        if (!selFood || selFood.aiRecipeCandidate || loggingRef.current || !candidateGuard.current()) return;
         loggingRef.current = true;
         try {
-            const entry = buildFoodEntry(selFood, amount, unit || 'g', entryCreatedAt ?? Date.now(), false);
+            buildFoodEntry(selFood, amount, unit || 'g');
+            const saved = ensureLibraryFood({ ...selFood, provenance: isBarcodeFood(selFood) ? 'barcode' : 'ai' }, undefined, true);
+            const entry = buildFoodEntry(saved, amount, unit || 'g', entryCreatedAt ?? Date.now(), unit === 'ml');
             const outcome = await onLog(entry);
             loggedRef.current = true;
+            void retrySync();
             snapToClosed();
             onShowToast(outcome?.cloudPending
                 ? 'Saved locally; cloud sync will retry when online'
@@ -640,7 +645,7 @@ export default function CalSyncModal({
         <>
             <div className="app-overlay" id="appOverlay" ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) snapToClosed(); }}>
                 <div className="modal" id="modal" ref={modalRef}>
-                    <div className="modal-handle-zone" id="handleZone" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
+                    <div className="modal-handle-zone" id="handleZone">
                         <div className="modal-handle" />
                     </div>
                     <div className="modal-header">
@@ -704,27 +709,37 @@ export default function CalSyncModal({
                             <div className="modal-step" id="cs-step-finalize" ref={confirmRef} style={{ display: 'block', width: '25%', flexShrink: 0 }}>
                                 {selFood && (!pendingDetection || pendingDetection.status === 'completed') && (
                                     <div className="food-confirm-inner">
+                                        {!isBarcodeFood(selFood) && (editingRecipe ? <RecipeEditor candidate={selFood.aiRecipeCandidate}
+                                            food={selFood.catalogFoodId ? libraryData().foods.get(selFood.catalogFoodId) : undefined}
+                                            onCancel={() => setEditingRecipe(false)} onSave={food => {
+                                            if (!candidateGuard.current()) return;
+                                            saveLibraryFood({ ...food, emoji: food.emoji || selFood.emoji }); setSelFood(resolveFood(food.id, libraryData().foods));
+                                            setUnit(food.defaultUnit); setAmount(100); setEditingRecipe(false); void retrySync();
+                                        }} /> : selFood.aiRecipeCandidate ? <button type="button" className="option-btn" onClick={() => setEditingRecipe(true)}>Review recipe ingredients</button> :
+                                            editingCandidate ? <FoodEditor food={selFood} onCancel={() => setEditingCandidate(false)} onSave={food => {
+                                                setSelFood(food); setUnit(food.defaultUnit); setEditingCandidate(false);
+                                            }} /> : <button type="button" className="option-btn" onClick={() => selFood.recipeSnapshot ? setEditingRecipe(true) : setEditingCandidate(true)}>{selFood.recipeSnapshot ? 'Edit recipe' : 'Edit food details'}</button>)}
                                         <div className="food-preview-card" id="foodPreviewCard">
                                             <div className="food-preview-emoji" id="foodPreviewEmoji">
                                                 <i className={selFood.emoji || 'fa-solid fa-utensils'} style={{ color: selFood.color || 'var(--accent)' }} />
                                             </div>
                                             <div className="food-preview-info">
-                                                <div className="food-preview-name" id="foodPreviewName">{selFood.name}</div>
+                                                <div className="food-preview-name food-preview-name--with-favorite" id="foodPreviewName">
+                                                    <span className="food-preview-name-text">{selFood.name}</span>
+                                                    {!selFood.isManual && <button
+                                                        type="button"
+                                                        className={`food-preview-fav${isFoodFavorite(selFood) ? ' active' : ''}`}
+                                                        onClick={toggleSelFoodFav}
+                                                        aria-pressed={isFoodFavorite(selFood)}
+                                                        aria-label={isFoodFavorite(selFood) ? 'Remove from favourites' : 'Save to favourites'}
+                                                        title={isFoodFavorite(selFood) ? 'Remove from favourites' : 'Save to favourites'}
+                                                    >
+                                                        <i className={isFoodFavorite(selFood) ? 'fa-solid fa-star' : 'fa-regular fa-star'} aria-hidden="true" />
+                                                    </button>}
+                                                </div>
                                                 <div className="food-preview-brand" id="foodPreviewBrand">{selFood.brand}</div>
-                                                <div className="food-preview-per" id="foodPreviewPer">{`per 100${selFood.defaultUnit}`}</div>
+                                                <div className="food-preview-per" id="foodPreviewPer">{selFood.recipeSnapshot?.recipe.yield.unit === 'serving' ? 'per serving' : `per 100${selFood.defaultUnit}`}</div>
                                             </div>
-
-                                            {!selFood.isManual && (
-                                            <button
-                                                type="button"
-                                                className={`food-preview-fav${isFav(selFood.name, selFood.brand ?? '') ? ' active' : ''}`}
-                                                onClick={toggleSelFoodFav}
-                                                aria-label={isFav(selFood.name, selFood.brand ?? '') ? 'Remove from favourites' : 'Save to favourites'}
-                                                title={isFav(selFood.name, selFood.brand ?? '') ? 'Remove from favourites' : 'Save to favourites'}
-                                            >
-                                                <i className={isFav(selFood.name, selFood.brand ?? '') ? 'fa-solid fa-star' : 'fa-regular fa-star'} />
-                                            </button>
-                                            )}
                                         </div>
 
                                         <div className="amount-section" id="amount-section">
@@ -737,18 +752,19 @@ export default function CalSyncModal({
                                                     max={9999}
                                                     inputMode="decimal"
                                                     type="number"
-                                                    value={amount}
-                                                    onChange={e => setAmount(Number(e.target.value))}
+                                                    aria-label="Food amount"
+                                                    value={selFood.recipeSnapshot?.recipe.yield.unit === 'serving' ? amount / 100 : amount}
+                                                    onChange={e => setAmount(Number(e.target.value) * (selFood.recipeSnapshot?.recipe.yield.unit === 'serving' ? 100 : 1))}
                                                 />
                                                 <div className="amount-unit-toggle">
-                                                    {(['g', 'ml', 'pcs'] as const).map(u => (
+                                                    {([selFood.defaultUnit === 'ml' ? 'ml' : 'g'] as const).map(u => (
                                                         <button
                                                             key={u}
                                                             type="button"
                                                             className={`unit-btn${unit === u ? ' active' : ''}`}
                                                             onClick={() => setUnit(u)}
                                                         >
-                                                            {u}
+                                                            {selFood.recipeSnapshot?.recipe.yield.unit === 'serving' ? 'servings' : u}
                                                         </button>
                                                     ))}
                                                 </div>
@@ -761,7 +777,7 @@ export default function CalSyncModal({
                                                         className={`quick-btn${amount === val ? ' active' : ''}`}
                                                         onClick={() => setAmount(val)}
                                                     >
-                                                        {val}
+                                                        {selFood.recipeSnapshot?.recipe.yield.unit === 'serving' ? val / 100 : val}
                                                     </button>
                                                 ))}
                                             </div>
@@ -808,7 +824,7 @@ export default function CalSyncModal({
                         </div>
                     </div>
                     <div className="modal-footer" id="modalFooter">
-                        <button className="confirm-btn" id="actionBtn" disabled={!canNext && !(isLastStep && selFood)} onClick={() => { if (canNext) handleNextClick(); else if (isLastStep && selFood) logFood(); }}>
+                        <button className="confirm-btn" id="actionBtn" disabled={!!selFood?.aiRecipeCandidate || editingRecipe || editingCandidate || (!canNext && !(isLastStep && selFood))} onClick={() => { if (canNext) handleNextClick(); else if (isLastStep && selFood) logFood(); }}>
                             <span className="btn-icon" id="actionIcon">{isLastStep ? SVG_CHECK : SVG_ARROW}</span>
                         </button>
                     </div>

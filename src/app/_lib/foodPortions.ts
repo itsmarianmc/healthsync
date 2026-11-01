@@ -21,6 +21,7 @@ export function foodBaseUnit(food: FoodSearchResult): 'g' | 'ml' {
 }
 
 export function foodAmountUnits(food: FoodSearchResult): FoodAmountUnit[] {
+    if (food.recipeSnapshot?.recipe.yield.unit === 'serving') return ['serving'];
     if (food.defaultUnit === 'pcs' && !food.portion) return ['pcs'];
     const units: FoodAmountUnit[] = foodBaseUnit(food) === 'g' ? ['g', 'kg', 'oz'] : ['ml', 'l', 'fl_oz'];
     if (food.portion && !units.includes(food.portion.unit)) units.push(food.portion.unit);
@@ -44,6 +45,7 @@ export function formatFoodAmount(value: number, decimals = 3): string {
 }
 
 export function foodBasisLabel(food: FoodSearchResult): string {
+    if (food.recipeSnapshot?.recipe.yield.unit === 'serving') return '1 serving';
     return food.portion ? `1 ${FOOD_UNIT_LABELS[food.portion.unit]} (${formatFoodAmount(food.portion.amount)} ${foodBaseUnit(food)})` :
         `100 ${food.defaultUnit || (food.isLiquid ? 'ml' : 'g')}`;
 }

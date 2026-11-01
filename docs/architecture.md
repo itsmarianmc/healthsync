@@ -130,6 +130,21 @@ Food entry creation from the route sheet, Saved Foods, barcode scanning and the 
 
 `useDraggableSheet.ts` is the common mechanism for bottom sheets. It manages closed, open and expanded states, pointer/touch dragging, overlay clicks, Escape, focus and optional persisted expansion (`healthsync_modals_expanded`).
 
+`useSheetDragGestures.ts` extends this drag area to the header and to downward
+touch pulls starting at the top of the content. CalSync's existing sheet state
+machine uses the same gesture binding. Buttons, links, inputs, labels, editable
+content, sliders and spinbuttons retain their own interaction. Nested scrollers
+must also be at the top before a content pull can move the sheet. Ordinary
+scrolling and horizontal gestures remain native; mouse body drags still select
+text. A non-passive touch-move listener cancels the native overscroll only when
+the sheet accepts a downward pull. Headers use `touch-action: none`; sheet bodies
+disable native vertical overscroll. Cancelled/multi-touch gestures spring back,
+and movements below the drag threshold do not activate dismissal. Only the top
+visible, interactive sheet accepts a gesture. Full-height food sheets do not
+enter an indistinguishable expanded state, so their first downward pull moves
+the sheet immediately. Existing expansion preferences remain in use where a
+larger resting height is available.
+
 In a rebuild, a sheet must not be implemented as an ordinary dialog only: the current UX depends on drag-to-close, drag-to-expand, focus management and header buttons that are hidden while a modal is open.
 
 ## Styling and assets
@@ -147,3 +162,15 @@ In a rebuild, a sheet must not be implemented as an ordinary dialog only: the cu
 - [proxy.ts](../src/proxy.ts) sets CSP, frame/content-type/referrer headers and a Permissions Policy.
 - Camera, geolocation, third-party requests and AI are capability- and consent-dependent.
 
+
+## Personal food library update — October 29, 2026
+
+`foodLibrary.ts` is the domain layer for versioned local definitions, favorite
+registers, legacy import, history identity, recipe calculation and immutable
+operation merging. `syncFoodLibrary()` runs in `AuthContext` after reset/settings
+handling. See [food-library.md](./food-library.md) for transport and storage.
+`FoodEditor` is shared by manual creation, management and AI/barcode correction;
+`RecipeEditor` calculates ingredients/yield. `SavedFoodsModal` owns local Search,
+Favorites, selection chips and combined review. The final `logFoodEntries()`
+uses an owner-scoped journal before food/drink/pending-queue writes; the shell
+and sync recover an interrupted batch. Historical snapshots remain independent.

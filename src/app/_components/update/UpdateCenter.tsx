@@ -351,7 +351,7 @@ export default function UpdateCenter() {
                         <button type="button" className="option-btn update-banner-btn secondary" onClick={() => { setDismissedBanner(true); writeDismissedBanner(true); }}>
                             Later
                         </button>
-                    </div>
+                    </div> 
                 </div>
             )}
 
@@ -362,14 +362,12 @@ export default function UpdateCenter() {
                         <div className="modal-handle" />
                     </div>
                     <div className="modal-header">
-                        <div className="modal-btn">
-                            <button className="close-btn" id="updateCenterBackBtn" type="button" onClick={closeUpdateCenter} aria-label="Close update center">
-                                <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="#e3e3e3" aria-hidden="true">
-                                    <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
-                                </svg>
-                            </button>
-                        </div>
                         <div className="modal-title" id="modalTitle">What&apos;s new</div>
+                        <div className="modal-btn--right">
+                        <button type="button" className="back-btn" aria-label="Close barcode scanner" onClick={closeUpdateCenter}>
+                            <i className="fa-solid fa-xmark" aria-hidden="true" />
+                        </button>
+                    </div>
                     </div>
                     <div className="modal-body whats-new-content">
                         {loadingEntries && <div className="whats-new-empty">Loading updates...</div>}

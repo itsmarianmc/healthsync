@@ -1,5 +1,11 @@
 # Web Push v1 – Einrichtung und Test
 
+Settings zeigt seit 29.10.2026 einen separaten, noch nicht verfügbaren
+Reminder-Bereich. Seine globalen und kategorisierten Schalter sind aus und
+deaktiviert; es wird keine Reminder-Einwilligung gespeichert. Die bestehende
+Browserfreigabe, Geräteverwaltung und der Test-Push bleiben unabhängig davon.
+Details und Freigabegrenze: [Reminder-Vorbereitung](./web-push-reminders.md).
+
 Stand: 24. Oktober 2026. Implementiert sind ein freiwilliger fünfter Onboarding-Schritt (vor dem Abschluss), Verwaltung in Settings und ein neutraler Test-Push. Es gibt keine Reminder, Zeitplanung, Cron-Jobs oder Kampagnen. Food-, Drink- und Supplement-Daten werden nicht übertragen. Push ist eine eigene Entscheidung und ändert keine Cookie-/Analytics-Einwilligung.
 
 Automatische Erinnerungen sind separat [vorbereitet](./web-push-reminders.md):
@@ -62,3 +68,20 @@ Das Schlüsselpaar einmal in einer sicheren lokalen Umgebung erzeugen und in Ver
 Automatisierte Tests verwenden gefälschte Browser-/Push-APIs, Authentifizierung und Sender; sie belegen keine externe Zustellung. Nach Bereitstellung manuell mit einem angemeldeten Testkonto auf HTTPS prüfen: im Onboarding überspringen ohne OS-Dialog, später aktivieren, neutralen Test empfangen, Klick fokussiert/öffnet HealthSync, deaktivieren und nach erneutem Öffnen ausgeschalteten Serverstatus sehen. Separat auf einem realen iPhone/iPad als Home-Screen-App prüfen. Fokus-Modi und OS-Einstellungen können die sichtbare Zustellung beeinflussen.
 
 Lokaler Prüfstand vom 24.10.2026: `npm test` 78/78 bestanden; `npx playwright test e2e/push.spec.ts e2e/onboarding.spec.ts e2e/onboarding-steps.spec.ts --workers=2 --reporter=line` 22/22 in Edge bestanden, einschließlich mobiler Geometrie. `npx tsc --noEmit`, gezieltes ESLint für die neuen Push-Dateien und `src/app/sw.ts`, `git diff --check` und `npm run build` bestanden. Gesamtes `npm run lint` meldet weiterhin 124 Fehler und 50 Warnungen im übrigen Repository; neue Push-Dateien sind lintfrei. Die vollständige E2E-Suite, Live-RLS und echter Push-Versand wurden nicht ausgeführt. Next.js/Edge und Build benötigten Ausführung außerhalb der Sandbox, nachdem Next.js darin beim Start hängenblieb.
+
+
+### Reminder preparation (29 October 2026)
+
+The unapplied `20261029020000_reminder_preferences.sql` drafts an owner- and
+MFA-scoped `push_reminder_preferences` table, defaulting the global switch and
+all five categories to off. `GET` and `PUT /api/push/reminders/preferences` use
+the existing bearer-session/MFA authorization and `Cache-Control: no-store`.
+PUT accepts exactly `enabled` and the five boolean `categories`; an enabled
+record requires at least one category and records consent version 1 and a server
+timestamp. A missing record returns off; a database error returns 503. The UI
+does not yet use this API and still says Coming soon. The service worker accepts
+fixed, allowlisted reminder-category copy but there is no reminder sender.
+No migration has been applied and this is not operational scheduling. Review
+owner/MFA isolation, reset and account-deletion behavior in an isolated target
+before rollout. See [the reminder proposal](./web-push-reminders.md) for the
+unapproved cross-user worker scope and remaining scheduler configuration.

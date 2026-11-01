@@ -22,7 +22,7 @@ import UpdateCenter from './update/UpdateCenter';
 import AiDetectionIndicator from './calsync/AiDetectionIndicator';
 import GlobalFoodActions from './calsync/GlobalFoodActions';
 import { isAiUsable } from '../_lib/aiConfig';
-import { logFoodEntry } from '../_lib/foodLog';
+import { logFoodEntry, recoverFoodBatch } from '../_lib/foodLog';
 import { workspaceGuard } from '../_lib/localData';
 import { openFoodImagePicker } from '../_lib/foodImagePicker';
 import type { FoodEntry } from '../_lib/types';
@@ -64,9 +64,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const [deferredPrompt, setDeferredPrompt] = useState<InstallPromptEvent | null>(null);
     const [searchPopupOpen, setSearchPopupOpen] = useState(false);
     const [savedFoodsOpen, setSavedFoodsOpen] = useState(false);
+    const [libraryView, setLibraryView] = useState<'search' | 'favorites'>('search');
     const [customFoodsOpen, setCustomFoodsOpen] = useState(false);
     const [customSupplementsOpen, setCustomSupplementsOpen] = useState(false);
     const foodOwnerRef = useRef(user?.id ?? 'guest');
+    const extraClickAnimation = useRef<Animation | null>(null);
+
+    const toggleExtraMenu = () => {
+        const button = extraBtnRef.current?.querySelector<HTMLElement>('.extra-icon');
+        if (button && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            const scale = getComputedStyle(button).scale;
+            extraClickAnimation.current?.cancel();
+            extraClickAnimation.current = button.animate([
+                { scale: scale === 'none' ? '1' : scale },
+                { scale: '1.1', offset: 0.4 },
+                { scale: '1' },
+            ], { duration: 300, easing: 'cubic-bezier(0.2, 0.9, 0.4, 1.1)' });
+        }
+        setExtraMenuOpen(!extraMenuOpen);
+    };
+
+    useEffect(() => () => extraClickAnimation.current?.cancel(), []);
+
+    useEffect(() => {
+        try { recoverFoodBatch(); } catch { showToast('A food save is pending on this device. Free some browser storage and retry.'); }
+    }, [user?.id, showToast]);
 
     useEffect(() => {
         const owner = user?.id ?? 'guest';
@@ -187,7 +209,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 if (pathname === '/food') window.dispatchEvent(new CustomEvent('navigate:food', { detail: { openModal: true, mode } }));
                 else openFoodAction(mode);
             });
-        } else if (action === 'search-food') setSavedFoodsOpen(true);
+        } else if (action === 'search-food' || action === 'favorite-food') {
+            setLibraryView(action === 'favorite-food' ? 'favorites' : 'search'); setSavedFoodsOpen(true);
+        }
         else if (action === 'scan-barcode') setSearchPopupOpen(true);
         else if (action === 'create-food') setCustomFoodsOpen(true);
         else if (action === 'training') openWorkout();
@@ -295,12 +319,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                             className={`extra-btn${extraMenuOpen ? ' open' : ''}`}
                             id="extraActionBtn"
                             ref={extraBtnRef}
-                            onClick={() => setExtraMenuOpen(!extraMenuOpen)}
+                            onClick={toggleExtraMenu}
                             >
-                            <button type="button" className="extra-icon" id="extraActionToggle" aria-label="Extra actions" aria-expanded={extraMenuOpen}>
+                            <button type="button" className="extra-icon" id="extraActionToggle" aria-label="Extra actions" aria-expanded={extraMenuOpen} aria-controls="extraMenuGrid">
                                 <i className="fa-solid fa-plus" />
                             </button>
-                            <div className="extra-menu-grid" id="extraMenuGrid" onClick={e => e.stopPropagation()}>
+                            <div className="extra-menu-grid" id="extraMenuGrid" role="group" aria-label="Extra actions" onClick={e => e.stopPropagation()}>
                                 <button
                                     type="button"
                                     className={`grid-item${aiDetectionUsable ? '' : ' disabled'}`}
@@ -308,7 +332,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                                     disabled={!aiDetectionUsable}
                                     onClick={() => handleExtraAction('describe-food')}
                                 >
-                                <i className="fa-solid fa-font" /><span>Describe Food</span>
+                                    <i className="fa-solid fa-font" /><span>Describe Food</span>
                                 </button>
                                 <button
                                     type="button"
@@ -317,7 +341,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                                     disabled={!aiDetectionUsable}
                                     onClick={() => handleExtraAction('import-food')}
                                 >
-                                <i className="fa-solid fa-image-circle-plus" /><span>Import Food</span>
+                                    <i className="fa-solid fa-image-circle-plus" /><span>Import Food</span>
                                 </button>
                                 <button
                                     type="button"
@@ -326,22 +350,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                                     disabled={!aiDetectionUsable}
                                     onClick={() => handleExtraAction('capture-food')}
                                 >
-                                <i className="fa-utility-fill fa-semibold fa-camera" /><span>Capture Food</span>
+                                    <i className="fa-utility-fill fa-semibold fa-camera" /><span>Capture Food</span>
                                 </button>
                                 <button type="button" className="grid-item" data-action="scan-barcode" onClick={() => handleExtraAction('scan-barcode')}>
-                                <i className="fa-solid fa-barcode" /><span>Scan Barcode</span>
-                                </button>
-                                <button type="button" className="grid-item" data-action="search-food" onClick={() => handleExtraAction('search-food')}>
-                                <i className="fa-solid fa-magnifying-glass" /><span>Search</span>
+                                    <i className="fa-solid fa-barcode" /><span>Scan Barcode</span>
                                 </button>
                                 <button type="button" className="grid-item" data-action="create-food" onClick={() => handleExtraAction('create-food')}>
-                                <i className="fa-solid fa-utensils" /><span>Create Food</span>
+                                    <i className="fa-solid fa-apple-whole" /><span>Custom Food</span>
+                                </button>
+                                <button type="button" className="grid-item" data-action="search-food" onClick={() => handleExtraAction('search-food')}>
+                                    <i className="fa-solid fa-magnifying-glass" /><span>Search</span>
                                 </button>
                                 <button type="button" className="grid-item" data-action="workout-history" onClick={() => handleExtraAction('workout-history')}>
-                                <i className="fa-solid fa-clock-rotate-left" /><span>View Workouts</span>
+                                    <i className="fa-solid fa-clock-rotate-left" /><span>View Workouts</span>
                                 </button>
                                 <button type="button" className="grid-item" data-action="training" onClick={() => handleExtraAction('training')}>
-                                <i className="fa-solid fa-dumbbell" /><span>View Templates</span>
+                                    <i className="fa-solid fa-dumbbell" /><span>View Templates</span>
                                 </button>
                                 <button
                                     type="button"
@@ -350,7 +374,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                                     disabled={!supplementsEnabled}
                                     onClick={() => handleExtraAction('supplements')}
                                 >
-                                <i className="fa-solid fa-capsules" /><span>Supplements</span>
+                                    <i className="fa-solid fa-capsules" /><span>Supplements</span>
                                 </button>
                             </div>
                         </div>
@@ -386,7 +410,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 />
 
                 {customFoodsOpen && <CustomFoodsModal onClose={() => setCustomFoodsOpen(false)} />}
-                {savedFoodsOpen && <SavedFoodsModal onClose={() => setSavedFoodsOpen(false)} onLog={handleFoodLog} />}
+                {savedFoodsOpen && <SavedFoodsModal initialView={libraryView} onClose={() => setSavedFoodsOpen(false)} />}
 
                 {pathname !== '/food' && showFooter && <GlobalFoodActions key={user?.id ?? 'guest'} />}
 

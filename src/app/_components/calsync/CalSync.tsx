@@ -54,7 +54,7 @@ export default function CalSync({
         onAiMethodClose: externalOnAiMethodClose,
 }: CalSyncProps) {
     const pathname = usePathname();
-    const { barcodeSearchOpen } = useAppShell();
+    const { barcodeSearchOpen, setExtraMenuOpen } = useAppShell();
     const { user, showToast } = useAuth();
     const {
         isAiDetectionUsable,
@@ -245,12 +245,12 @@ export default function CalSync({
         });
     }, [entries, save, user, showToast]);
 
-    const handleModalClose = useCallback(() => {
+    const handleModalClose = useCallback((workspaceCurrent = true) => {
         setModalOpen(false);
         setLocalOpenWithAi(null);
         setPrefill(null);
         setEditingDraftId(null);
-        clearActiveDraft();
+        if (workspaceCurrent) clearActiveDraft();
         externalOnModalClose?.();
     }, [externalOnModalClose, clearActiveDraft]);
 
@@ -392,7 +392,7 @@ export default function CalSync({
                 <div className="header-title-row">
                     <HeaderTitle />
                     <div className="button-box">
-                        <button id="cs-openAiBtn" data-order="1" title="AI Detection" onClick={() => setAiMethodOpen(true)}>{addIcon}</button>
+                        <button type="button" id="cs-openAiBtn" data-order="1" title="AI Detection" onClick={() => setAiMethodOpen(true)}>{addIcon}</button>
                         <button id="cs-openHistoryBtn" data-order="2" title="History" onClick={() => setHistoryOpen(true)}>{historyIcon}</button>
                         <button className="settings-button" id="cs-openSettingsBtn" data-order="3" title="Settings" onClick={onOpenSettings}>{settingsIcon}</button>
                     </div>
@@ -400,6 +400,9 @@ export default function CalSync({
                 <div className="header-greeting"><span id="cs-dateLabel">{new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' })}</span></div>
             </div>
             <MacroRings key={tick} entries={entries} goal={goal} />
+            <button type="button" className="add-workout custom-food-add" onClick={() => setExtraMenuOpen(true)}>
+                <span className="add-wo-btn" aria-hidden="true"><i className="fas fa-plus"></i></span><span className="add-wo-text">Add food</span>
+            </button>
             <FoodList
                 entries={entries}
                 onDelete={handleDelete}

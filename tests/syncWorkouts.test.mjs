@@ -18,6 +18,7 @@ function loadSync({ session, readError = null, row = null }) {
   const requireMock = path => {
     if (path === './supabase') return { supabase };
     if (path === './localData') return { activeOwner: () => 'user-A' };
+    if (path === './foodLibrary') return {};
     throw new Error(`Unexpected module: ${path}`);
   };
   new Function('require', 'module', 'exports', js)(requireMock, loaded, loaded.exports);
