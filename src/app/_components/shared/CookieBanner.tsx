@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useCookieConsent } from '../../_lib/useCookieConsent'
+import { useBlockingDialog } from '../../_hooks/useBlockingDialog'
 import { GA_MEASUREMENT_ID } from '../../_lib/analytics'
 
 export default function CookieBanner() {
@@ -17,6 +18,7 @@ export default function CookieBanner() {
     const [preferences, setPreferences] = useState(settings.preferences)
     const [thirdparty, setThirdparty] = useState(settings.thirdparty)
 
+    const { overlayRef: cookieOverlayRef, panelRef: cookiePanelRef } = useBlockingDialog(panelVisible, () => closeSettings());
     const bannerRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -71,14 +73,12 @@ export default function CookieBanner() {
         requestAnimationFrame(() => {
             setPanelActive(true)
         })
-        document.body.style.overflow = 'hidden'
     }
 
-    const closeSettings = () => {
+    function closeSettings() {
         setPanelActive(false)
         setTimeout(() => {
             setPanelVisible(false)
-            document.body.style.overflow = ''
         }, 300)
     }
 
@@ -168,9 +168,9 @@ export default function CookieBanner() {
             )}
 
             {panelVisible && (
-                <>
+                <div ref={cookieOverlayRef} className="cookie-dialog-layer">
                     <div className={`overlay ${panelActive ? 'active' : ''}`} onClick={closeSettings}></div>
-                    <div className={`settings-panel ${panelActive ? 'active' : ''}`}>
+                    <div ref={cookiePanelRef} role="dialog" aria-modal="true" aria-label="Cookie settings" className={`settings-panel ${panelActive ? 'active' : ''}`}>
                         <div className="settings-header">
                             <h2 className="settings-title">Cookie-Settings</h2>
                             <button className="close-btn" onClick={closeSettings}>
@@ -267,7 +267,7 @@ export default function CookieBanner() {
                             </button>
                         </div>
                     </div>
-                </>
+                </div>
             )}
         </>
     )

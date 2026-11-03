@@ -3,7 +3,8 @@
 
 import { defaultCache } from '@serwist/turbopack/worker';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { NetworkOnly, Serwist } from 'serwist';
+import { CacheFirst, NetworkFirst, NetworkOnly, Serwist } from 'serwist';
+import { APP_BUILD_ID } from './_lib/build';
 
 declare global {
     interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -15,24 +16,51 @@ declare const self: ServiceWorkerGlobalScope;
 
 const serwist = new Serwist({
     precacheEntries: self.__SW_MANIFEST,
+    precacheOptions: { cacheName: `healthsync-precache-${APP_BUILD_ID}`, cleanupOutdatedCaches: false },
     skipWaiting: false,
     clientsClaim: true,
-    navigationPreload: true,
+    navigationPreload: false,
     runtimeCaching: [
-        { matcher: ({ url }) => url.origin === self.location.origin && url.pathname.startsWith('/api/push/'), handler: new NetworkOnly() },
+        { matcher: ({ sameOrigin, url }) => sameOrigin && url.pathname.startsWith('/api/'), handler: new NetworkOnly() },
+        { matcher: ({ sameOrigin, request }) => !sameOrigin && !['font', 'style', 'image'].includes(request.destination), handler: new NetworkOnly() },
+        // Never reuse RSC payloads across deployments or authentication states.
+        { matcher: ({ request, sameOrigin }) => sameOrigin && request.headers.get('RSC') === '1', handler: new NetworkOnly() },
+        { matcher: ({ request, sameOrigin }) => sameOrigin && request.mode === 'navigate', handler: new NetworkFirst({
+            cacheName: `healthsync-documents-${APP_BUILD_ID}`,
+            plugins: [{ cacheWillUpdate: async ({ response }) =>
+                response.ok && response.headers.get('X-HealthSync-Build') === APP_BUILD_ID &&
+                // Only public, local-first app shells are eligible for offline use.
+                ['/dash', '/food', '/drinks', '/'].includes(new URL(response.url).pathname) ? response : null }],
+        }) },
+        // Retain content-addressed old assets for tabs still running that build.
+        { matcher: ({ sameOrigin, url }) => sameOrigin && url.pathname.startsWith('/_next/static/'), handler: new CacheFirst({
+            cacheName: 'healthsync-immutable-assets',
+            plugins: [{ cachedResponseWillBeUsed: async ({ cachedResponse, request }) => {
+                if (cachedResponse) return cachedResponse;
+                const url = new URL(request.url);
+                url.searchParams.delete('dpl');
+                for (const name of await caches.keys()) {
+                    if (!name.startsWith('healthsync-precache-') && !name.startsWith('serwist-precache-')) continue;
+                    const response = await (await caches.open(name)).match(url.href);
+                    if (response) return response;
+                }
+                return undefined;
+            } }],
+        }) },
         ...defaultCache,
     ],
 });
 
 serwist.setCatchHandler(async ({ request }) => {
     if (request.mode === 'navigate') {
-        const cached = await caches.match('/offline.html');
+        const cached = await serwist.matchPrecache('/offline.html');
         if (cached) return cached;
     }
     return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
 });
 
 self.addEventListener('message', (event) => {
+    if (event.data?.type === 'HEALTHSYNC_BUILD') event.ports[0]?.postMessage({ buildId: APP_BUILD_ID });
     if (event.data?.type === 'SKIP_WAITING') {
         void self.skipWaiting();
     }

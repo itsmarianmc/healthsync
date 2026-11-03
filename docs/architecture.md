@@ -128,22 +128,51 @@ Food entry creation from the route sheet, Saved Foods, barcode scanning and the 
 
 ## Modals and sheets
 
+See [shared sheets and the complete modal inventory](shared-sheets.md) for the
+phase/animation lifecycle, configuration, migrated consumers, exceptions and
+verification ledger. Entrance/exit transforms use Web Animations independently
+of height measurements; completion releases reference-counted blocking layers.
+
 `useDraggableSheet.ts` is the common mechanism for bottom sheets. It manages closed, open and expanded states, pointer/touch dragging, overlay clicks, Escape, focus and optional persisted expansion (`healthsync_modals_expanded`).
 
-`useSheetDragGestures.ts` extends this drag area to the header and to downward
-touch pulls starting at the top of the content. CalSync's existing sheet state
-machine uses the same gesture binding. Buttons, links, inputs, labels, editable
-content, sliders and spinbuttons retain their own interaction. Nested scrollers
-must also be at the top before a content pull can move the sheet. Ordinary
-scrolling and horizontal gestures remain native; mouse body drags still select
-text. A non-passive touch-move listener cancels the native overscroll only when
-the sheet accepts a downward pull. Headers use `touch-action: none`; sheet bodies
-disable native vertical overscroll. Cancelled/multi-touch gestures spring back,
-and movements below the drag threshold do not activate dismissal. Only the top
-visible, interactive sheet accepts a gesture. Full-height food sheets do not
-enter an indistinguishable expanded state, so their first downward pull moves
-the sheet immediately. Existing expansion preferences remain in use where a
-larger resting height is available.
+`useSheetViewport.ts` anchors shared sheets in one visual-viewport frame (height
+and offsetTop). A viewport pan changes only the frame position; only a size
+change requests new content measurement. `useDraggableSheet` measures committed
+body overflow plus the surrounding sheet, including footer and padding, and
+clamps to its current CSS/visible-viewport maximum. Mutation/child resize
+observers cover camera-to-confirmation transitions and later content updates.
+Fixed-body/root scroll locking is reference counted through closing/unmounting,
+retains the page's scroll position and prevents page pull-to-refresh. Focus uses
+`preventScroll`; covered parents stay mounted/inert and only the top visible
+sheet traps focus, accepts gestures or handles Escape.
+
+`useSheetDragGestures.ts` serves all shared sheet consumers, including CalSync and DropSync. The
+30px handle and noninteractive header remain direct drag targets. Buttons,
+inputs, nested scrollers, horizontal gestures, wheels, and selected text retain
+their interaction. Body scrolling uses `overscroll-behavior-y: contain`, preserving
+local native edge feedback while blocking scroll chaining. Once content consumes
+a gesture, the binding leaves it native for its entire lifetime, including the
+bottom boundary. It does not try to steal a noncancelable WebKit scroll.
+
+A **fresh downward pull starting at rest at the top** of all ancestor scrollers
+is the narrow exception: while cancelable, the binding owns that pull and gives
+the first 32px one-third elastic movement. Further movement hands off to sheet
+dragging; the sheet's existing distance/velocity thresholds still apply. Short
+pulls and cancellation spring back without dismissal. This top-pull feedback is
+a custom elastic fallback, **not native iOS rubber-banding**. A gesture that
+started scrolling needs to finish before a new top pull can drag the sheet.
+Native bottom overscroll and ordinary momentum are left to the browser. Direct
+handle/header drags remain independent. Full-height food sheets avoid an
+indistinguishable expanded state; compact choosers disable expansion.
+
+This tradeoff follows the distinction between `contain` (keeps local overscroll
+feedback) and `none` (suppresses it) in the
+[CSS Overscroll specification](https://www.w3.org/TR/css-overscroll-1/#overscroll-behavior-properties),
+WebKit's [Safari 16 overscroll support](https://webkit.org/blog/13291/webkit-features-in-safari-16-0/),
+and [WebKit touch cancellation constraints](https://bugs.webkit.org/show_bug.cgi?id=184251).
+Desktop touch injection cannot prove physical iOS momentum, rubber-banding,
+keyboard focus panning or PWA behavior. See the
+[food/sheet verification record](./food-sheet-verification.md).
 
 In a rebuild, a sheet must not be implemented as an ordinary dialog only: the current UX depends on drag-to-close, drag-to-expand, focus management and header buttons that are hidden while a modal is open.
 

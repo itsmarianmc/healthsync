@@ -56,8 +56,7 @@ function drinkRow(e: DrinkEntry, userId: string) {
   };
 }
 
-// Exact counts let us continue even when a server caps a requested page below
-// our page size. A short page alone is never proof of a complete history.
+// Server caps can shorten pages; only an exact count establishes complete history.
 type EntryRow = { entry_id: string; deleted_at?: string | null };
 async function pullEntryRows<T extends EntryRow>(table: 'calsync_entries' | 'dropsync_entries', userId: string): Promise<T[] | null> {
   const isCurrent = workspaceGuard(userId);

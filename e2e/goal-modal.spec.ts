@@ -40,7 +40,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 900, height: 900 }
             await page.waitForTimeout(450);
             const naturalHeight = await modal.evaluate(el => el.getBoundingClientRect().height);
 
-            await dragHandle(page, 20);
+            await dragHandle(page, 8);
             await page.waitForTimeout(450);
             await expect.poll(() => modal.evaluate(el => el.getBoundingClientRect().height)).toBeCloseTo(naturalHeight, 0);
 

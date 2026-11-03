@@ -1,5 +1,5 @@
-import { buildFoodEntry } from './foodEntry';
-import { foodAmountToBase, foodBaseUnit, type FoodAmountUnit } from './foodPortions';
+import { buildFoodAmountEntry } from './foodEntry';
+import { foodDefaultAmount, type FoodAmountUnit } from './foodPortions';
 import { generateId } from './ids';
 import type { FoodEntry, FoodSearchResult } from './types';
 
@@ -15,12 +15,12 @@ export function readFoodSelection(): FoodSelectionCache {
 }
 
 export function createFoodSelection(food: FoodSearchResult): FoodSelection {
-    return { id: generateId('selection'), food, amount: food.portion ? '1' : '100', unit: food.portion?.unit || foodBaseUnit(food) };
+    const { amount, unit } = foodDefaultAmount(food);
+    return { id: generateId('selection'), food, amount: String(amount), unit };
 }
 
 export function selectionEntry(item: FoodSelection, ts: number): FoodEntry {
-    const base = foodAmountToBase(item.food, item.amount.trim() ? Number(item.amount) : NaN, item.unit);
-    return buildFoodEntry(item.food, base.amount, base.unit, ts);
+    return buildFoodAmountEntry(item.food, item.amount.trim() ? Number(item.amount) : NaN, item.unit, ts);
 }
 
 // Sum the rounded occurrence values, exactly as stored in the food log.

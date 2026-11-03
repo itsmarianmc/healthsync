@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { generateId } from '../../_lib/ids';
 import { isSupplementDue } from '../../_lib/supplements';
@@ -42,7 +42,7 @@ export default function CustomSupplementEditorModal({
     onClose,
     onSave,
 }: CustomSupplementEditorModalProps) {
-    const sheet = useDraggableSheet({ onClose });
+    const sheet = useDraggableSheet({ onClose, onCloseStart, initialFocus: '#customSupplementName' });
     const {
         setModalRef,
         setOverlayRef,
@@ -52,10 +52,7 @@ export default function CustomSupplementEditorModal({
         refreshHeight: refreshSheetHeight,
         handleProps: sheetHandleProps,
     } = sheet;
-    const closeEditor = useCallback(() => {
-        onCloseStart();
-        closeSheet();
-    }, [closeSheet, onCloseStart]);
+    const closeEditor = closeSheet;
     const [name, setName] = useState(() => supplement?.name ?? '');
     const [dose, setDose] = useState(() => supplement?.dose ?? '');
     const [scheduleMode, setScheduleMode] = useState<'weekdays' | 'interval'>(() => supplement?.schedule.mode ?? 'weekdays');
@@ -80,25 +77,6 @@ export default function CustomSupplementEditorModal({
         refreshSheetHeight();
     }, [scheduleMode, formError, refreshSheetHeight]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleEscape = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape') return;
-            event.preventDefault();
-            event.stopPropagation();
-            if (sheetStateRef.current !== 'closed') closeEditor();
-        };
-        window.addEventListener('keydown', handleEscape, true);
-        return () => window.removeEventListener('keydown', handleEscape, true);
-    }, [isOpen, closeEditor, sheetStateRef]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        const frame = requestAnimationFrame(() => {
-            requestAnimationFrame(() => nameInputRef.current?.focus());
-        });
-        return () => cancelAnimationFrame(frame);
-    }, [isOpen]);
 
     const handleSave = () => {
         const cleanName = name.trim();

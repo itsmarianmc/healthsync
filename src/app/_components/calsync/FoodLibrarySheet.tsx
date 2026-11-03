@@ -7,35 +7,35 @@ import { workspaceGuard } from '../../_lib/localData';
 const SCALE_TRANSITION = ['scale'];
 const SHEET_EASING = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
-export default function FoodLibrarySheet({ id, title, onClose, children, footer, dismiss = false, onBack, backLabel = 'Back', backDisabled = false, bodyClassName = '', covered = false, nested = false, compact = false, returnFocusTo }: {
+export default function FoodLibrarySheet({ id, title, onClose, children, footer, dismiss = false, onBack, backLabel = 'Back', backDisabled = false, bodyClassName = '', covered = false, nested = false, compact = false, returnFocusTo, restoreFocus = true, initialFocus }: {
     id: string; title: string; onClose: () => void; children: ReactNode; dismiss?: boolean;
     onBack?: () => void; backLabel?: string; backDisabled?: boolean; bodyClassName?: string;
     covered?: boolean; nested?: boolean;
     returnFocusTo?: HTMLElement | null;
     footer?: ReactNode;
     compact?: boolean;
+    restoreFocus?: boolean; initialFocus?: string;
 }) {
     const finishClose = useCallback(() => {
         onClose();
         // Menu items are hidden again by the time a sheet closes.
         if (!nested) document.getElementById('extraActionToggle')?.focus();
     }, [onClose, nested]);
-    const { open, close, refreshHeight, modalRef, overlayRef, handleProps } = useDraggableSheet({
+    const { open, close, modalRef, overlayRef, handleProps } = useDraggableSheet({
         onClose: finishClose, transitionDurationMs: 350, transitionEasing: SHEET_EASING,
         closeTransitionDurationMs: 350, closeTransitionEasing: SHEET_EASING,
         additionalTransitionProperties: SCALE_TRANSITION, expandable: !compact,
+        restoreFocus, initialFocus,
     });
     const [isCurrent] = useState(() => workspaceGuard());
     useEffect(() => { open(); }, [open]);
     useEffect(() => { if (dismiss) close(); }, [dismiss, close]);
     useEffect(() => {
-        // The sheet hook owns the imperative `visible` class. Toggle only this
-        // modifier so React does not replace that class during nested changes.
+        // Toggle modifiers imperatively so React cannot replace the hook's `visible` class.
         const overlay = overlayRef.current;
         if (!overlay) return;
         if (!covered) { overlay.classList.remove('has-sub-modal'); return; }
-        // Like Settings with Licenses open, restore scale as soon as the child
-        // loses `visible`, while keeping the parent inert until it unmounts.
+        // Restore scale on child exit, but keep the parent inert until child unmount.
         const update = () => {
             const childVisible = Array.from(document.querySelectorAll('.food-library-overlay.visible'))
                 .some(child => !!(overlay.compareDocumentPosition(child) & Node.DOCUMENT_POSITION_FOLLOWING));
@@ -49,24 +49,6 @@ export default function FoodLibrarySheet({ id, title, onClose, children, footer,
     useEffect(() => {
         if (!covered && returnFocusTo?.isConnected) returnFocusTo.focus({ preventScroll: true });
     }, [covered, returnFocusTo]);
-    useEffect(() => {
-        const viewport = window.visualViewport;
-        if (!viewport) return;
-        const fitViewport = () => {
-            const overlay = overlayRef.current;
-            if (!overlay) return;
-            overlay.style.setProperty('--food-library-viewport-height', `${viewport.height}px`);
-            overlay.style.setProperty('--food-library-viewport-bottom', `${Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)}px`);
-            refreshHeight();
-        };
-        fitViewport();
-        viewport.addEventListener('resize', fitViewport);
-        viewport.addEventListener('scroll', fitViewport);
-        return () => {
-            viewport.removeEventListener('resize', fitViewport);
-            viewport.removeEventListener('scroll', fitViewport);
-        };
-    }, [overlayRef, refreshHeight]);
     useEffect(() => {
         const check = () => {
             if (isCurrent()) return;

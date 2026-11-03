@@ -13,16 +13,12 @@ import { reverseGeocodeLocation } from '../../_lib/location';
 import { readAiConfig, saveValidatedAiKey, writeAiConfig } from '../../_lib/aiConfig';
 import { validateApiKey } from '../../_lib/gemini';
 import { APP_VERSION } from '../../_lib/release';
-import { writeLocalLastSeen, writePendingReloadAfterUpdate } from '../../_lib/changelog';
+import { appUpdates } from '../../_lib/appUpdates';
+import { useAppShell } from '../../_context/AppShellContext';
 import { runCalc, type CalcFields } from '../../_lib/goalCalculator';
 import GoalCalculator from './GoalCalculator';
 import Notifications from '../notifications/Notifications';
-import { Serwist } from '@serwist/window';
 import ReportBugModal from './ReportBugModal';
-
-type SerwistWindow = Window & {
-    serwist?: Serwist;
-};
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -82,6 +78,7 @@ const THEMES = [
 ];
 
 export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCustomSupplements }: SettingsModalProps) {
+    const { openUpdateCenter } = useAppShell();
     const { user, logout, showToast, retrySync } = useAuth();
     const { canUsePreferences, canUseThirdParty } = useCookieConsent();
     const hasWeatherConsent = canUsePreferences && canUseThirdParty;
@@ -89,7 +86,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
     const [profile, setProfile] = useState<{ display_name: string | null; avatar_url: string | null } | null>(null);
     const [goalMode, setGoalMode] = useState<'set'|'calc'>('set');
     const [goalModalOpen, setGoalModalOpen] = useState(false);
-    const sheet = useDraggableSheet({ onClose });
+    const sheet = useDraggableSheet({ onClose, additionalTransitionProperties: ['scale', 'translate'] });
     const [theme, setTheme] = useState('dark');
     const [deleteWarn, setDeleteWarn] = useState(true);
     const [displayName, setDisplayName] = useState(false);
@@ -261,8 +258,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
         const update = () => {
             const anotherVisible = Array.from(document.querySelectorAll('.app-overlay'))
                 .some(o => o !== overlay && o.classList.contains('visible'));
-            modal.style.transition = 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), scale 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
-            void modal.offsetHeight;
             overlay.classList.toggle('has-sub-modal', anotherVisible);
         };
 
@@ -558,32 +553,10 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
         showToast(`Exported ${files.length} CSV file${files.length === 1 ? '' : 's'}`);
     };
 
-    const applyUpdate = async () => {
-        const globalWindow = window as SerwistWindow;
-        let registration: ServiceWorkerRegistration | undefined;
-        try {
-            registration = await navigator.serviceWorker.getRegistration();
-        } catch {
-            console.warn('[settings] update status could not be checked.');
-        }
-
-        writeLocalLastSeen(user?.id ?? null, APP_VERSION);
-
-        if (!registration?.waiting) {
-            writePendingReloadAfterUpdate(false);
-            setUpdateAvailable(false);
-            try {
-                localStorage.setItem('healthsync_update_available', 'false');
-            } catch {
-                console.warn('[settings] update status could not be saved.');
-            }
-            window.dispatchEvent(new CustomEvent('healthsync:update-available-changed', { detail: false }));
-            window.location.reload();
-            return;
-        }
-
-        writePendingReloadAfterUpdate(true);
-        globalWindow.serwist?.messageSkipWaiting();
+    const applyUpdate = () => {
+        onClose();
+        openUpdateCenter();
+        void appUpdates.apply();
     };
 
     const deleteAllData = async () => {
@@ -929,7 +902,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                                                 type="button"
                                                 className="supplement-manage-btn"
                                                 id="manageCustomSupplementsBtn"
-                                                onClick={() => setTimeout(onOpenCustomSupplements, 200)}
+                                                onClick={onOpenCustomSupplements}
                                             >
                                                 <span>Manage custom supplements</span>
                                                 <i className="fas fa-chevron-right" aria-hidden="true" />
@@ -1080,14 +1053,19 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                                 </tr>
                             </tbody>
                         </table>
-                        <p style={{ marginTop:8 }}><a id="openNotes" onClick={e => { e.preventDefault(); setTimeout(onOpenNotes, 200); }}>About / Licenses</a></p>
+                        
                         <footer>
+                            <p style={{ marginTop:8 }}>
+                                <a id="openNotes" onClick={e => { e.preventDefault(); onOpenNotes(); }}>About / Licenses</a>
+                            </p>
                             <p>
                                 <a href="https://healthsync.itsmarian.dev/legal/ai-guidelines">AI Guidelines</a> • <a href="https://contact.itsmarian.dev/">Contact</a> • <a href="https://healthsync.itsmarian.dev/legal/cookies">Cookies</a> • <a href="https://healthsync.itsmarian.dev/legal/privacy">Privacy Policy</a> • <a href="https://healthsync.itsmarian.dev/legal/terms">Terms of Use</a>
                             </p>
-                            <p>Running HealthSync v{APP_VERSION}</p>
-                            <p className="change-settings" data-open-cookie-settings>Change Cookie Preferences</p>
-                            <p style={{ marginTop: 'calc(1rem - 7.5px)' }}>© 2026 itsmarian | Original source code: MIT; other materials have separate rights.</p>
+                            <p>
+                                <a>Running HealthSync v{APP_VERSION}</a> • <a className="change-settings" data-open-cookie-settings>Change Cookie Preferences</a>
+                            </p>
+                            
+                            <p style={{ marginTop: 'calc(1rem - 7.5px)' }}>© 2026 itsmarian | See "About / Licenses" for more information.</p>
                         </footer>
                     </div>
                 </div>

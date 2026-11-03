@@ -6,60 +6,15 @@ import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { useCookieConsent } from '../../_lib/useCookieConsent';
 import { useAuth } from '../../_context/AuthContext';
 import { friendlyCameraLabel } from '../../_lib/camera';
-import { buildFoodEntry, foodNutrition } from '../../_lib/foodEntry';
+import { buildFoodAmountEntry, foodNutrition } from '../../_lib/foodEntry';
 import type { FoodEntry, FoodSearchResult } from '../../_lib/types';
-import FoodEditor from './FoodEditor';
+import { mapBarcodeProduct } from '../../_lib/barcodeFood';
+import { foodAmountToBase, foodAmountUnits, foodUnitOptionLabel, foodBasisLabel, foodConversionIssue, formatFoodNumber, type FoodAmountUnit } from '../../_lib/foodPortions';
+import FoodReviewEditorSheet from './FoodReviewEditorSheet';
+import { useSheetSteps } from '../../_hooks/useSheetSteps';
 import { isBarcodeFood } from './foodLibraryPresentation';
 import { ensureLibraryFood, isFoodFavorite, setFoodFavorite } from '../../_lib/foodLibrary';
 import { activeOwner, workspaceGuard } from '../../_lib/localData';
-
-function toFiniteNumber(value: unknown, fallback = NaN): number {
-    if (value === null || value === undefined || value === '') return fallback;
-    const n = typeof value === 'number' ? value : Number(value);
-    return Number.isFinite(n) && n >= 0 ? n : fallback;
-}
-
-function toNullableFiniteNumber(value: unknown): number | null {
-    if (value === null || value === undefined) return null;
-    const n = typeof value === 'number' ? value : Number(value);
-    return Number.isFinite(n) && n >= 0 ? n : null;
-}
-
-function mapProduct(product: Record<string, unknown>): FoodSearchResult {
-    const n = (product.nutriments || {}) as Record<string, number>;
-    const kcalPer100 = toFiniteNumber(n['energy-kcal_prepared_100g'] ?? n['energy-kcal_100g'] ?? n['energy-kcal'] ?? (n['energy_100g'] != null ? n['energy_100g'] / 4.184 : undefined));
-    const protPer100 = toFiniteNumber(n['proteins_prepared_100g'] ?? n['proteins_100g'] ?? n['proteins']);
-    const carbPer100 = toFiniteNumber(n['carbohydrates_prepared_100g'] ?? n['carbohydrates_100g'] ?? n['carbohydrates']);
-    const fatPer100 = toFiniteNumber(n['fat_prepared_100g'] ?? n['fat_100g'] ?? n['fat']);
-    const energyKj = toFiniteNumber(n['energy-kj_prepared_100g'] || n['energy-kj_100g'] || n['energy-kj'] || (kcalPer100 * 4.184));
-    const satFatPer100 = toNullableFiniteNumber(n['saturated-fat_prepared_100g'] ?? n['saturated-fat_100g'] ?? n['saturated-fat']);
-    const sugarPer100 = toNullableFiniteNumber(n['sugars_prepared_100g'] ?? n['sugars_100g'] ?? n['sugars']);
-    let saltPer100 = toNullableFiniteNumber(n['salt_prepared_100g'] ?? n['salt_100g'] ?? n['salt']);
-    if (saltPer100 === null && (n['sodium_prepared_100g'] || n['sodium_100g'])) saltPer100 = toNullableFiniteNumber((n['sodium_prepared_100g'] || n['sodium_100g']) * 2.5);
-    const categories = ((product.categories_tags as string[]) || []).join(' ');
-    const quantityStr = ((product.quantity || '') as string).toLowerCase();
-    const isLiquid = /beverage|drink|water|juice|milk/i.test(categories) || /\bml\b|\bl\b/i.test(quantityStr);
-
-    return {
-        name: (product.product_name || product.product_name_en || 'Unknown Product') as string,
-        brand: (product.brands || '') as string,
-        kcalPer100: Math.round(kcalPer100 * 10) / 10,
-        protPer100: Math.round(protPer100 * 10) / 10,
-        carbPer100: Math.round(carbPer100 * 10) / 10,
-        fatPer100: Math.round(fatPer100 * 10) / 10,
-        satFatPer100: satFatPer100 !== null ? Math.round(satFatPer100 * 10) / 10 : null,
-        sugarPer100: sugarPer100 !== null ? Math.round(sugarPer100 * 10) / 10 : null,
-        saltPer100: saltPer100 !== null ? Math.round(saltPer100 * 1000) / 1000 : null,
-        energyKj: Math.round(energyKj),
-        emoji: 'fa-solid fa-utensils',
-        color: 'var(--accent)',
-        isLiquid,
-        defaultUnit: isLiquid ? 'ml' : 'g',
-        isBarcode: true,
-        provenance: 'barcode',
-        barcode: ((product.code as string) || '') || undefined,
-    };
-}
 
 type Step = 'camera' | 'confirm';
 
@@ -74,9 +29,10 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
     const { showToast, retrySync, user } = useAuth();
     const [editing, setEditing] = useState(false);
     const guard = useRef<() => boolean>(() => false);
-    const sheet = useDraggableSheet({ onClose });
+    const { open, close, refreshHeight, modalRef, overlayRef, handleProps } = useDraggableSheet({ onClose, additionalTransitionProperties: ['scale', 'translate'] });
 
     const [step, setStep] = useState<Step>('camera');
+    const { setTrackRef, painted, changing, onTransitionEnd } = useSheetSteps(step === 'camera' ? 0 : 1);
     const [saving, setSaving] = useState(false);
 
     const [cameraKey, setCameraKey] = useState(0);
@@ -86,7 +42,7 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
 
     const [selFood, setSelFood] = useState<FoodSearchResult | null>(null);
     const [amount, setAmount] = useState(100);
-    const [unit, setUnit] = useState<'g' | 'ml' | 'pcs'>('g');
+    const [unit, setUnit] = useState<FoodAmountUnit>('g');
 
     const openedRef = useRef(false);
 
@@ -112,29 +68,28 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
     useEffect(() => {
         if (!isOpen) { prevStepRef.current = null; return; }
         if (prevStepRef.current !== null && prevStepRef.current !== step) {
-            sheet.refreshHeight();
+            refreshHeight();
         }
         prevStepRef.current = step;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [step, isOpen]);
+    }, [step, isOpen, refreshHeight]);
 
     useEffect(() => {
         if (isOpen && !openedRef.current && step === 'camera') {
             openedRef.current = true;
-            sheet.open();
+            open();
         }
-    }, [isOpen, step, sheet]);
+    }, [isOpen, step, open]);
 
     useEffect(() => {
         if (!isOpen || step !== 'camera') return;
-        sheet.refreshHeight();
-    }, [cameraList.length, isOpen, sheet]);
+        refreshHeight();
+    }, [cameraList.length, isOpen, step, refreshHeight]);
 
     const selectFood = (food: FoodSearchResult) => {
         setEditing(false);
         setSelFood(food);
-        setAmount(100);
-        setUnit((food.defaultUnit as 'g' | 'ml' | 'pcs') || 'g');
+        setAmount(food.barcodeAmounts?.basis === 'serving' ? 1 : 100);
+        setUnit(food.barcodeAmounts?.basis === 'serving' ? 'serving' : foodAmountUnits(food)[0] || '');
         setStep('confirm');
     };
 
@@ -147,34 +102,37 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
         setCameraStatus(`Scanned: ${code}`);
         try {
             const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`, { signal: AbortSignal.timeout(15000) });
+            if (!res.ok) throw new Error('Barcode lookup failed');
             const data = await res.json();
             if (guard.current !== isCurrent || !isCurrent()) return;
             if (data?.status === 1 && data.product) {
-                selectFood(mapProduct({ ...data.product, code }));
+                selectFood(mapBarcodeProduct({ ...data.product, code }));
             } else {
                 setCameraStatus('Product not found. Use manual entry below or scan another barcode.');
             }
         } catch {
             if (guard.current === isCurrent && isCurrent()) setCameraStatus('Lookup failed. Use manual entry below or check your connection.');
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [canUseThirdParty]);
 
     const handleClose = useCallback(() => {
         guard.current = () => false;
-        sheet.close();
-    }, [sheet]);
+        close();
+    }, [close]);
 
-    const { kcal: calcKcal, prot: calcProt, carb: calcCarb, fat: calcFat } = selFood
-        ? foodNutrition(selFood, amount) : { kcal: 0, prot: 0, carb: 0, fat: 0 };
+    let base: ReturnType<typeof foodAmountToBase> | null = null;
+    try { if (selFood) base = foodAmountToBase(selFood, amount, unit); } catch {}
+    const conversionIssue = selFood ? foodConversionIssue(selFood, unit) : undefined;
+    const { kcal: calcKcal, prot: calcProt, carb: calcCarb, fat: calcFat } = selFood && base
+        ? foodNutrition(selFood, base.amount) : { kcal: 0, prot: 0, carb: 0, fat: 0 };
 
     const logFood = async () => {
         if (!selFood || saving || amount <= 0 || !guard.current() || activeOwner() !== (user?.id || 'guest')) return;
         setSaving(true);
         try {
-            buildFoodEntry(selFood, amount, unit);
-            const saved = ensureLibraryFood(selFood, undefined, true);
-            await onLog(buildFoodEntry(saved, amount, unit));
+            buildFoodAmountEntry(selFood, amount, unit);
+            const saved = ensureLibraryFood({ ...selFood, selectedAmount: { amount, unit } }, undefined, true);
+            await onLog(buildFoodAmountEntry(saved, amount, unit));
             void retrySync();
             handleClose();
         } catch {
@@ -187,16 +145,16 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
     const titles: Record<Step, string> = { camera: 'Scan Barcode', confirm: 'Set Amount' };
     const showBack = step === 'confirm';
 
-    return (
+    return (<>
         <div
             className="app-overlay"
             id="barcodeSearchOverlay"
             aria-hidden={!isOpen}
-            ref={sheet.overlayRef}
-            onClick={e => { if (e.target === sheet.overlayRef.current) handleClose(); }}
+            ref={overlayRef}
+            onClick={e => { if (e.target === overlayRef.current) handleClose(); }}
         >
-            <div className="modal" id="barcodeSearchModal" ref={sheet.modalRef} role="dialog" aria-modal="true" aria-label="Barcode scanner" style={{ transform: 'translateY(100%)' }}>
-                <div className="modal-handle-zone" id="barcodeSearchHandleZone" {...sheet.handleProps}>
+            <div className="modal" id="barcodeSearchModal" ref={modalRef} role="dialog" aria-modal="true" aria-label="Barcode scanner" style={{ transform: 'translateY(100%)' }}>
+                <div className="modal-handle-zone" id="barcodeSearchHandleZone" {...handleProps}>
                     <div className="modal-handle" />
                 </div>
 
@@ -205,7 +163,7 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
                         <button
                             className="back-btn"
                             type="button" aria-label="Back to barcode scanner"
-                            onClick={() => { setStep('camera'); setSelFood(null); setCameraKey(k => k + 1); }}
+                            onClick={() => { setStep('camera'); setCameraKey(k => k + 1); }}
                         >
                             <i className="fa-solid fa-arrow-left" aria-hidden="true" />
                         </button>
@@ -219,7 +177,9 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
                 </div>
 
                 <div className="modal-body" id="barcodeSearchBody">
-                    {step === 'camera' && (
+                    <div className="sheet-step-track" ref={setTrackRef} data-content-changing={changing} onTransitionEnd={onTransitionEnd}
+                        style={{ display: 'flex', width: '200%', alignItems: 'flex-start', transform: `translateX(${step === 'camera' ? '0' : '-50%'})` }}>
+                    <div inert={step !== 'camera'} aria-hidden={step !== 'camera'} style={{ width: '50%', flexShrink: 0, height: painted(0) ? 'auto' : 0, overflow: 'hidden' }}>
                         <div className="search-step-inner">
                             <div className="camera-sheet" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 <div className="camera-body">
@@ -260,27 +220,33 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
                                 </div>
                             </div>
                         </div>
-                    )}
+                    </div>
 
 
-                    {step === 'confirm' && selFood && (
+                    <div inert={step !== 'confirm'} aria-hidden={step !== 'confirm'} style={{ width: '50%', flexShrink: 0, height: painted(1) ? 'auto' : 0, overflow: 'hidden' }}>
+                    {selFood && (
                         <div className="food-confirm-inner">
-                            {!isBarcodeFood(selFood) && (editing ? <FoodEditor food={selFood} onCancel={() => setEditing(false)} onSave={food => { setSelFood(food); setUnit(food.defaultUnit); setEditing(false); }} /> :
+                            {!isBarcodeFood(selFood) && (
                                 <button type="button" className="option-btn" onClick={() => setEditing(true)}>Edit food details</button>
                             )}
-                            {![selFood.kcalPer100, selFood.protPer100, selFood.carbPer100, selFood.fatPer100].every(Number.isFinite) && <p role="alert">{isBarcodeFood(selFood) ? 'This product has incomplete nutrition. Scan another product or create a food manually.' : 'Nutrition is incomplete. Edit food details before logging.'}</p>}
+                            {![selFood.kcalPer100, selFood.protPer100, selFood.carbPer100, selFood.fatPer100].every(Number.isFinite) && <p className="food-portion-notice" role="alert">{isBarcodeFood(selFood) ? 'This product has incomplete nutrition. Scan another product or create a food manually.' : 'Nutrition is incomplete. Edit food details before logging.'}</p>}
                             <div className="food-preview-card" id="barcodeSearchPreviewCard">
                                 <div className="food-preview-emoji"><i className={selFood.emoji || 'fa-solid fa-utensils'} style={{ color: selFood.color }} /></div>
                                 <div className="food-preview-info">
                                     <div className="food-preview-name food-preview-name--with-favorite"><span className="food-preview-name-text">{selFood.name}</span>
                                         <button type="button" className={`food-preview-fav${isFoodFavorite(selFood) ? ' active' : ''}`} aria-label="Favorite food" title={isFoodFavorite(selFood) ? 'Remove from favourites' : 'Save to favourites'} aria-pressed={isFoodFavorite(selFood)} onClick={() => {
                                             if (!guard.current()) return;
-                                            try { setSelFood({ ...setFoodFavorite(selFood, !isFoodFavorite(selFood)) }); void retrySync(); }
+                                            try {
+                                                const favorite = !isFoodFavorite(selFood);
+                                                const saved = ensureLibraryFood({ ...selFood, selectedAmount: { amount, unit } }, undefined, true);
+                                                setSelFood({ ...setFoodFavorite(saved, favorite) });
+                                                void retrySync();
+                                            }
                                             catch { showToast('Complete the food details before saving a favorite.'); }
                                         }}><i className={isFoodFavorite(selFood) ? 'fa-solid fa-star' : 'fa-regular fa-star'} aria-hidden="true" /></button>
                                     </div>
                                     <div className="food-preview-brand">{selFood.brand}</div>
-                                    <div className="food-preview-per">{`per 100${selFood.defaultUnit}`}</div>
+                                    <div className="food-preview-per">{`per ${foodBasisLabel(selFood)}`}</div>
                                 </div>
                             </div>
 
@@ -288,63 +254,69 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
                                 <div className="amount-label">Amount / Serving</div>
                                 <div className="amount-input-row">
                                     <input
-                                        className="amount-big-input"
-                                        min={0} max={9999}
+                                        className="amount-big-input" aria-label="Amount"
+                                        min={0} step="any"
                                         inputMode="decimal"
                                         type="number"
+                                        disabled={!foodAmountUnits(selFood).length}
                                         value={amount}
                                         onChange={e => {
                                             const next = Number(e.target.value);
-                                            setAmount(Number.isNaN(next) ? 0 : Math.max(0, Math.min(9999, next)));
+                                            setAmount(Number.isNaN(next) ? 0 : Math.max(0, next));
                                         }}
                                     />
-                                    <div className="amount-unit-toggle">
-                                        <span>{selFood.defaultUnit || 'g'}</span>
-                                    </div>
+                                    <select className="form-input barcode-unit-select" aria-label="Amount unit" value={unit} disabled={!foodAmountUnits(selFood).length} onChange={event => {
+                                        const next = event.target.value;
+                                        try { setAmount(foodAmountToBase(selFood, amount, unit).amount / foodAmountToBase(selFood, 1, next).amount); } catch { /* Preserve input when no reliable conversion exists. */ }
+                                        setUnit(next);
+                                    }}>{!foodAmountUnits(selFood).length && <option value="">Portion unavailable</option>}{foodAmountUnits(selFood).map(option => <option key={option} value={option}>{foodUnitOptionLabel(selFood, option)}</option>)}</select>
                                 </div>
-                                <div className="quick-amounts">
+                                {!!foodAmountUnits(selFood).length && <div className="quick-amounts">
                                     {[50, 100, 150, 200, 250, 330, 400, 500].map(v => (
                                         <button key={v} type="button" className="quick-btn" onClick={() => setAmount(v)}>{v}</button>
                                     ))}
-                                </div>
+                                </div>}
                             </div>
 
+                            {conversionIssue && <p className="food-portion-notice" role="alert"><i className="fa-solid fa-circle-info" aria-hidden="true" /><span>{conversionIssue}</span></p>}
                             <div className="calorie-preview-row" id="barcodeSearchCalorieRow">
                                 <div className="calorie-big">
-                                    <span>{calcKcal}</span>
+                                    <span>{base ? formatFoodNumber(calcKcal) : '—'}</span>
                                     <span className="calorie-unit-label">kcal</span>
                                 </div>
                                 <div className="macro-pills">
-                                    <div className="macro-pill">P: {calcProt}g</div>
-                                    <div className="macro-pill">C: {calcCarb}g</div>
-                                    <div className="macro-pill">F: {calcFat}g</div>
+                                    <div className="macro-pill">P: {base ? formatFoodNumber(calcProt) : '—'}g</div>
+                                    <div className="macro-pill">C: {base ? formatFoodNumber(calcCarb) : '—'}g</div>
+                                    <div className="macro-pill">F: {base ? formatFoodNumber(calcFat) : '—'}g</div>
                                 </div>
                             </div>
 
                             <div className="nutrition-facts-table" id="barcodeSearchNftTable">
                                 <div className="nutrition-facts-header">
                                     <h3 className="nutrition-facts-title">Nutrition Facts</h3>
-                                    <div className="nutrition-facts-subtitle">per 100<span>{selFood.defaultUnit}</span></div>
+                                    <div className="nutrition-facts-subtitle">per {foodBasisLabel(selFood)}</div>
                                 </div>
                                 <div className="nutrition-facts-body">
-                                    <div className="nutrition-row nutrition-row-main"><span className="nutrition-label">Energy</span><span className="nutrition-value">{selFood.energyKj} kJ / {selFood.kcalPer100} kcal</span></div>
-                                    <div className="nutrition-row"><span className="nutrition-label">Fat</span><span className="nutrition-value">{selFood.fatPer100} g</span></div>
-                                    <div className="nutrition-row nutrition-row-sub"><span className="nutrition-label">of which saturates</span><span className="nutrition-value">{selFood.satFatPer100 !== null && selFood.satFatPer100 !== undefined ? `${selFood.satFatPer100} g` : '-'}</span></div>
-                                    <div className="nutrition-row"><span className="nutrition-label">Carbohydrate</span><span className="nutrition-value">{selFood.carbPer100} g</span></div>
-                                    <div className="nutrition-row nutrition-row-sub"><span className="nutrition-label">of which sugars</span><span className="nutrition-value">{selFood.sugarPer100 !== null && selFood.sugarPer100 !== undefined ? `${selFood.sugarPer100} g` : '-'}</span></div>
-                                    <div className="nutrition-row"><span className="nutrition-label">Protein</span><span className="nutrition-value">{selFood.protPer100} g</span></div>
-                                    <div className="nutrition-row"><span className="nutrition-label">Salt</span><span className="nutrition-value">{selFood.saltPer100 !== null && selFood.saltPer100 !== undefined ? `${selFood.saltPer100} g` : '-'}</span></div>
+                                    <div className="nutrition-row nutrition-row-main"><span className="nutrition-label">Energy</span><span className="nutrition-value">{formatFoodNumber(selFood.energyKj)} kJ / {formatFoodNumber(selFood.kcalPer100)} kcal</span></div>
+                                    <div className="nutrition-row"><span className="nutrition-label">Fat</span><span className="nutrition-value">{formatFoodNumber(selFood.fatPer100)} g</span></div>
+                                    <div className="nutrition-row nutrition-row-sub"><span className="nutrition-label">of which saturates</span><span className="nutrition-value">{selFood.satFatPer100 !== null && selFood.satFatPer100 !== undefined ? `${formatFoodNumber(selFood.satFatPer100)} g` : '-'}</span></div>
+                                    <div className="nutrition-row"><span className="nutrition-label">Carbohydrate</span><span className="nutrition-value">{formatFoodNumber(selFood.carbPer100)} g</span></div>
+                                    <div className="nutrition-row nutrition-row-sub"><span className="nutrition-label">of which sugars</span><span className="nutrition-value">{selFood.sugarPer100 !== null && selFood.sugarPer100 !== undefined ? `${formatFoodNumber(selFood.sugarPer100)} g` : '-'}</span></div>
+                                    <div className="nutrition-row"><span className="nutrition-label">Protein</span><span className="nutrition-value">{formatFoodNumber(selFood.protPer100)} g</span></div>
+                                    <div className="nutrition-row"><span className="nutrition-label">Salt</span><span className="nutrition-value">{selFood.saltPer100 !== null && selFood.saltPer100 !== undefined ? `${formatFoodNumber(selFood.saltPer100)} g` : '-'}</span></div>
                                 </div>
                             </div>
                         </div>
                     )}
+                    </div>
+                    </div>
                 </div>
 
                 <div className="modal-footer" id="barcodeSearchFooter">
                     <button
                         className="confirm-btn"
                         aria-label="Log food"
-                        disabled={step !== 'confirm' || !selFood || saving || editing || !Number.isFinite(amount) || amount <= 0 || ![selFood.kcalPer100, selFood.protPer100, selFood.carbPer100, selFood.fatPer100].every(Number.isFinite)}
+                        disabled={step !== 'confirm' || !selFood || saving || editing || !base || !Number.isFinite(amount) || amount <= 0 || ![selFood.kcalPer100, selFood.protPer100, selFood.carbPer100, selFood.fatPer100].every(Number.isFinite)}
                         onClick={() => { if (step === 'confirm' && selFood) logFood(); }}
                     >
                         <svg viewBox="0 -960 960 960" fill="currentColor" height="22" width="22">
@@ -354,5 +326,7 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
                 </div>
             </div>
         </div>
-    );
+        {selFood && editing && <FoodReviewEditorSheet food={selFood} onClose={() => setEditing(false)}
+            onSaveFood={food => { if (guard.current()) { setSelFood(food); setUnit(food.defaultUnit); } }} />}
+    </>);
 }

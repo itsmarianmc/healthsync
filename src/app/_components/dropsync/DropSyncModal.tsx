@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { DrinkEntry } from '../../_lib/types';
 import DrinkPicker, { type DrinkOption } from './DrinkPicker';
 import GlassInput from './GlassInput';
+import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
+import { useSheetSteps } from '../../_hooks/useSheetSteps';
 
 interface DropSyncModalProps {
     onClose: () => void;
@@ -11,218 +13,16 @@ interface DropSyncModalProps {
     isOpen: boolean;
 }
 
-const SHEET_TOP_MARGIN = 24;
-const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
-
 export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncModalProps) {
     const [step, setStep] = useState<1 | 2>(1);
+    const { setTrackRef, painted, changing, onTransitionEnd } = useSheetSteps(step - 1);
     const [selectedDrink, setSelectedDrink] = useState<DrinkOption | null>(null);
     const [amount, setAmount] = useState(250);
-    const [modalState, setModalState] = useState<'closed' | 'open' | 'expanded'>('closed');
-    const isClosingRef = useRef(false);
-    const modalRef = useRef<HTMLDivElement>(null);
-    const overlayRef = useRef<HTMLDivElement>(null);
-    const bodyRef = useRef<HTMLDivElement>(null);
-    const step1Ref = useRef<HTMLDivElement>(null);
-    const step2Ref = useRef<HTMLDivElement>(null);
-    const bodyHRef = useRef(0);
-    const naturalHeightRef = useRef(0);
-    const chromeHRef = useRef(0);
-    const dragStartYRef = useRef(0);
-    const dragDYRef = useRef(0);
-    const velRef = useRef(0);
-    const lastTimeRef = useRef(0);
-    const dragLastYRef = useRef(0);
-    const isCapturingRef = useRef(false);
-
-    const expandedHeight = () => window.innerHeight - SHEET_TOP_MARGIN;
-
-    const setNoTransition = () => { if (modalRef.current) modalRef.current.style.transition = 'none'; };
-    const setTransition = (props: string[]) => {
-        if (!modalRef.current) return;
-        modalRef.current.style.transition = props.map(p => `${p} 0.42s ${EASE}`).join(', ');
-    };
-
-    const snapToOpen = useCallback(() => {
-        setModalState('open');
-        setTransition(['height', 'transform']);
-        if (!modalRef.current || !bodyRef.current) return;
-        if (chromeHRef.current > 0 && bodyHRef.current > 0) {
-            naturalHeightRef.current = chromeHRef.current + bodyHRef.current;
-        }
-        modalRef.current.style.height = naturalHeightRef.current + 'px';
-        modalRef.current.style.transform = 'translateY(0)';
-        if (bodyHRef.current > 0) bodyRef.current.style.height = bodyHRef.current + 'px';
-    }, []);
-
-    const snapToExpanded = useCallback(() => {
-        setModalState('expanded');
-        setTransition(['height', 'transform']);
-        if (modalRef.current) {
-            modalRef.current.style.height = expandedHeight() + 'px';
-            modalRef.current.style.transform = 'translateY(0)';
-        }
-    }, []);
-
-    const snapToClosed = useCallback(() => {
-        if (!modalRef.current || isClosingRef.current) return;
-        isClosingRef.current = true;
-        setModalState('closed');
-        const curH = modalRef.current.offsetHeight;
-        setNoTransition();
-        modalRef.current.style.height = curH + 'px';
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            if (!modalRef.current) return;
-            modalRef.current.style.transition = `transform 0.36s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease`;
-            modalRef.current.style.transform = 'translateY(110%)';
-            modalRef.current.style.opacity = '0';
-            document.body.classList.remove('modal-open');
-        }));
-        if (overlayRef.current) overlayRef.current.classList.remove('visible');
-        setTimeout(() => {
-            if (!modalRef.current) return;
-            modalRef.current.style.transform = '';
-            modalRef.current.style.height = '';
-            modalRef.current.style.transition = '';
-            naturalHeightRef.current = 0;
-            isClosingRef.current = false;
-            setStep(1);
-            setSelectedDrink(null);
-            setAmount(250);
-            onClose();
-        }, 440);
-    }, [onClose]);
-
-    useLayoutEffect(() => {
-        return () => {
-            setModalState('closed');
-        };
-    }, []);
-
-    useEffect(() => {
-        if (isOpen && modalState === 'closed' && !isClosingRef.current) {
-        setStep(1);
-        setSelectedDrink(null);
-        setAmount(250);
-        if (!modalRef.current) return;
-        setModalState('open');
-        setNoTransition();
-        modalRef.current.style.height = 'auto';
-        modalRef.current.style.transform = 'translateY(100%)';
-        modalRef.current.style.opacity = '0';
-        if (overlayRef.current) overlayRef.current.classList.add('visible');
-        document.body.classList.add('modal-open');
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            if (!modalRef.current || !bodyRef.current || !step1Ref.current) return;
-            bodyRef.current.style.overflow = 'hidden';
-            const initBodyH = step1Ref.current.offsetHeight;
-            bodyHRef.current = initBodyH;
-            bodyRef.current.style.height = initBodyH + 'px';
-            naturalHeightRef.current = modalRef.current.offsetHeight;
-            chromeHRef.current = Math.max(0, naturalHeightRef.current - initBodyH);
-            const preferExpanded = (() => {
-                try { return localStorage.getItem('healthsync_modals_expanded') === 'true'; }
-                catch { return false; }
-            })();
-            modalRef.current.style.height = naturalHeightRef.current + 'px';
-            void modalRef.current.offsetHeight;
-            requestAnimationFrame(() => {
-                if (!modalRef.current) return;
-                if (preferExpanded) {
-                    setTransition(['height', 'transform', 'opacity']);
-                    modalRef.current.style.opacity = '1';
-                    modalRef.current.style.transform = 'translateY(0)';
-                    modalRef.current.style.height = expandedHeight() + 'px';
-                    setModalState('expanded');
-                } else {
-                    setTransition(['transform', 'opacity']);
-                    modalRef.current.style.opacity = '1';
-                    modalRef.current.style.transform = 'translateY(0)';
-                }
-            });
-        }));
-        }
-        else if (!isOpen && modalState !== 'closed') {
-            snapToClosed();
-        }
-    }, [isOpen, modalState, snapToClosed]);
-
-    const handlePointerDown = (e: React.PointerEvent) => {
-        dragStartYRef.current = e.clientY;
-        dragLastYRef.current = e.clientY;
-        velRef.current = 0;
-        dragDYRef.current = 0;
-        lastTimeRef.current = Date.now();
-        isCapturingRef.current = true;
-        setNoTransition();
-        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    };
-
-    const handlePointerMove = (e: React.PointerEvent) => {
-        if (!isCapturingRef.current) return;
-        const now = Date.now();
-        const dt = now - lastTimeRef.current;
-        if (dt > 0) velRef.current = (e.clientY - dragLastYRef.current) / dt * 1000;
-        dragLastYRef.current = e.clientY;
-        lastTimeRef.current = now;
-        const dy = e.clientY - dragStartYRef.current;
-        dragDYRef.current = dy;
-        if (!modalRef.current) return;
-
-        if (modalState === 'expanded') {
-            if (dy > 0) {
-                const newH = Math.max(naturalHeightRef.current, expandedHeight() - dy);
-                modalRef.current.style.height = newH + 'px';
-            }
-            } else {
-            if (dy > 0) {
-                modalRef.current.style.transform = `translateY(${dy}px)`;
-            } else {
-                const newH = Math.min(expandedHeight(), naturalHeightRef.current + Math.abs(dy));
-                modalRef.current.style.height = newH + 'px';
-                modalRef.current.style.transform = 'translateY(0)';
-            }
-        }
-    };
-
-    const handlePointerUp = () => {
-        if (!isCapturingRef.current) return;
-        isCapturingRef.current = false;
-        const dy = dragDYRef.current;
-        const vel = velRef.current;
-        if (vel > 1500 && dy > 0) {
-            snapToClosed();
-        } else if (dy > 80 || vel > 400) {
-            if (modalState === 'expanded') snapToOpen();
-            else snapToClosed();
-        } else if (dy < -60 || vel < -400) {
-            snapToExpanded();
-        } else {
-            if (modalState === 'expanded') snapToExpanded();
-            else snapToOpen();
-        }
-        dragDYRef.current = 0;
-    };
-
-    useEffect(() => {
-        if (modalState === 'closed' || !modalRef.current || !bodyRef.current || naturalHeightRef.current === 0) return;
-        const el = step === 1 ? step1Ref.current : step2Ref.current;
-        if (!el) return;
-        const newBodyH = el.offsetHeight;
-        if (newBodyH === 0) return;
-        bodyHRef.current = newBodyH;
-        if (chromeHRef.current > 0) naturalHeightRef.current = chromeHRef.current + newBodyH;
-        if (modalState === 'expanded') return;
-        bodyRef.current.style.transition = 'height 0.38s cubic-bezier(0.4,0,0.2,1)';
-        bodyRef.current.style.height = newBodyH + 'px';
-        modalRef.current.style.transition = 'height 0.38s cubic-bezier(0.4,0,0.2,1)';
-        modalRef.current.style.height = naturalHeightRef.current + 'px';
-        setTimeout(() => {
-            if (bodyRef.current) bodyRef.current.style.transition = '';
-            if (modalRef.current) modalRef.current.style.transition = '';
-        }, 400);
-    }, [step, selectedDrink, modalState]);
-
+    const sheet = useDraggableSheet({ onClose: () => {
+        setStep(1); setSelectedDrink(null); setAmount(250); onClose();
+    } });
+    const { modalRef, overlayRef, close: snapToClosed, handleProps, open } = sheet;
+    useEffect(() => { if (isOpen) open(); else snapToClosed(); }, [isOpen, open, snapToClosed]);
     const handleSelectDrink = (drink: DrinkOption) => {
         setSelectedDrink(drink);
         setStep(2);
@@ -246,7 +46,6 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
 
     const handleBack = () => {
         setStep(1);
-        setSelectedDrink(null);
     };
 
     const SVG_ARROW = <svg height="25" viewBox="0 -960 960 960" width="25" fill="#ffffff"><path d="m321-80-71-71 329-329-329-329 71-71 400 400L321-80Z"/></svg>;
@@ -254,18 +53,16 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
 
     return (
         <div
-            className="appoverlay"
+            className="app-overlay appoverlay"
             id="ds-addOverlay"
             ref={overlayRef}
             onClick={e => { if (e.target === overlayRef.current) snapToClosed(); }}
             >
-            <div className="modal" id="ds-modal" ref={modalRef}>
+            <div className="modal" id="ds-modal" ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="ds-modalTitle">
                 <div
                 className="modal-handle-zone"
                 id="ds-handleZone"
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
+                {...handleProps}
                 >
                     <div className="modal-handle" />
                 </div>
@@ -274,6 +71,7 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
                         <button
                             className={`back-btn${step === 1 ? ' hidden' : ''}`}
                             id="ds-backBtn"
+                            aria-label="Back to drinks"
                             style={{ opacity: step === 2 ? 1 : 0 }}
                             onClick={handleBack}
                             >
@@ -284,12 +82,12 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
                         {step === 1 ? 'What did you drink?' : selectedDrink?.name || 'Amount'}
                     </div>
                 </div>
-                <div className="modal-body" id="ds-modalBody" ref={bodyRef} style={{ overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', gap: '24px', width: '200%', alignItems: 'flex-start', transform: `translateX(${step === 1 ? '0' : 'calc(-50% - 24px)'})`, transition: 'transform 0.38s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-                        <div ref={step1Ref} style={{ display: 'block', width: '50%', flexShrink: 0 }}>
+                <div className="modal-body" id="ds-modalBody" style={{ overflowX: 'hidden', overflowY: 'auto' }}>
+                    <div className="sheet-step-track" ref={setTrackRef} data-content-changing={changing} onTransitionEnd={onTransitionEnd} style={{ display: 'flex', gap: '24px', width: '200%', alignItems: 'flex-start', transform: `translateX(${step === 1 ? '0' : 'calc(-50% - 24px)'})` }}>
+                        <div inert={step !== 1} aria-hidden={step !== 1} style={{ display: 'block', width: '50%', flexShrink: 0, height: painted(0) ? 'auto' : 0, overflow: 'hidden' }}>
                             <DrinkPicker selected={selectedDrink} onSelect={handleSelectDrink} />
                         </div>
-                        <div ref={step2Ref} style={{ display: 'block', width: '50%', flexShrink: 0 }}>
+                        <div inert={step !== 2} aria-hidden={step !== 2} style={{ display: 'block', width: '50%', flexShrink: 0, height: painted(1) ? 'auto' : 0, overflow: 'hidden' }}>
                             {selectedDrink && <GlassInput amount={amount} onChange={setAmount} drinkColor={selectedDrink.color} />}
                         </div>
                     </div>
@@ -297,6 +95,7 @@ export default function DropSyncModal({ onClose, onAddEntry, isOpen }: DropSyncM
                 <div className="modal-footer" id="ds-modalFooter">
                     <button
                         id="ds-actionBtn"
+                        aria-label={step === 1 ? "Continue" : "Log drink"}
                         className="confirm-btn"
                         disabled={step === 1 && !selectedDrink}
                         onClick={step === 1 ? () => selectedDrink && handleSelectDrink(selectedDrink) : handleAddEntry}

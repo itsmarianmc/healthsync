@@ -142,9 +142,10 @@ test('worker shows only neutral copy and keeps push status out of runtime caches
     };
     try {
         loadFile('src/app/sw.ts', {
+            './_lib/build': { APP_BUILD_ID: 'push-fixture' },
             '@serwist/turbopack/worker': { defaultCache: ['existing-cache-rules'] },
             serwist: {
-                NetworkOnly: class {},
+                NetworkOnly: class {}, CacheFirst: class {}, NetworkFirst: class {},
                 Serwist: class {
                     constructor(options) { config = options; }
                     setCatchHandler(handler) { catchHandler = handler; }
@@ -165,9 +166,13 @@ test('worker shows only neutral copy and keeps push status out of runtime caches
         listeners.push({ data: { json: () => ({ type: 'healthsync-reminder', category: '__proto__' }) }, waitUntil: promise => { pending = promise; } });
         await pending;
         assert.equal(notifications.at(-1)[1].body, 'Notifications are ready. This is a test notification.');
-        assert.equal(config.runtimeCaching[0].matcher({ url: new URL('https://healthsync.example/api/push/subscriptions') }), true);
-        assert.equal(config.runtimeCaching[0].matcher({ url: new URL('https://healthsync.example/dash') }), false);
-        assert.equal(config.runtimeCaching[1], 'existing-cache-rules');
+        assert.equal(config.runtimeCaching[0].matcher({ sameOrigin: true, url: new URL('https://healthsync.example/api/push/subscriptions') }), true);
+        assert.equal(config.runtimeCaching[0].matcher({ sameOrigin: true, url: new URL('https://healthsync.example/dash') }), false);
+        assert.equal(config.runtimeCaching.at(-1), 'existing-cache-rules');
+        assert.equal(config.skipWaiting, false);
+        assert.equal(config.navigationPreload, false);
+        assert.equal(config.precacheOptions.cacheName, 'healthsync-precache-push-fixture');
+        assert.equal(config.precacheOptions.cleanupOutdatedCaches, false);
         assert.equal(typeof catchHandler, 'function');
     } finally { delete globalThis.self; }
 });
@@ -183,8 +188,9 @@ test('notification click focuses an existing app or opens the dashboard', async 
     };
     try {
         loadFile('src/app/sw.ts', {
+            './_lib/build': { APP_BUILD_ID: 'push-fixture' },
             '@serwist/turbopack/worker': { defaultCache: [] },
-            serwist: { NetworkOnly: class {}, Serwist: class { setCatchHandler() {} addEventListeners() {} } },
+            serwist: { NetworkOnly: class {}, CacheFirst: class {}, NetworkFirst: class {}, Serwist: class { setCatchHandler() {} addEventListeners() {} } },
         });
         const event = { notification: { close: () => { closed++; } }, waitUntil: promise => { pending = promise; } };
         listeners.notificationclick(event);

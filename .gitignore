@@ -1,5 +1,3 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
 /node_modules
 /.pnp
@@ -63,3 +61,4 @@ supabase_migration.sql
 .history
 .vscode
 TODO.md
+/.update-test/

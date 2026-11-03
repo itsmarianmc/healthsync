@@ -2,14 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import FoodLibrarySheet from './FoodLibrarySheet';
-import FoodEditor from './FoodEditor';
-import RecipeEditor from './RecipeEditor';
+import FoodCreationSheet from './FoodCreationSheet';
 import FoodDetailSheet from './FoodDetailSheet';
 import FoodCreateChoiceSheet from './FoodCreateChoiceSheet';
-import { libraryBrand } from './foodLibraryPresentation';
+import { libraryBrand, libraryPortionLabel } from './foodLibraryPresentation';
 import { useAuth } from '../../_context/AuthContext';
 import { workspaceGuard } from '../../_lib/localData';
-import { libraryData, saveLibraryFood, deleteLibraryFood, resolveFood, type LibraryItem } from '../../_lib/foodLibrary';
+import { libraryData, searchLibrary, deleteLibraryFood, resolveFood, type LibraryItem } from '../../_lib/foodLibrary';
 import { readFoodSelection, FOOD_SELECTION_KEY } from '../../_lib/foodBatch';
 import type { CatalogFood, FoodSearchResult } from '../../_lib/types';
 
@@ -23,31 +22,21 @@ export default function CustomFoodsModal({ onClose }: { onClose: () => void }) {
     const [revision, refresh] = useState(0);
     const [error, setError] = useState('');
     let foods: CatalogFood[] = [], unavailable = false;
-    try { foods = [...libraryData().foods.values()]; } catch { unavailable = true; }
+    try { foods = searchLibrary([], '').map(item => item.food as CatalogFood); } catch { unavailable = true; }
     useEffect(() => {
         const update = () => { if (isCurrent()) refresh(n => n + 1); };
         window.addEventListener('storage', update);
         return () => window.removeEventListener('storage', update);
     }, [isCurrent]);
-    const save = (food: CatalogFood) => {
-        if (!isCurrent()) return;
-        saveLibraryFood(food); setEditing(null); refresh(revision + 1); void retrySync();
-    };
-    return <><FoodLibrarySheet id="customFoods" title="Custom Food" onClose={onClose} covered={!!selected || choosing} returnFocusTo={editOpener}
-        onBack={typeof editing === 'string' ? () => setEditing(null) : undefined} backLabel="Back to created foods">
+    return <><FoodLibrarySheet id="customFoods" title="Custom Food" onClose={onClose} covered={!!selected || choosing || !!editing} returnFocusTo={editOpener}>
         {unavailable && <p role="alert">The saved library could not be read. Existing storage has been preserved. Export your data before repairing browser storage.</p>}
-        {editing === 'recipe' ?
-            <RecipeEditor onSave={save} onCancel={() => setEditing(null)} /> : editing === 'food' ?
-            <FoodEditor onSave={food => save({ ...food, kind: 'food' })} onCancel={() => setEditing(null)} /> : <>
                 <button type="button" className="add-workout custom-food-add" onClick={event => { setEditOpener(event.currentTarget); setChoosing(true); }}><span className="add-wo-btn"><i className="fas fa-plus" aria-hidden="true" /></span><span className="add-wo-text">Create food</span></button>
                 <ul className="food-library-list">{foods.map(food => {
                     let label = <>Nutrition unavailable — edit to repair</>;
                     try {
                         const resolved = resolveFood(food.id, libraryData().foods);
                         label = <>
-                            {resolved.kcalPer100.toFixed(1)} kcal{' '}
-                            <span className="separator">•</span>{' '}
-                            {resolved.portion ? 'serving' : `100 ${resolved.defaultUnit}`}
+                            {libraryPortionLabel(resolved)}
                         </>;
                     } catch {}
 
@@ -95,13 +84,13 @@ export default function CustomFoodsModal({ onClose }: { onClose: () => void }) {
                         </li>
                     );
                 })}</ul>
-            </>}
         {error && <p role="alert">{error}</p>}
     </FoodLibrarySheet>
     {choosing && <FoodCreateChoiceSheet onClose={kind => {
         setChoosing(false);
         if (kind && isCurrent()) { setEditing(kind); setError(''); }
     }} />}
+    {editing && <FoodCreationSheet kind={editing} onClose={() => setEditing(null)} />}
     {selected && <FoodDetailSheet item={selected} onClose={() => setSelected(null)} backLabel="Back to created foods" onAdd={item => {
         if (!isCurrent()) return false;
         try {

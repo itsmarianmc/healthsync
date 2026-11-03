@@ -1,9 +1,8 @@
 import { build } from 'esbuild';
 import { resolve } from 'node:path';
 
-// Real application providers, login, shell and sheets; only Next navigation and
-// the Supabase transport are replaced. No session cookies or real services.
-export async function aiAppFixture() {
+// Real components/providers with mocked Next navigation and Supabase; no real sessions or services.
+export async function aiAppFixture({ includeGlobalOverlays = false, strict = false }: { includeGlobalOverlays?: boolean; strict?: boolean } = {}) {
   const result = await build({
     stdin: {
       contents: `
@@ -17,14 +16,24 @@ export async function aiAppFixture() {
         import Dashboard from './src/app/dash/page';
         import Food from './src/app/food/page';
         import Drinks from './src/app/drinks/page';
+        ${includeGlobalOverlays ? `import CookieBanner from './src/app/_components/shared/CookieBanner';
+        import Tooltip from './src/app/_components/onboarding/Tooltip';
+        import Terms from './src/app/legal/terms/page';
+        import OnboardingPage from './src/app/onboarding/page';
+        import BarcodeScanner from './src/app/_components/calsync/BarcodeScanner';
+        import './src/app/cookiebanner.css';` : ''}
         import './src/app/styles.css';
+        ${includeGlobalOverlays ? `function DormantScanner() {
+          const [open, setOpen] = React.useState(false);
+          return <><button id="fixture-open-scanner" onClick={() => setOpen(true)}>Open standalone scanner</button><BarcodeScanner isOpen={open} onClose={() => setOpen(false)} onScanned={() => {}}/></>;
+        }` : ''}
         function App() {
           const path = usePathname();
           return <AuthProvider><AppShellProvider><AppShell>
-            {path === '/login' ? <Login/> : path === '/food' ? <Food/> : path === '/drinks' ? <Drinks/> : <Dashboard/>}
-          </AppShell></AppShellProvider></AuthProvider>;
+            {${includeGlobalOverlays ? "path === '/legal/terms' ? <Terms/> : path === '/onboarding' ? <OnboardingPage/> : path === '/fixture/scanner' ? <DormantScanner/> :" : ''} path === '/login' ? <Login/> : path === '/food' ? <Food/> : path === '/drinks' ? <Drinks/> : <Dashboard/>}
+          </AppShell>${includeGlobalOverlays ? '<CookieBanner/><Tooltip/>' : ''}</AppShellProvider></AuthProvider>;
         }
-        createRoot(document.getElementById('root')).render(<App/>);
+        createRoot(document.getElementById('root')).render(${strict ? '<React.StrictMode><App/></React.StrictMode>' : '<App/>'});
       `,
       resolveDir: resolve('.'), loader: 'tsx',
     },

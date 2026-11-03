@@ -6,7 +6,7 @@ import FoodDetailSheet from './FoodDetailSheet';
 import FoodDateTimeSheet from './FoodDateTimeSheet';
 import FoodSelectionChips from './FoodSelectionChips';
 import FoodAvatar from './FoodAvatar';
-import { libraryBrand, usageDayGroups } from './foodLibraryPresentation';
+import { libraryBrand, libraryPortionLabel, usageDayGroups } from './foodLibraryPresentation';
 import { useAuth } from '../../_context/AuthContext';
 import { workspaceGuard } from '../../_lib/localData';
 import { ensureLibraryFood, isFoodFavorite, searchLibrary, setFoodFavorite, type LibraryItem } from '../../_lib/foodLibrary';
@@ -14,7 +14,7 @@ import { foodNutrition } from '../../_lib/foodEntry';
 import { commitFoodEntries } from '../../_lib/foodLog';
 import { batchNutrition, selectionEntry, createFoodSelection as selection, readFoodSelection as loadSelection, FOOD_SELECTION_KEY as SELECTION_KEY, type FoodSelection as Selection, type FoodSelectionCache as CachedSelection } from '../../_lib/foodBatch';
 import { batchTimeLabel } from '../../_lib/foodDateTime';
-import { foodAmountToBase, foodAmountUnits, foodBasisLabel, FOOD_UNIT_LABELS, type FoodAmountUnit } from '../../_lib/foodPortions';
+import { foodAmountToBase, foodAmountUnits, foodUnitLabel, foodUnitOptionLabel, foodConversionIssue, type FoodAmountUnit } from '../../_lib/foodPortions';
 import type { FoodEntry, FoodSearchResult } from '../../_lib/types';
 
 function entries(): FoodEntry[] { try { return JSON.parse(localStorage.getItem('calsync_v1') || '[]'); } catch { return []; } }
@@ -90,16 +90,15 @@ export default function SavedFoodsModal({ onClose, initialView = 'search' }: {
         if (!queue.length || logging.current || !isCurrent()) return;
         logging.current = true; setSaving(true); setError('');
         try {
-            // Validate every item before saving a definition or starting a log batch.
+            // Validate the whole selection before any library writes.
             queue.forEach(entryFor);
-            const pendingBatch = batch || queue.map(item => entryFor({ ...item, food: ensureLibraryFood(item.food) }));
+            const pendingBatch = batch || queue.map(item => entryFor({ ...item, food: ensureLibraryFood({ ...item.food, selectedAmount: { amount: Number(item.amount), unit: item.unit } }) }));
             const snapshot: CachedSelection = { version: 1, items: queue, ts: timestamp ?? pendingBatch[0].ts, batch: pendingBatch };
             localStorage.setItem(SELECTION_KEY, JSON.stringify(snapshot));
             setBatch(pendingBatch);
             localFailure.current = false;
             setDismiss(true);
-            // Let dismissal start before doing synchronous device writes. The
-            // component stays mounted through the sheet's closing animation.
+            // Yield so dismissal starts before synchronous writes; the sheet stays mounted through exit.
             window.setTimeout(() => {
                 if (!isCurrent()) return;
                 try {
@@ -113,8 +112,7 @@ export default function SavedFoodsModal({ onClose, initialView = 'search' }: {
                 } catch {
                     if (!isCurrent()) return;
                     localFailure.current = true;
-                    // A failure after selection cleanup must also retain retry
-                    // data; the journal and fixed IDs make partial writes safe.
+                    // Restore retry data after cleanup; journal IDs prevent duplicate partial writes.
                     try { localStorage.setItem(SELECTION_KEY, JSON.stringify(snapshot)); } catch { /* Original cache/journal remains. */ }
                     setError('Could not save on this device. Free some storage and retry.');
                 }
@@ -127,16 +125,16 @@ export default function SavedFoodsModal({ onClose, initialView = 'search' }: {
     const amountFields = (item: Selection, change: (next: Selection) => void) => {
         let nutrition: ReturnType<typeof foodNutrition> | null = null;
         let base: ReturnType<typeof foodAmountToBase> | null = null;
-        try { nutrition = entryFor(item); base = foodAmountToBase(item.food, Number(item.amount), item.unit); } catch { /* Invalid amount stays visible. */ }
-        const controls = <><div className="saved-food-amount-row"><label>Amount ({FOOD_UNIT_LABELS[item.unit]})<input className="form-input" disabled={saving || !!batch} type="number" inputMode="decimal" min="0.000001" step="any" required value={item.amount} onChange={e => change({ ...item, amount: e.target.value })} /></label>
+        try { nutrition = entryFor(item); base = foodAmountToBase(item.food, Number(item.amount), item.unit); } catch {}
+        const controls = <><div className="saved-food-amount-row"><label>Amount ({foodUnitLabel(item.food, item.unit)})<input className="form-input" disabled={saving || !!batch} type="number" inputMode="decimal" min="0.000001" step="any" required value={item.amount} onChange={e => change({ ...item, amount: e.target.value })} /></label>
             <label>Amount unit<select disabled={saving || !!batch} aria-label="Amount unit" className="form-input" value={item.unit} onChange={e => {
                 const unit = e.target.value as FoodAmountUnit;
                 let amount = item.amount;
                 try { amount = String(foodAmountToBase(item.food, Number(item.amount), item.unit).amount / foodAmountToBase(item.food, 1, unit).amount); } catch {}
                 change({ ...item, amount, unit });
-            }}>{foodAmountUnits(item.food).map(unit => <option key={unit} value={unit}>{FOOD_UNIT_LABELS[unit]}</option>)}</select></label></div>
-            {base && base.unit !== item.unit && item.food.recipeSnapshot?.recipe.yield.unit !== 'serving' && <p className="food-library-hint">{Number(base.amount.toFixed(6))} {base.unit} total</p>}</>;
-        return <>{controls}{nutrition ? <div className="saved-food-macros"><div className="saved-food-macro calories"><span>Calories</span><strong>{nutrition.kcal} kcal</strong></div>
+            }}>{foodAmountUnits(item.food).map(unit => <option key={unit} value={unit}>{foodUnitOptionLabel(item.food, unit)}</option>)}</select></label></div>
+            {base && base.unit !== item.unit && item.food.recipeSnapshot?.recipe.yield.unit !== 'serving' && item.food.barcodeAmounts?.basis !== 'serving' && <p className="food-library-hint">{Number(base.amount.toFixed(6))} {base.unit} total</p>}</>;
+        return <>{controls}{foodConversionIssue(item.food, item.unit) && <p className="food-portion-notice" role="status">{foodConversionIssue(item.food, item.unit)}</p>}{nutrition ? <div className="saved-food-macros"><div className="saved-food-macro calories"><span>Calories</span><strong>{nutrition.kcal} kcal</strong></div>
             <div className="saved-food-macro"><span>Protein</span><strong>{nutrition.prot} g</strong></div><div className="saved-food-macro"><span>Carbs</span><strong>{nutrition.carb} g</strong></div><div className="saved-food-macro"><span>Fat</span><strong>{nutrition.fat} g</strong></div></div> : <p role="status">Enter a valid amount and unit to calculate nutrition.</p>}</>;
     };
     const goBack = () => { setSelected(null); setReview(false); setError(''); };
@@ -174,7 +172,7 @@ export default function SavedFoodsModal({ onClose, initialView = 'search' }: {
             {queue.map((item, index) => <section key={item.id} className="food-review-page" aria-label={`${item.food.name}, ${index + 1} of ${queue.length}`}>
                 <div className="saved-food-card food-review-card">
                 <div className="food-review-heading"><div><span className="food-review-position">{index + 1} / {queue.length}</span><h4>{item.food.name}</h4></div>
-                <button type="button" className="option-btn food-review-favorite" aria-label={`Favorite ${item.food.name}`} aria-pressed={isFoodFavorite(item.food)} onClick={() => star(item.food)}><i className={isFoodFavorite(item.food) ? 'fa-solid fa-star' : 'fa-regular fa-star'} aria-hidden="true" /></button></div>
+                <button type="button" className="option-btn food-review-favorite" aria-label={`Favorite ${item.food.name}`} aria-pressed={isFoodFavorite(item.food)} onClick={() => star({ ...item.food, selectedAmount: { amount: Number(item.amount), unit: item.unit } })}><i className={isFoodFavorite(item.food) ? 'fa-solid fa-star' : 'fa-regular fa-star'} aria-hidden="true" /></button></div>
                 {amountFields(item, next => persist(queue.map(saved => saved.id === item.id ? next : saved)))}
                 <button type="button" disabled={saving || !!batch} className="option-btn food-review-remove" aria-label={`Remove ${item.food.name}`} onClick={() => persist(queue.filter(saved => saved.id !== item.id))}><i className="fa-solid fa-minus" aria-hidden="true" /> Remove</button>
                 </div>
@@ -223,9 +221,7 @@ export default function SavedFoodsModal({ onClose, initialView = 'search' }: {
                                     'Needs repair'
                                 ) : (
                                     <>
-                                        {foodNutrition(item.food, item.food.portion?.amount || 100).kcal} kcal{' '}
-                                        <span className="separator">•</span>{' '}
-                                        {foodBasisLabel(item.food)}
+                                        {libraryPortionLabel(item.food)}
                                     </>
                                 )}
                             </span>

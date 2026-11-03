@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { APP_BUILD_ID } from './app/_lib/build';
 
 const csp = [
     "default-src 'self'",
@@ -21,6 +22,7 @@ export function proxy(_request: NextRequest) {
     response.headers.set('X-Frame-Options', 'DENY');
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    response.headers.set('X-HealthSync-Build', APP_BUILD_ID);
     response.headers.set(
         'Permissions-Policy',
         'geolocation=(self), microphone=(self), camera=(self), payment=(self), usb=(self), magnetometer=(self), gyroscope=(self)'

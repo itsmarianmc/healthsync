@@ -1,31 +1,27 @@
 {
     "5.0.0": {
-        "Create Your Own Foods": [
-            "You can create, edit and delete your own foods with a name, optional brand, calories, protein, carbohydrates and fat from Custom Food in the Extra menu.",
-            "You only add calories when you confirm food logging; editing or deleting a saved food keeps your previously logged meals unchanged.",
-            "You can choose Food or Recipe from Create food, and continue logging drinks in DropSync."
+        "Create Foods And Recipes": [
+            "You can choose Food or Recipe from Create food in the Custom Food menu, edit it in a separate window and return to your list without losing its scroll position.",
+            "You can save a food or recipe for later or add it to your meal selection before confirming food logging."
         ],
         "Find Saved Foods Offline": [
-            "You can search your own foods and favourites by name or brand in Saved Foods, even offline, without an internet search.",
-            "You can distinguish foods with the same name when their brands, nutrition or portion sizes differ.",
-            "You can find recently logged foods from the last 14 days, browse results by the day you last used them and switch to a separate Favorites view; foods you save stay in your library."
-        ],
-        "Choose Your Portion": [
-            "You can enter nutrition per 100 grams, 100 milliliters, piece, serving, ounce or US fluid ounce, with a gram or milliliter equivalent where needed.",
-            "You can log fractional portions and switch between available units while keeping the same quantity and matching nutrition totals."
+            "You can find recently logged foods from the last 14 days alongside your saved foods, browse results by the day you last used them and switch to a separate Favorites view; foods you save stay in your library.",
+            "You see one saved row for the same scanned product even when its product details change, while different foods and your past meal records stay separate."
         ],
         "Easier Food Logging": [
             "You can select several foods, adjust each amount and review their combined calories, protein, carbs and fat before logging them together.",
-            "You can return to your search with the back button at the top left without losing your search text.",
             "You can close and reopen Saved Foods without losing your selection, and add the same food more than once when you want separate entries.",
             "You can check your meal totals and chosen date together in a compact summary above the log button, with colored nutrient icons and more room for reviewing your foods."
         ],
-        "Separate Barcode Scanning": [
-            "You now open your saved foods with Search and the camera with Scan Barcode, where you can still scan a product and confirm the amount to log.",
-            "You can adjust the amount and favorite a scanned product while its product details stay read-only; products with missing nutrition cannot be logged as if their values were zero."
+        "More Flexible Barcode Portions": [
+            "You can adjust the amount and favorite a scanned product while its product details stay read-only; products with missing nutrition cannot be logged as if their values were zero.",
+            "You can choose supported weight, volume, serving and package amounts for scanned products, and switch between equivalent units while keeping the same nutrition totals.",
+            "You only see usable product units in the portion selector, with a clear notice if the product is missing the information needed to log it.",
+            "You can also choose ml for a food measured in grams or kilograms using the labeled 1:1 estimate; a known product-specific conversion takes priority.",
+            "You keep the portion you save or favorite, including an amount of 1, and see its calories alongside it in your library, such as 500ml • 10kcal."
         ],
         "Keep Your Library Offline": [
-            "Your own food library stays available on your device without a connection, and your guest library stays separate from your account libraries.",
+            "You can keep your saved recipes and meal selections alongside your foods on this device, including offline, within the current guest or account library.",
             "You can include your saved food library when you export your data from Settings."
         ],
         "Build Your Own Recipes": [
@@ -38,10 +34,11 @@
         ],
         "Review Food Details In Place": [
             "You can view nutrition, adjust a portion and edit a saved food or recipe in a window above your list, then return to the same search and scroll position.",
-            "You can preview calories and nutrients while editing, inspect recipe ingredients and change a favorite without saving unfinished food edits."
+            "You can preview calories and nutrients while editing, inspect recipe ingredients and change a favorite without saving unfinished food edits.",
+            "You see compact nutrition numbers with up to three significant digits, without extra zeros or changes to your saved nutrition values."
         ],
         "Review AI Suggestions": [
-            "You can correct an AI food estimate before logging it, or review a recipe suggestion by choosing matching ingredients from your library.",
+            "You can open food or recipe editing in a separate window from the action below the preview, then save or cancel and return to the same portion before logging. You can review an AI recipe by choosing matching ingredients from your library.",
             "You can recognize supported AI-detected foods by their food icons in your saved library."
         ],
         "More Reliable Meal Saves": [
@@ -49,11 +46,27 @@
             "You can retry an interrupted meal save without adding duplicate entries, and recover your selection if saving on this device fails."
         ],
         "Easier Menus And Windows": [
-            "You can scroll the redesigned Extra menu on smaller screens and use clearer controls to open your food library.",
-            "You can drag the top window from its header or pull down on its content when you reach the top, while buttons and inputs keep their usual behavior."
+            "You can scroll through the square Extra menu on smaller screens while its icons keep their round shape and its controls give you access to your food library.",
+            "You can drag the top window from its header or pull down on its content when you reach the top, while buttons and inputs keep their usual behavior.",
+            "You see smoother opening and closing animations across food, drink, workout and Settings windows, including windows that open fully expanded.",
+            "You see Settings smoothly move into the background when you open Report a Bug and return when you close it."
         ],
         "Clearer Notification Settings": [
             "You can distinguish browser permission from notification status on this device; scheduled meal and supplement reminders still show as coming soon."
+        ],
+        "Better Use Of Screen Space": [
+            "You keep your search and selection when the food window adjusts to the available keyboard space, and long product details scroll above the action button."
+        ],
+        "Choose When To Update": [
+            "You can choose Update now when a new version is ready; background update checks no longer reload your open page or interrupt another open HealthSync tab.",
+            "You can choose Later and continue using the app, then open What's new whenever you want without starting an update."
+        ],
+        "Simpler What's New Controls": [
+            "You can reload the app from the compact reload icon at the top left and close What's new from the top right.",
+            "You can follow updates through centered status messages, with the space reserved for release notes whenever there are no update actions or messages to show."
+        ],
+        "Clearer Everyday Labels": [
+            "You can read clearer Entries today and Last entry labels in DropSync, along with shorter weather and notification setup messages."
         ]
     },
     "4.4.0": {

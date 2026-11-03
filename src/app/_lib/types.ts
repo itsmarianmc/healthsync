@@ -141,6 +141,14 @@ export interface FoodPortion {
 }
 
 export interface FoodSearchResult {
+  /** OFF nutrition basis is independent of the selected consumption unit. */
+  barcodeAmounts?: {
+    basis: 'g' | 'ml' | 'serving' | 'unknown';
+    basisLabel: string;
+    choices: { unit: string; label: string; baseAmount?: number; issue?: string }[];
+    raw: Record<string, string | number>;
+  };
+  selectedAmount?: { amount: number; unit: string };
   aiRecipeCandidate?: AiRecipeCandidate;
   catalogFoodId?: string;
   recipeSnapshot?: RecipeSnapshot;

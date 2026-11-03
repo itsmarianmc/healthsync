@@ -567,7 +567,6 @@ your jurisdiction requires Art. 20 GDPR (data portability) self-service.
 - [ ] HTTPS is terminated in front of HealthSync; HTTP requests are redirected to HTTPS.
 - [ ] Email confirmations and a sensible password policy are enabled in Supabase Auth.
 - [ ] MFA / TOTP is enabled for accounts that hold real health data.
-<!-- /api/proxy route was removed in favor of direct Gemini API calls. -->
 - [ ] Your hosting provider's privacy policy, your cookie banner config and the in-app legal pages reflect your real setup.
 
 ---
@@ -681,3 +680,21 @@ pending and displays sync failure; it does not establish cloud availability.
 
 No migration was applied, database queried, deployment performed or live
 owner/MFA acceptance checked for this implementation.
+
+
+## Deliberate PWA updates and deployment compatibility
+
+Set `HEALTHSYNC_DEPLOYMENT_ID` to an immutable, unique ID for a deployment and
+share it across all serving instances (Vercel deployment ID/NEXT_DEPLOYMENT_ID
+are supported fallbacks). Next tags assets and checks navigation compatibility;
+the same build ID scopes the generated worker's offline caches. Do not change
+only the runtime ID while serving assets built with a different ID.
+
+Retain old content-addressed assets and compatible server/RSC endpoints for the
+supported live-tab window, with atomic deployments and hosting-level skew
+routing where available. A single mutable production origin cannot promise
+strict opt-in across cold starts: the browser may activate a waiting worker
+once all controlled clients close, and new navigations may receive the newest
+server HTML. See [Update Manager](docs/update-manager.md) for implementation,
+limits and the local two-build acceptance procedure. No hosting settings were
+changed or deployment performed for this work.

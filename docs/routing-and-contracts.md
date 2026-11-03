@@ -140,7 +140,7 @@ Session cookies use `secure`, `sameSite: 'lax'` and a maximum age of 30 days. Th
 
 | Service | Call | Use | Requirement |
 |---|---|---|---|
-| Google Gemini | `https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-lite:generateContent` | AI nutrition from text/image/camera | AI enabled, terms accepted, third-party consent, user key |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash-lite:generateContent` | AI nutrition from text/image/camera | AI enabled, terms accepted, third-party consent, user key |
 | Gemini model listing | `https://generativelanguage.googleapis.com/v1/models?key=...` | API-key validation | key entry in Settings |
 | Open Food Facts Product | `https://world.openfoodfacts.org/api/v0/product/<barcode>.json` | barcode lookup | third-party consent and camera/barcode |
 | Open-Meteo | `https://api.open-meteo.com/v1/forecast?...` | current weather | preferences + third-party consent, location |
@@ -213,3 +213,14 @@ No migration has been applied and this is not operational scheduling. Review
 owner/MFA isolation, reset and account-deletion behavior in an isolated target
 before rollout. See [the reminder proposal](./web-push-reminders.md) for the
 unapproved cross-user worker scope and remaining scheduler configuration.
+
+
+## Update lifecycle contracts
+
+`healthsync:before-reload` is a synchronous cancelable window event for flushing
+supported drafts before an application-controlled reload. Failure prevents the
+action. `healthsync:update-available-changed` remains indicator-only; it cannot
+supply update consent. The service worker's MessageChannel `HEALTHSYNC_BUILD`
+reply contains its public build ID; `SKIP_WAITING` targets only the intended
+waiting worker after a user action. X-HealthSync-Build labels server responses
+for build-scoped offline-shell caching. See [Update Manager](./update-manager.md).

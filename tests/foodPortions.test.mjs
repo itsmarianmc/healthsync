@@ -42,6 +42,19 @@ test('a weight explicitly supplied for a US fluid ounce is used instead of guess
   assert.deepEqual(portions.foodAmountToBase(template, 2, 'fl_oz'), { amount: 64, unit: 'g' });
   assert.equal(template.isLiquid, false);
   assert.ok(portions.foodAmountUnits(template).includes('fl_oz'));
+  assert.equal(portions.foodAmountToBase(template, portions.ML_PER_US_FL_OUNCE, 'ml').amount, 32);
+  assert.equal(portions.foodUnitOptionLabel(template, 'ml'), 'ml');
+});
+
+test('mass-based foods offer a labeled 1:1 ml estimate and kg switching preserves nutrition', () => {
+  const template = food();
+  assert.ok(portions.foodAmountUnits(template).includes('ml'));
+  assert.equal(portions.foodUnitOptionLabel(template, 'ml'), 'ml (1:1 estimate)');
+  const grams = portions.foodAmountToBase(template, .5, 'kg');
+  const ml = portions.foodAmountToBase(template, grams.amount, 'ml');
+  assert.deepEqual(ml, { amount: 500, unit: 'g' });
+  assert.equal(entries.foodNutrition(template, ml.amount).kcal, entries.foodNutrition(template, grams.amount).kcal);
+  assert.throws(() => portions.foodAmountToBase(template, Infinity, 'ml'));
 });
 
 test('fractional ml remain precise in food; hydration retains its whole-ml storage convention', async () => {

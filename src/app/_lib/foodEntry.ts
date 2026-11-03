@@ -1,5 +1,12 @@
 import { generateEntryId } from './ids';
 import type { FoodEntry, FoodSearchResult } from './types';
+import { foodAmountToBase, type FoodAmountUnit } from './foodPortions';
+
+export function buildFoodAmountEntry(food: FoodSearchResult, amount: number, unit: FoodAmountUnit, ts = Date.now()): FoodEntry {
+    const base = foodAmountToBase(food, amount, unit);
+    return buildFoodEntry({ ...food, selectedAmount: { amount, unit } }, base.amount, base.unit, ts,
+        !!food.isLiquid && base.unit === 'ml');
+}
 
 export function foodNutrition(food: FoodSearchResult, amount: number) {
     return {
@@ -23,8 +30,8 @@ export function buildFoodEntry(
         id: generateEntryId(), food: food.name, brand: food.brand || '',
         emoji: food.emoji || 'fa-solid fa-utensils', color: food.color || 'var(--accent)',
         ...nutrition,
-        amount: food.recipeSnapshot?.recipe.yield.unit === 'serving' ? amount / 100 : amount,
-        unit: food.recipeSnapshot?.recipe.yield.unit === 'serving' ? 'serving' : unit,
+        amount: food.recipeSnapshot?.recipe.yield.unit === 'serving' || food.barcodeAmounts?.basis === 'serving' ? amount / 100 : amount,
+        unit: food.recipeSnapshot?.recipe.yield.unit === 'serving' || food.barcodeAmounts?.basis === 'serving' ? 'serving' : unit,
         ts, date: new Date(ts).toDateString(), isDrink,
         isBarcode: !!food.isBarcode, barcode: food.barcode || undefined,
         catalogFoodId: food.catalogFoodId,

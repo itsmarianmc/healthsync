@@ -246,9 +246,16 @@ Afterwards, the tooltip tour can start or be requested again from the tour code.
 
 ## Update Center and PWA
 
-The Service Worker is in `src/app/sw.ts` and is registered by Serwist under `/serwist/sw.js`. It precaches build assets, uses `defaultCache` and serves `public/offline.html` for navigation failures.
-
-When a new worker is waiting, `UpdateCenter` marks `healthsync_update_available` and shows an update banner. Choosing Update sends `SKIP_WAITING`; on `controllerchange`, the page reloads and consumes `healthsync_pending_reload_after_update` to open the changelog once. The changelog never opens automatically just because a first-time visitor, reinstall, or ordinary visit has unseen entries. Users can still open it from the dashboard update button.
+The Service Worker is in `src/app/sw.ts`, registered natively in production at
+`/serwist/sw.js`. UpdateCenter and Settings share `appUpdates.ts`: background
+checks only announce availability, Update now activates the intended waiting
+worker and reloads only its initiating page, and Later defers the banner.
+Reload app is always available and preserves saved data/cookies/preferences and
+pending work. No persisted marker authorizes a reload or automatically opens the
+changelog. Build-specific offline document/asset caches and Next deployment
+identity reduce version mixing; cold starts and navigation can still load fresh
+server content. See [Update Manager](./update-manager.md) for draft handling,
+browser/hosting limits and the two-production-build verification record.
 
 `public/manifest.json` defines standalone portrait mode, `/dash` as start URL and Food/Drinks shortcuts. The install banner uses `beforeinstallprompt` and is suppressed by `hs_install_dismissed`.
 

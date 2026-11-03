@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
+import React, { useEffect } from 'react';
+import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import type { DrinkEntry } from '../../_lib/types';
 
 interface HistoryModalProps {
@@ -9,9 +10,6 @@ interface HistoryModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
-
-const SHEET_TOP_MARGIN = 24;
-const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
 
 function fmtTime(ts: number) {
     const d = new Date(ts);
@@ -55,146 +53,8 @@ function formatDateLabel(dateStr: string) {
 }
 
 export default function HistoryModal({ entries, goal, isOpen, onClose }: HistoryModalProps) {
-    const modalRef = useRef<HTMLDivElement>(null);
-    const overlayRef = useRef<HTMLDivElement>(null);
-    const naturalHeightRef = useRef(0);
-    const dragStartYRef = useRef(0);
-    const dragDYRef = useRef(0);
-    const velRef = useRef(0);
-    const dragLastYRef = useRef(0);
-    const lastTimeRef = useRef(0);
-    const isCapturingRef = useRef(false);
-    const closingRef = useRef(false);
-    const [modalState, setModalState] = useState<'closed' | 'open' | 'expanded'>('closed');
-
-    const expandedHeight = () => window.innerHeight - SHEET_TOP_MARGIN;
-    const setNoTransition = () => { if (modalRef.current) modalRef.current.style.transition = 'none'; };
-
-    useLayoutEffect(() => {
-        return () => {
-        setModalState('closed');
-        };
-    }, []);
-    const setTransition = (props: string[]) => {
-        if (!modalRef.current) return;
-        modalRef.current.style.transition = props.map(p => `${p} 0.42s ${EASE}`).join(', ');
-    };
-
-    const snapToOpen = useCallback(() => {
-        setModalState('open');
-        setTransition(['height', 'transform']);
-        if (modalRef.current) {
-            modalRef.current.style.height = naturalHeightRef.current + 'px';
-            modalRef.current.style.transform = 'translateY(0)';
-        }
-    }, []);
-
-    const snapToExpanded = useCallback(() => {
-        setModalState('expanded');
-        setTransition(['height', 'transform']);
-        if (modalRef.current) {
-            modalRef.current.style.height = expandedHeight() + 'px';
-            modalRef.current.style.transform = 'translateY(0)';
-        }
-    }, []);
-
-    const snapToClosed = useCallback(() => {
-        if (!modalRef.current || closingRef.current) return;
-        closingRef.current = true;
-        setModalState('closed');
-        const curH = modalRef.current.offsetHeight;
-        setNoTransition();
-        modalRef.current.style.height = curH + 'px';
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            if (!modalRef.current) return;
-            modalRef.current.style.transition = `transform 0.36s cubic-bezier(0.4, 0, 0.2, 1)`;
-            modalRef.current.style.transform = 'translateY(110%)';
-            document.body.classList.remove('modal-open');
-        }));
-        if (overlayRef.current) overlayRef.current.classList.remove('visible');
-        setTimeout(() => {
-            if (!modalRef.current) return;
-            modalRef.current.style.transform = '';
-            modalRef.current.style.height = '';
-            modalRef.current.style.transition = '';
-            naturalHeightRef.current = 0;
-            closingRef.current = false;
-            onClose();
-        }, 440);
-    }, [onClose]);
-
-    useEffect(() => {
-        if (isOpen && modalState === 'closed') {
-            if (closingRef.current) return;
-            if (!modalRef.current) return;
-            setModalState('open');
-            setNoTransition();
-            modalRef.current.style.height = 'auto';
-            modalRef.current.style.transform = 'translateY(100%)';
-            if (overlayRef.current) overlayRef.current.classList.add('visible');
-            document.body.classList.add('modal-open');
-            requestAnimationFrame(() => requestAnimationFrame(() => {
-                if (!modalRef.current) return;
-                naturalHeightRef.current = modalRef.current.offsetHeight;
-                const preferExpanded = (() => {
-                    try { return localStorage.getItem('healthsync_modals_expanded') === 'true'; }
-                    catch { return false; }
-                })();
-                if (preferExpanded) {
-                    setTransition(['height', 'transform']);
-                    modalRef.current.style.transform = 'translateY(0)';
-                    modalRef.current.style.height = expandedHeight() + 'px';
-                    setModalState('expanded');
-                } else {
-                    setTransition(['transform']);
-                    modalRef.current.style.transform = 'translateY(0)';
-                    modalRef.current.style.height = naturalHeightRef.current + 'px';
-                }
-            }));
-        } else if (!isOpen && modalState !== 'closed') {
-        snapToClosed();
-        }
-    }, [isOpen, modalState, snapToClosed]);
-
-    const handlePointerDown = (e: React.PointerEvent) => {
-        dragStartYRef.current = e.clientY;
-        dragLastYRef.current = e.clientY;
-        velRef.current = 0; dragDYRef.current = 0;
-        lastTimeRef.current = Date.now();
-        isCapturingRef.current = true;
-        setNoTransition();
-        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    };
-
-    const handlePointerMove = (e: React.PointerEvent) => {
-        if (!isCapturingRef.current) return;
-        const now = Date.now();
-        const dt = now - lastTimeRef.current;
-        if (dt > 0) velRef.current = (e.clientY - dragLastYRef.current) / dt * 1000;
-        dragLastYRef.current = e.clientY;
-        lastTimeRef.current = now;
-        const dy = e.clientY - dragStartYRef.current;
-        dragDYRef.current = dy;
-        if (!modalRef.current) return;
-        if (modalState === 'expanded') {
-        if (dy > 0) modalRef.current.style.height = Math.max(naturalHeightRef.current, expandedHeight() - dy) + 'px';
-        } else {
-            if (dy > 0) modalRef.current.style.transform = `translateY(${dy}px)`;
-            else { modalRef.current.style.height = Math.min(expandedHeight(), naturalHeightRef.current + Math.abs(dy)) + 'px'; modalRef.current.style.transform = 'translateY(0)'; }
-        }
-    };
-
-    const handlePointerUp = () => {
-        if (!isCapturingRef.current) return;
-        isCapturingRef.current = false;
-        const dy = dragDYRef.current;
-        const vel = velRef.current;
-        if (vel > 1500 && dy > 0) { snapToClosed(); }
-        else if (dy > 80 || vel > 400) { if (modalState === 'expanded') snapToOpen(); else snapToClosed(); }
-        else if (dy < -60 || vel < -400) snapToExpanded();
-        else { if (modalState === 'expanded') snapToExpanded(); else snapToOpen(); }
-        dragDYRef.current = 0;
-    };
+    const { modalRef, overlayRef, open, close: snapToClosed, handleProps } = useDraggableSheet({ onClose });
+    useEffect(() => { if (isOpen) open(); else snapToClosed(); }, [isOpen, open, snapToClosed]);
 
     const groups: Record<string, DrinkEntry[]> = {};
     [...entries].reverse().forEach(e => {
@@ -208,14 +68,12 @@ export default function HistoryModal({ entries, goal, isOpen, onClose }: History
     const averageColor = goalColor(average, goal);
 
     return (
-        <div className="appoverlay" id="ds-historyOverlay" ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) snapToClosed(); }}>
-            <div className="modal" id="ds-historyModal" ref={modalRef}>
+        <div className="app-overlay appoverlay" id="ds-historyOverlay" ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) snapToClosed(); }}>
+            <div className="modal" id="ds-historyModal" ref={modalRef} role="dialog" aria-modal="true" aria-label="Hydration history">
                 <div
                     className="modal-handle-zone"
                     id="ds-historyHandleZone"
-                    onPointerDown={handlePointerDown}
-                    onPointerMove={handlePointerMove}
-                    onPointerUp={handlePointerUp}
+                    {...handleProps}
                     >
                     <div className="modal-handle" />
                 </div>

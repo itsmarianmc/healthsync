@@ -57,7 +57,7 @@ async function login(page: Page, account: 'A' | 'B', navigate = true) {
   await page.locator('#loginPassword').fill('FixturePassword1!');
   await page.locator('#loginBtn').click();
   await expect.poll(() => page.evaluate(() => localStorage.getItem('healthsync_active_owner'))).toBe(accounts[account]);
-  // Navigate through the real login UI (client navigation also preserves pending requests).
+  // Client navigation keeps pending validation requests alive.
   await page.getByRole('button', { name: 'Go back to app', exact: true }).click();
   await expect(page.locator('#db-openSettingsBtn')).toBeVisible();
 }
@@ -70,7 +70,6 @@ async function settings(page: Page) {
 async function logout(page: Page) {
   await page.keyboard.press('Escape');
   await expect(page.locator('#settingsOverlay')).not.toHaveClass(/visible/);
-  // Navigate within the fixture router so an outstanding validation stays alive.
   await page.evaluate(() => {
     history.pushState({}, '', '/login?keep_login_page=true');
     window.dispatchEvent(new Event('popstate'));
@@ -86,7 +85,7 @@ async function shellAvailability(page: Page, enabled: boolean) {
   await page.locator('#extraActionBtn').click();
   if (enabled) await expect(page.locator('[data-action="import-food"]')).toBeEnabled();
   else await expect(page.locator('[data-action="import-food"]')).toBeDisabled();
-  // The expanded grid covers its trigger; close via the normal outside-click handler.
+  // The expanded grid covers its trigger, so close it with an outside click.
   await page.mouse.click(5, 5);
   await expect(page.locator('#extraActionBtn')).not.toHaveClass(/open/);
 }

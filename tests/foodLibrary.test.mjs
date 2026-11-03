@@ -45,11 +45,11 @@ test('14 days applies only to history while saved foods and favorites remain ind
     assert.equal(library.searchLibrary(logs, 'recent', true, now).length, 0);
 });
 
-test('identity preserves same-name products with distinct IDs, brand, barcode, units or nutrition', () => {
-    library.saveLibraryFood(food('one')); library.saveLibraryFood(food('two'));
+test('identical new foods reuse an ID while distinct brands, barcodes, units and nutrition stay separate', () => {
+    library.saveLibraryFood(food('one')); assert.equal(library.saveLibraryFood(food('two')).id, 'one');
     const logs = [food('a', { brand: 'Other' }), food('b', { barcode: '123' }), food('c', { defaultUnit: 'ml', isLiquid: true }), food('d', { kcalPer100: 410 })]
         .map(item => ({ ...builder.buildFoodEntry(item, 100, item.defaultUnit), catalogFoodId: undefined }));
-    assert.equal(library.searchLibrary(logs, '').length, 6);
+    assert.equal(library.searchLibrary(logs, '').length, 5);
 });
 
 test('favoriting history establishes saved identity without mutating the log and survives unfavoriting', () => {

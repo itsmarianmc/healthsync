@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { foodNutrition } from '../../_lib/foodEntry';
+import { formatFoodNumber } from '../../_lib/foodPortions';
 
 export default function NutritionFacts({ nutrition }: { nutrition: ReturnType<typeof foodNutrition> | null }) {
     // Segment sizes represent macro energy shares, never daily-value percentages.
@@ -16,9 +17,9 @@ export default function NutritionFacts({ nutrition }: { nutrition: ReturnType<ty
         <h3>Nutrition Facts <i className="fa-solid fa-circle-info" aria-label="Nutrition for the selected portion" title="Nutrition for the selected portion" /></h3>
         <div className="food-edit-nutrition">
             <dl className="food-edit-macros">{[['Fat', 'fat'], ['Carbs', 'carb'], ['Protein', 'prot']].map(([label, key]) =>
-                <div key={key} className={`food-edit-macro food-edit-${key}`}><dt>{label}</dt><dd>{nutrition ? `${nutrition[key as 'fat' | 'carb' | 'prot']} g` : '—'}</dd></div>)}</dl>
+                <div key={key} className={`food-edit-macro food-edit-${key}`}><dt>{label}</dt><dd>{nutrition ? `${formatFoodNumber(nutrition[key as 'fat' | 'carb' | 'prot'])} g` : '—'}</dd></div>)}</dl>
             <div className="food-edit-ring" style={{ '--food-ring': ring } as CSSProperties}>
-                <div><strong>{nutrition?.kcal ?? '—'}</strong><span>kcal</span></div>
+                <div><strong>{formatFoodNumber(nutrition?.kcal)}</strong><span>kcal</span></div>
             </div>
         </div>
     </section>;

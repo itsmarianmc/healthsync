@@ -403,3 +403,34 @@ No migration has been applied and this is not operational scheduling. Review
 owner/MFA isolation, reset and account-deletion behavior in an isolated target
 before rollout. See [the reminder proposal](./web-push-reminders.md) for the
 unapproved cross-user worker scope and remaining scheduler configuration.
+
+
+### Barcode amount metadata
+
+Optional `FoodSearchResult.barcodeAmounts` and `selectedAmount` persist inside
+existing catalog definitions, selection snapshots and food-log `foodSnapshot`
+JSON. `barcodeAmounts.basis` separates source nutrition from the selected unit;
+choices without a finite positive `baseAmount` are excluded from amount controls
+and cannot log. The selected portion persists on the existing saved definition
+and supplies discovery labels and future selection defaults; 1 is a valid
+explicit amount. Barcode matching ignores changing transport metadata while
+retaining legacy IDs and immutable historical snapshots. Occurrence
+`amount/unit` retain canonical g/ml for hydration compatibility; serving-only
+nutrition records actual servings. No new storage key or SQL column is added.
+See the [barcode amount contract](./food-library.md#barcode-amount-contract-november-2-2026).
+
+Mass-based foods also expose an explicitly labeled 1:1 ml estimate when no
+product density is available. It converts into the existing gram basis and
+persists only the selected unit/amount in the existing JSON fields; known
+product density takes precedence. It does not change drink classification or
+hydration mirroring. See the [ml estimate](./food-library.md#optional-ml-estimate-for-mass-based-foods).
+
+
+### Update consent
+
+Update/reload consent is in-memory and page-local. The legacy
+`healthsync_pending_reload_after_update` and `healthsync_dismissed_banner` keys
+are retired; no health/auth/preference/queue key is cleared by Reload app.
+`healthsync_update_available` remains a compatibility indicator, never consent.
+Build-specific CacheStorage holds public app shells/static assets, not new local
+health-data formats. See [Update Manager](./update-manager.md).

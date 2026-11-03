@@ -93,3 +93,11 @@ The app is normally available at `http://localhost:3000`. The actual npm scripts
 - Call external services only where the current code does, while preserving consent and capability boundaries.
 - Document new events, query parameters and storage keys as internal public contracts.
 
+
+- [Food and shared-sheet verification (2026-11-02)](./food-sheet-verification.md) — acceptance evidence and physical-iOS checklist.
+
+- [Update Manager](./update-manager.md) — deliberate activation/reload, caching contracts, hosting limits and production lifecycle tests.
+
+- [Shared sheets and modal inventory](shared-sheets.md) — animation lifecycle, configuration, complete dialog ledger and device verification.
+
+- [Shared sheets and modal inventory](shared-sheets.md) — animation lifecycle, configuration, complete dialog ledger and device verification.

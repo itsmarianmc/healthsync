@@ -76,7 +76,6 @@ function PushControls({ userId, onEnabled, variant }: NotificationsProps & { use
         let created: PushSubscription | null = null;
         let stored = false;
         try {
-            // Keep this call before any await: iOS requires direct user activation.
             const result = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
             if (!alive.current) return;
             setPermission(result);
@@ -89,7 +88,6 @@ function PushControls({ userId, onEnabled, variant }: NotificationsProps & { use
             const key = vapidBytes(publicKey);
             const existingKey = sub?.options.applicationServerKey;
             const keyMatches = existingKey && Array.from(new Uint8Array(existingKey)).join() === Array.from(key).join();
-            // A browser subscription must never silently move between accounts.
             if (sub && (!status.endpoints.includes(sub.endpoint) || !keyMatches)) {
                 if (status.endpoints.includes(sub.endpoint)) {
                     await pushRequest(userId, 'subscriptions', 'DELETE', { endpoint: sub.endpoint });
@@ -158,7 +156,7 @@ function PushControls({ userId, onEnabled, variant }: NotificationsProps & { use
             </div>
             <p className="push-scope-note"><i className="fa-solid fa-shield-halved" aria-hidden="true" /><span>Test notifications only. Meal and supplement reminders aren&apos;t available yet.</span></p>
         </> : <p className="push-intro">Manage notifications on this device.</p>}
-        {capability === 'install' ? <p role="status">On iPhone or iPad, open the Share menu, choose “Add to Home Screen”, then launch HealthSync from its icon. Sign in and enable notifications in Settings.</p>
+        {capability === 'install' ? <p role="status">Add HealthSync to your home screen for easy access and notifications.</p>
         : capability === 'insecure' ? <p role="status">Notifications require a secure HTTPS connection. You can continue using HealthSync.</p>
         : capability === 'unsupported' ? <p role="status">This browser does not support Web Push. You can continue using HealthSync and try a supported browser later.</p>
         : capability === 'supported' && <>

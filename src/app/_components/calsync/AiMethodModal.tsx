@@ -57,7 +57,7 @@ export default function AiMethodModal({ isOpen, onClose, onSelect, isAiDetection
 
     return (
         <div
-            className={`app-overlay${isOpen ? ' visible' : ''}`}
+            className="app-overlay"
             id="aiMethodOverlay"
             ref={sheet.overlayRef}
             onClick={e => { if (e.target === sheet.overlayRef.current) sheet.close(); }}
@@ -66,7 +66,6 @@ export default function AiMethodModal({ isOpen, onClose, onSelect, isAiDetection
                 className="modal"
                 id="aiMethodModal"
                 ref={sheet.modalRef}
-                style={{ transform: 'translateY(100%)', transition: 'transform 0.42s cubic-bezier(0.34, 1.15, 0.64, 1)' }}
             >
                 <div className="modal-handle-zone" id="aiMethodHandleZone" {...sheet.handleProps}>
                     <div className="modal-handle" />

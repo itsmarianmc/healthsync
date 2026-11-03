@@ -41,7 +41,7 @@ export default function FoodEditor({ food, onSave, onCancel, renderPreview }: {
         return { ...food, ...parsed[0], barcode: barcode.trim() || undefined, provenance: food?.provenance || 'manual' };
     };
     let preview: FoodSearchResult | null = null;
-    if (renderPreview) { try { preview = draft(); } catch { /* Incomplete edits retain the existing validation. */ } }
+    if (renderPreview) { try { preview = draft(); } catch { /* Validate incomplete drafts on submit. */ } }
     return <form className="food-library-form" onSubmit={event => {
         event.preventDefault();
         try {

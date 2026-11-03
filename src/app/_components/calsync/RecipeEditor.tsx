@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { libraryBrand } from './foodLibraryPresentation';
 import { generateId } from '../../_lib/ids';
 import { libraryData, resolveFood, NUTRIENTS } from '../../_lib/foodLibrary';
-import { foodAmountUnits, FOOD_UNIT_LABELS } from '../../_lib/foodPortions';
+import { foodAmountUnits, foodUnitOptionLabel } from '../../_lib/foodPortions';
 import type { AiRecipeCandidate, CatalogFood, FoodRecipe, FoodSearchResult } from '../../_lib/types';
 
 export default function RecipeEditor({ food, candidate, onSave, onCancel, renderPreview }: {
@@ -31,7 +31,7 @@ export default function RecipeEditor({ food, candidate, onSave, onCancel, render
             yield: { amount: yieldAmount.trim() ? Number(yieldAmount) : NaN, unit: yieldUnit } } };
     foods.set(id, draft);
     let computed: ReturnType<typeof resolveFood> | null = null;
-    try { computed = resolveFood(id, foods); } catch { /* The editor displays validation before save. */ }
+    try { computed = resolveFood(id, foods); } catch { /* Validate incomplete drafts on submit. */ }
     const changeIngredient = (index: number, patch: Partial<typeof ingredients[number]>) => setIngredients(items => items.map((item, i) => i === index ? { ...item, ...patch } : item));
     return <form className="food-library-form" onSubmit={event => {
         event.preventDefault();
@@ -58,7 +58,7 @@ export default function RecipeEditor({ food, candidate, onSave, onCancel, render
                     {options.map(option => <option key={option.id} value={option.id}>{option.name} {libraryBrand(option.brand)}</option>)}</select>
                 <div className="saved-food-amount-row"><input aria-label={`Ingredient ${index + 1} amount`} className="form-input" type="number" required min="0.000001" step="any" value={item.quantity} onChange={e => changeIngredient(index, { quantity: e.target.value })} />
                     <select aria-label={`Ingredient ${index + 1} unit`} className="form-input" value={item.unit} onChange={e => changeIngredient(index, { unit: e.target.value as typeof item.unit })}>
-                        {units.map(unit => <option key={unit} value={unit}>{FOOD_UNIT_LABELS[unit]}</option>)}</select></div>
+                        {units.map(unit => <option key={unit} value={unit}>{foodUnitOptionLabel(foods.get(item.foodId) || draft, unit)}</option>)}</select></div>
                 <button type="button" className="option-btn" onClick={() => setIngredients(items => items.filter((_, i) => i !== index))}>Remove ingredient {index + 1}</button>
             </fieldset>;
         })}

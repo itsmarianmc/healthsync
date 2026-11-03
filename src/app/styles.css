@@ -878,6 +878,13 @@ a:link:hover {
 }
 
 .extra-icon {
+	box-sizing: border-box;
+	appearance: none;
+	padding: 0;
+	flex: 0 0 60px;
+	min-width: 60px;
+	min-height: 60px;
+	aspect-ratio: 1;
 	align-items: center;
 	border-top: 1px solid var(--border);
 	border-left: 1px solid var(--border);
@@ -925,6 +932,14 @@ a:link:hover {
 }
 
 .extra-menu-grid {
+	--extra-menu-size: min(368px, calc(100vw - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)), calc(100dvh - 120px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
+	box-sizing: border-box;
+	aspect-ratio: 1;
+	height: var(--extra-menu-size);
+	min-height: 0;
+	min-width: 0;
+	flex: none;
+	align-content: stretch;
 	border: 1px solid var(--border);
 	border-radius: 28px;
 	bottom: calc(100% + 12px);
@@ -947,12 +962,14 @@ a:link:hover {
 	transform-origin: bottom right;
 	transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
 	visibility: hidden;
-	max-width: 368px;
-	width: calc(100vw - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+	max-width: none;
+	width: var(--extra-menu-size);
 	z-index: 1000;
 }
 
 .extra-menu-grid .grid-item {
+	appearance: none;
+	box-sizing: border-box;
 	aspect-ratio: auto;
 	min-height: 88px;
 	gap: 8px;
@@ -963,6 +980,13 @@ a:link:hover {
 }
 
 .extra-menu-grid .grid-item i {
+	box-sizing: border-box;
+	aspect-ratio: 1;
+	min-width: 44px;
+	min-height: 44px;
+	max-width: 44px;
+	max-height: 44px;
+	line-height: 1;
 	width: 44px;
 	height: 44px;
 	flex: 0 0 44px;
@@ -1029,6 +1053,10 @@ a:link:hover {
 	}
 
 	.extra-menu-grid .grid-item i {
+		min-width: 40px;
+		min-height: 40px;
+		max-width: 40px;
+		max-height: 40px;
 		width: 40px;
 		height: 40px;
 		flex-basis: 40px;
@@ -1381,11 +1409,22 @@ a:link:hover {
 	z-index: 10001;
 }
 
+/* Exiting sheets stay painted; closed sheets cannot receive input or focus. */
+.app-overlay:not(.visible):not([data-sheet-phase="closing"]),
+.appoverlay:not(.visible):not([data-sheet-phase="closing"]) {
+    visibility: hidden;
+}
+
 .app-overlay.visible,
 .appoverlay.visible {
 	backdrop-filter: blur(8px);
 	background: rgba(0, 0, 0, 0.6);
 	pointer-events: all;
+}
+
+.app-overlay[data-sheet-phase="closing"],
+.appoverlay[data-sheet-phase="closing"] {
+    pointer-events: auto;
 }
 
 #settingsOverlay.app-overlay {
@@ -1404,6 +1443,7 @@ a:link:hover {
 	margin: 0 auto;
 	max-height: calc(100vh - env(safe-area-inset-top, 0px) - 24px);
 	max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 24px);
+	max-height: calc(var(--sheet-viewport-height, 100dvh) - env(safe-area-inset-top, 0px) - 24px);
 	max-width: 420px;
 	overflow: hidden;
 	transform: translateY(100%);
@@ -1464,7 +1504,7 @@ a:link:hover {
 }
 
 [data-sheet-gestures] .modal-body {
-	overscroll-behavior-y: none;
+	overscroll-behavior-y: contain;
 }
 
 .modal-handle-zone:hover .modal-handle {
@@ -1523,7 +1563,7 @@ a:link:hover {
 	font-weight: 500;
 	gap: 4px;
 	padding: 8px 16px;
-	transition: all 0.25s var(--ease);
+	transition: background-color 0.25s var(--ease), color 0.25s var(--ease), opacity 0.25s var(--ease), transform 0.25s var(--ease);
 }
 
 .modal-title {
@@ -2470,7 +2510,7 @@ input::-webkit-inner-spin-button {
 	overflow-x: hidden;
 	overflow-y: auto;
 	position: relative;
-	transition: all 0.3s var(--ease);
+	transition: height 0.3s var(--ease);
 	padding: 75px 16px 0 !important;
 }
 
@@ -2731,6 +2771,21 @@ input::-webkit-inner-spin-button {
 #settingsModal.small,
 #modal.small {
 	transform: scale(0.95) translateY(18px) !important;
+}
+
+.sheet-step-track {
+	overflow: hidden;
+	transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1), height 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sheet-step-track { transition: none; }
+}
+
+#appOverlay[data-sheet-covered]>.modal,
+#barcodeSearchOverlay[data-sheet-covered]>.modal {
+	scale: 0.92;
+	translate: 0 10px;
 }
 
 .modal-step {
@@ -3784,7 +3839,7 @@ input::-webkit-inner-spin-button {
 
 .settings-legal {
 	border-top: 1px solid var(--border);
-	margin: 20px 24px 0;
+	margin: 20px 0 0;
 	padding: 8px 4px;
 }
 
@@ -4074,7 +4129,6 @@ input::-webkit-inner-spin-button {
 	}
 }
 
-/* Settings-only presentation; onboarding keeps its existing preview. */
 .push-controls--settings {
 	gap: 14px;
 }
@@ -4715,6 +4769,70 @@ input::-webkit-inner-spin-button {
 .modal-open {
 	overflow-x: hidden !important;
 	overflow-y: hidden !important;
+}
+
+.update-center-reload-btn:disabled {
+	cursor: default;
+	opacity: 0.5;
+}
+
+.update-center-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding-bottom: 16px;
+}
+
+.update-center-actions p {
+	font-size: 16px;
+	font-weight: 500;
+	line-height: 1.5;
+	text-align: center;
+	color: var(--text2);
+}
+
+html.sheet-scroll-locked {
+	overflow: hidden;
+	overscroll-behavior: none;
+}
+
+html.sheet-scroll-locked body {
+	position: fixed;
+	width: 100%;
+	left: 0;
+	right: 0;
+	overflow: hidden !important;
+}
+
+.barcode-unit-select {
+	max-width: 55%;
+	min-width: 0;
+	min-height: 48px;
+	padding: 12px 36px 12px 14px;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	background-color: var(--surface2);
+	color: var(--text);
+	font: inherit;
+}
+
+.food-portion-notice {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	margin: 0;
+	padding: 14px 16px;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	background: var(--surface2);
+	color: var(--text2);
+	font-size: 14px;
+	line-height: 1.5;
+}
+
+.food-portion-notice>i {
+	margin-top: 3px;
+	color: var(--accent);
 }
 
 ::-webkit-scrollbar {
@@ -6479,6 +6597,11 @@ input::-webkit-inner-spin-button {
 	display: flex;
 	flex-direction: column;
 	gap: 5px;
+}
+
+.food-confirm-inner .option-btn {
+	font-size: 15px;
+	padding: 16px 13px;
 }
 
 .manual-nutrients {
@@ -9056,7 +9179,6 @@ body:has(.app-overlay.visible) .update-banner {
 	}
 }
 
-/* Local food templates and saved-food selection share the standard draggable sheet. */
 .food-library-body {
 	display: flex;
 	flex-direction: column;
@@ -9394,9 +9516,7 @@ body:has(.app-overlay.visible) .update-banner {
 	min-width: 0;
 }
 
-/* Food-library presentation stays local to its sheets and shared theme tokens. */
 .food-library-overlay {
-	bottom: var(--food-library-viewport-bottom, 0px);
 	--food-fat: #FF6B35;
 	--food-carbs: #FFD60A;
 	--food-protein: #30D158;
@@ -9405,7 +9525,7 @@ body:has(.app-overlay.visible) .update-banner {
 .food-library-modal {
 	--food-library-secondary: color-mix(in srgb, var(--text) 72%, var(--surface));
 	color: var(--text);
-	--food-library-height: calc(var(--food-library-viewport-height, 100dvh) - env(safe-area-inset-top, 0px) - 12px);
+	--food-library-height: calc(var(--sheet-viewport-height, 100dvh) - env(safe-area-inset-top, 0px) - 12px);
 	/* Keep the draggable sheet's natural and expanded resting heights identical. */
 	min-height: var(--food-library-height);
 	max-height: var(--food-library-height);
@@ -9819,7 +9939,6 @@ body:has(.app-overlay.visible) .update-banner {
 	flex-shrink: 0;
 }
 
-/* Footer is a flex sibling of the scrolling body, never over the last card. */
 .food-library-modal .food-review-footer {
 	display: flex;
 	flex-direction: column;
@@ -10591,3 +10710,5 @@ body:has(.app-overlay.visible) .update-banner {
 		transition: none;
 	}
 }
+
+.cookie-dialog-layer { position: fixed; inset: 0; z-index: 100001; }

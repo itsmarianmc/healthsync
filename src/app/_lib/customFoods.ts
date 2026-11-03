@@ -1,6 +1,6 @@
 import type { CustomFood, FoodSearchResult } from './types';
 import { activeOwner, GUEST_OWNER, queueSettings } from './localData';
-import { validFoodPortion } from './foodPortions';
+import { validFoodPortion, validBarcodeAmounts } from './foodPortions';
 
 export const CUSTOM_FOODS_KEY = 'calsync_custom_foods';
 export const CUSTOM_FOODS_DIRTY_KEY = 'calsync_custom_foods_dirty';
@@ -12,6 +12,7 @@ function validFood(value: unknown): value is FoodSearchResult & Record<string, u
     return typeof food.name === 'string' && !!food.name.trim() && food.name.trim().length <= 200 &&
         (food.brand === undefined || (typeof food.brand === 'string' && food.brand.trim().length <= 200)) &&
         (food.portion === undefined || validFoodPortion(food.portion)) &&
+        validBarcodeAmounts(food.barcodeAmounts) &&
         nutrients.every(key => typeof food[key] === 'number' && Number.isFinite(food[key]) && food[key] >= 0);
 }
 
@@ -44,7 +45,7 @@ export function saveCustomFoods(value: CustomFood[], expectedOwner: string): { q
     if (activeOwner() !== expectedOwner) throw new Error('Food workspace changed');
     const foods = parseCustomFoods(value);
     if (!foods) throw new Error('Invalid custom foods');
-    // Write the marker first: even a failed settings-queue write must be recoverable after reload.
+    // Mark dirty before queueing so failed writes remain recoverable after reload.
     const wasDirty = localStorage.getItem(CUSTOM_FOODS_DIRTY_KEY) === 'true';
     localStorage.setItem(CUSTOM_FOODS_DIRTY_KEY, 'true');
     try {
@@ -98,7 +99,7 @@ export function searchSavedFoods(custom: CustomFood[], favourites: unknown, quer
     const seen = new Set(custom.map(foodIdentity));
     if (Array.isArray(favourites)) favourites.forEach(food => {
         if (!validFood(food)) return;
-        // Name alone is never an identity. Preserve differing brands, nutrition, units and barcodes.
+        // Same-name foods can differ in brand, nutrition, units or barcode.
         const key = foodIdentity(food);
         if (seen.has(key)) return;
         seen.add(key);

@@ -205,12 +205,12 @@ export default function DropSync({
                 <div className="stat-card">
                     <div className="stat-icon"><i className="fa-solid fa-bottle-water" /></div>
                     <div className="stat-value" id="ds-statCount">{todayEntries.length}</div>
-                    <div className="stat-label">Drinks</div>
+                    <div className="stat-label">Entries today</div>
                 </div>
                 <div className="stat-card">
                     <div className="stat-icon"><i className="fa-solid fa-stopwatch" /></div>
                     <div className="stat-value" id="ds-statLast">{latestEntry ? fmtAgo(latestEntry.ts) : '-'}</div>
-                    <div className="stat-label">Last</div>
+                    <div className="stat-label">Last entry</div>
                 </div>
             </div>
 
