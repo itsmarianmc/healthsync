@@ -677,7 +677,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                                     role="switch"
                                     aria-checked={aiEnabled}
                                     aria-label="Enable AI Detection"
-                                    aria-pressed={String(aiEnabled) as 'true'|'false'}
                                     onClick={handleAiToggle}
                                     disabled={!canUseThirdParty}
                                 />
@@ -744,7 +743,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                                     role="switch"
                                     aria-checked={weatherEnabled}
                                     aria-label="Show weather on dashboard"
-                                    aria-pressed={String(weatherEnabled) as 'true'|'false'}
                                     onClick={handleWeatherToggle}
                                     disabled={!hasWeatherConsent}
                                 />
@@ -843,7 +841,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                                 role="switch"
                                 aria-checked={deleteWarn}
                                 aria-label="Delete entry warning"
-                                aria-pressed={String(deleteWarn) as 'true'|'false'}
                                 onClick={handleDeleteWarn}
                                 disabled={!canUsePreferences}
                             />
@@ -859,7 +856,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                                 role="switch"
                                 aria-checked={splashEnabled}
                                 aria-label="Show splash screen"
-                                aria-pressed={String(splashEnabled) as 'true'|'false'}
                                 onClick={handleSplashEnabled}
                                 disabled={!canUsePreferences}
                             />
@@ -875,7 +871,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                                 role="switch"
                                 aria-checked={modalsExpanded}
                                 aria-label="Open every menu as expanded"
-                                aria-pressed={String(modalsExpanded) as 'true'|'false'}
                                 onClick={handleModalsExpanded}
                                 disabled={!canUsePreferences}
                             />
@@ -917,7 +912,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                                 role="switch"
                                 aria-checked={trackSupplements}
                                 aria-label="Track supplements"
-                                aria-pressed={String(trackSupplements) as 'true'|'false'}
                                 onClick={handleTrackSupplements}
                                 disabled={!canUsePreferences}
                             />
@@ -950,7 +944,6 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                                 role="switch"
                                 aria-checked={displayName}
                                 aria-label="Display name on start"
-                                aria-pressed={String(displayName) as 'true'|'false'}
                                 onClick={handleDisplayName}
                                 disabled={!canUsePreferences}
                             />
@@ -1065,7 +1058,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                                 <a>Running HealthSync v{APP_VERSION}</a> • <a className="change-settings" data-open-cookie-settings>Change Cookie Preferences</a>
                             </p>
                             
-                            <p style={{ marginTop: 'calc(1rem - 7.5px)' }}>© 2026 itsmarian | See "About / Licenses" for more information.</p>
+                            <p style={{ marginTop: 'calc(1rem - 7.5px)' }}>© 2026 itsmarian | See &quot;About / Licenses&quot; for more information.</p>
                         </footer>
                     </div>
                 </div>

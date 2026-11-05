@@ -104,7 +104,7 @@ test('own A configuration, toggle refresh, own B and guest remain separate', asy
   await login(page, 'A');
   await settings(page);
   await expect(page.locator('#aiApiKeyInput')).toHaveValue('A-fixture');
-  await expect(page.locator('#aiEnabledToggle')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#aiEnabledToggle')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#aiStatusBox')).toBeVisible();
   await shellAvailability(page, true);
   await providerAvailability(page, true);

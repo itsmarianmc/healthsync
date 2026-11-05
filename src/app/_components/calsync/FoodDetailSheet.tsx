@@ -11,7 +11,7 @@ import { useAuth } from '../../_context/AuthContext';
 import { workspaceGuard } from '../../_lib/localData';
 import { deleteLibraryFood, libraryData, type LibraryItem } from '../../_lib/foodLibrary';
 import { createFoodSelection, selectionEntry, type FoodSelection } from '../../_lib/foodBatch';
-import { foodAmountToBase, foodAmountUnits, foodBasisLabel, foodUnitLabel, foodUnitOptionLabel, foodConversionIssue, type FoodAmountUnit } from '../../_lib/foodPortions';
+import { foodAmountToBase, foodAmountUnits, foodUnitLabel, foodUnitOptionLabel, foodConversionIssue, type FoodAmountUnit } from '../../_lib/foodPortions';
 import type { CatalogFood } from '../../_lib/types';
 
 export default function FoodDetailSheet({ item, onClose, onAdd, backLabel = 'Back to saved foods' }: {
@@ -42,7 +42,7 @@ export default function FoodDetailSheet({ item, onClose, onAdd, backLabel = 'Bac
                 }} onError={() => setError('Could not update favorites on this device.')} />
             </div>
             {libraryBrand(selected.food.brand) && <p>{libraryBrand(selected.food.brand)}</p>}
-            <p>Nutrition per {foodBasisLabel(selected.food)}</p>
+            {nutrition && <p>Nutrition for {amount.amount} {foodUnitLabel(amount.food, amount.unit)}</p>}
             {selected.error ? <p role="alert">{selected.error}</p> : <><NutritionFacts nutrition={nutrition} />
                 <section className="food-detail-portion"><h3>Portion size</h3>
                     <div className="saved-food-amount-row"><label>Amount ({foodUnitLabel(amount.food, amount.unit)})<input className="form-input" type="number" inputMode="decimal" min="0.000001" step="any" required value={amount.amount} onChange={event => setAmount({ ...amount, amount: event.target.value })} /></label>

@@ -54,7 +54,7 @@ export default function CalSync({
         onAiMethodClose: externalOnAiMethodClose,
 }: CalSyncProps) {
     const pathname = usePathname();
-    const { barcodeSearchOpen, setExtraMenuOpen } = useAppShell();
+    const { barcodeSearchOpen } = useAppShell();
     const { user, showToast } = useAuth();
     const {
         isAiDetectionUsable,
@@ -333,7 +333,7 @@ export default function CalSync({
             dismissDetection(id);
         }
         if (currentDetectionId === id) setCurrentDetectionId(null);
-    }, [getDetection, dismissDetection, handleDraftChange, showToast, currentDetectionId]);
+    }, [getDetection, dismissDetection, handleDraftChange, currentDetectionId]);
 
     useEffect(() => {
         if (!pendingAutoOpenId) return;

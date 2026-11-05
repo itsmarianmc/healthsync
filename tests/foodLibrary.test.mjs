@@ -45,6 +45,53 @@ test('14 days applies only to history while saved foods and favorites remain ind
     assert.equal(library.searchLibrary(logs, 'recent', true, now).length, 0);
 });
 
+test('temporary snapshots remain distinct from identical catalog foods and expire only from discovery', () => {
+    const batch = load('./foodBatch');
+    const saved = library.saveLibraryFood(food('saved', { nutritionBasisAmount: 150 }));
+    const now = Date.now();
+    const selected = batch.createFoodSelection({ ...saved, temporary: true });
+    assert.equal(selected.amount, '150');
+    const log = JSON.parse(JSON.stringify(batch.selectionEntry(selected, now)));
+    assert.equal(log.catalogFoodId, undefined);
+    assert.equal(log.foodSnapshot.catalogFoodId, undefined);
+    assert.equal(log.foodSnapshot.temporary, true);
+    const recent = library.searchLibrary([log, log], 'Oats', false, now + 14 * 86400000);
+    assert.equal(recent.length, 2);
+    assert.equal(recent[0].food.temporary, true);
+    assert.equal(recent[0].saved, false);
+    const relog = batch.selectionEntry(batch.createFoodSelection(recent[0].food), now + 1);
+    assert.equal(relog.catalogFoodId, undefined);
+    assert.equal(relog.foodSnapshot.temporary, true);
+    assert.equal(relog.foodSnapshot.nutritionBasisAmount, 150);
+    assert.equal(library.searchLibrary([log], 'Oats', false, now + 14 * 86400000 + 1).length, 1);
+    const favorite = library.setFoodFavorite(recent[0].food, true);
+    assert.equal(favorite.temporary, undefined);
+    assert.equal(favorite.catalogFoodId, saved.id);
+    assert.equal(library.historyFood(log).temporary, true);
+});
+
+test('temporary selection appends once, respects pending batches and stays in its workspace', () => {
+    const batch = load('./foodBatch');
+    const normal = batch.createFoodSelection(food());
+    const temporary = batch.createFoodSelection(food('drink', { temporary: true, defaultUnit: 'ml', isLiquid: true, nutritionBasisAmount: 250 }));
+    const initial = { version: 1, items: [normal], ts: 123 };
+    const prepared = { ...initial, batch: [batch.selectionEntry(normal, initial.ts)] };
+    localStorage.setItem(batch.FOOD_SELECTION_KEY, JSON.stringify(prepared));
+    assert.equal(batch.prependFoodSelection(temporary), false);
+    assert.deepEqual(batch.readFoodSelection(), JSON.parse(JSON.stringify(prepared)));
+    localStorage.setItem(batch.FOOD_SELECTION_KEY, JSON.stringify(initial));
+    assert.equal(batch.prependFoodSelection(temporary), true);
+    assert.equal(batch.prependFoodSelection(temporary), true);
+    const combined = batch.readFoodSelection();
+    assert.equal(combined.ts, 123);
+    assert.deepEqual(combined.items.map(item => item.id), [temporary.id, normal.id]);
+    assert.equal(combined.items[0].amount, '250');
+    local.switchWorkspace('A');
+    assert.equal(batch.readFoodSelection().items.length, 0);
+    local.switchWorkspace('guest');
+    assert.deepEqual(batch.readFoodSelection(), combined);
+});
+
 test('identical new foods reuse an ID while distinct brands, barcodes, units and nutrition stay separate', () => {
     library.saveLibraryFood(food('one')); assert.equal(library.saveLibraryFood(food('two')).id, 'one');
     const logs = [food('a', { brand: 'Other' }), food('b', { barcode: '123' }), food('c', { defaultUnit: 'ml', isLiquid: true }), food('d', { kcalPer100: 410 })]
@@ -124,6 +171,66 @@ test('recipe deletes are blocked for referenced ingredients; missing/cyclic/inva
     assert.throws(() => library.saveLibraryFood(food('bad', { protPer100: null })), /Invalid/);
     library.mergeLibraryChanges([{ id: 'remote-delete', foodId: 'oats', at: Date.now() + 10000, kind: 'definition', food: null }], [], 'guest');
     assert.match(library.searchLibrary([], '').find(item => item.id === 'porridge').error, /missing/);
+});
+
+test('mixed recipes keep embedded barcode conversions through sync without linking an identical catalog food', async () => {
+    const fixture = syncFixture();
+    const { loader } = fixture;
+    const catalog = loader('./foodLibrary');
+    const workspace = loader('./localData');
+    const mapBarcodeProduct = loader('./barcodeFood').mapBarcodeProduct;
+    workspace.switchWorkspace('A');
+    const scan = (name, quantity, code) => mapBarcodeProduct({
+        product_name: name, quantity, code, serving_size: '50 g',
+        nutriments: { 'energy-kcal_100g': 200, proteins_100g: 10, carbohydrates_100g: 20, fat_100g: 5 },
+    });
+    const oats = scan('Scanned oats', '200 g', '100001');
+    const drink = scan('Scanned drink', '500 ml', '100002');
+    const oatsPortion = catalog.createBarcodeIngredient(oats, 150, 'g');
+    const drinkPortion = catalog.createBarcodeIngredient(drink, 0.25, 'l');
+    const duplicate = catalog.ensureLibraryFood(oats);
+    catalog.saveLibraryFood(food());
+    catalog.saveLibraryFood(recipe('mixed', [{ foodId: 'oats', amount: 50, unit: 'g' }, oatsPortion, drinkPortion]));
+    catalog.deleteLibraryFood(duplicate.catalogFoodId);
+    assert.throws(() => catalog.deleteLibraryFood('oats'), /used by a recipe/i);
+    const sync = loader('./sync');
+    await sync.syncFoodLibrary('A');
+    workspace.clearActiveHealthData();
+    await sync.syncFoodLibrary('A');
+    const { foods } = catalog.libraryData();
+    assert.equal(foods.size, 2);
+    const computed = catalog.resolveFood('mixed', foods);
+    assert.equal(computed.kcalPer100, 500);
+    assert.equal(computed.protPer100, 22.5);
+    assert.deepEqual(computed.recipeSnapshot.recipe.ingredients.map(item => item.unit), ['g', 'g', 'l']);
+    assert.equal(computed.recipeSnapshot.ingredients[1].food.catalogFoodId, undefined);
+    assert.equal(computed.recipeSnapshot.ingredients[2].food.barcodeAmounts.basis, 'ml');
+    const logged = loader('./foodEntry').buildFoodAmountEntry(computed, 1, 'serving');
+    assert.equal(logged.kcal, 500);
+    assert.equal(logged.foodSnapshot.recipeSnapshot.ingredients[2].unit, 'l');
+});
+
+test('barcode recipe ingredients require usable nutrition and conversions and count toward the shared limit', () => {
+    const product = load('./barcodeFood').mapBarcodeProduct({
+        product_name: 'Test oats', quantity: '250 g', code: '100001',
+        nutriments: { 'energy-kcal_100g': 200, proteins_100g: 10, carbohydrates_100g: 20, fat_100g: 5 },
+    });
+    assert.throws(() => library.createBarcodeIngredient({ ...product, protPer100: NaN }, 150, 'g'));
+    assert.throws(() => library.createBarcodeIngredient(product, Infinity, 'g'));
+    assert.throws(() => library.createBarcodeIngredient(product, 0, 'g'));
+    assert.throws(() => library.createBarcodeIngredient(product, 1, 'serving'));
+    const scanned = library.createBarcodeIngredient(product, 150, 'g');
+    const linked = { foodId: 'oats', amount: 1, unit: 'g' };
+    for (const invalid of [{ ...scanned, foodId: 'oats' }, { ...scanned, unit: 'unknown' },
+        { ...scanned, barcodeFood: { ...scanned.barcodeFood, fatPer100: null } }]) {
+        assert.throws(() => library.validateDefinition(recipe('invalid', [invalid])), /Invalid recipe/);
+    }
+    library.saveLibraryFood(food());
+    const ingredients = [...Array(50).fill(linked), ...Array(50).fill(scanned)];
+    library.saveLibraryFood(recipe('hundred', ingredients));
+    for (const extra of [linked, scanned]) {
+        assert.throws(() => library.saveLibraryFood(recipe('too-many', [...ingredients, extra])), /Invalid recipe/);
+    }
 });
 
 test('batch journal recovers partial storage failures exactly once and queues food and hydration for retry', async () => {

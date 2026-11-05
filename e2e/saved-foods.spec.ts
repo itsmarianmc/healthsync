@@ -162,6 +162,167 @@ async function create(page: Page) {
     await expect(page.getByRole('button', { name: 'View Oats', exact: true })).toBeVisible();
 }
 
+async function fillManualFood(page: Page, name: string) {
+    await chooseCreation(page, 'food');
+    await page.getByLabel('Name', { exact: true }).fill(name);
+    for (const [label, value] of [['Calories (kcal)', '300'], ['Protein (g)', '15'], ['Carbohydrates (g)', '30'], ['Fat (g)', '6']])
+        await page.getByLabel(label, { exact: true }).fill(value);
+}
+
+test('manual nutrition references validate, reopen and preserve precise normalized nutrition', async ({ page }) => {
+    await prepare(page); await page.goto('/food'); await open(page, 'create-food');
+    await fillManualFood(page, 'Small drink');
+    const basis = page.getByLabel('Nutrition basis amount');
+    const unit = page.getByLabel('Nutrition per', { exact: true });
+    const save = page.getByRole('button', { name: 'Save food', exact: true });
+    await expect(basis).toHaveValue('100');
+    await expect(unit).toHaveValue('g');
+    await expect(page.getByRole('checkbox', { name: 'Temporary food' })).not.toBeChecked();
+    for (const value of ['', '0', '-1', '1e999']) {
+        await basis.fill(value); await save.click();
+        await expect(page.locator('#createFoodModal').getByRole('alert')).toContainText('positive finite nutrition amount');
+        await expect(basis).toHaveValue(value);
+        await expect(page.getByLabel('Calories (kcal)', { exact: true })).toHaveValue('300');
+    }
+    await basis.fill('12,5'); await unit.selectOption('ml'); await save.click();
+    await editCreatedFood(page, 'Small drink');
+    await expect(basis).toHaveValue('12.5');
+    await expect(unit).toHaveValue('ml');
+    await expect(page.getByLabel('Calories (kcal)', { exact: true })).toHaveValue('300');
+    await expect(page.getByRole('checkbox', { name: 'Temporary food' })).toHaveCount(0);
+    await page.getByLabel('Preview amount', { exact: true }).fill('6.25');
+    await expect(page.locator('#editFoodModal .food-edit-ring')).toHaveText('150kcal');
+    await basis.fill('250'); await save.click();
+    await expect(page.locator('#editFoodModal')).toHaveCount(0);
+    await editCreatedFood(page, 'Small drink');
+    await expect(basis).toHaveValue('250');
+    await expect(page.getByLabel('Calories (kcal)', { exact: true })).toHaveValue('300');
+    await unit.selectOption('serving');
+    await page.getByLabel('One serving equals').fill('7');
+    await save.click();
+    await expect(page.locator('#editFoodModal')).toHaveCount(0);
+    await editCreatedFood(page, 'Small drink');
+    await expect(unit).toHaveValue('serving');
+    await unit.selectOption('oz'); await save.click();
+    await expect(page.locator('#editFoodModal')).toHaveCount(0);
+    await editCreatedFood(page, 'Small drink');
+    await expect(unit).toHaveValue('oz');
+    await unit.selectOption('g'); await basis.fill('130'); await save.click();
+    await expect(page.locator('#editFoodModal')).toHaveCount(0);
+    const storedDefinition = () => page.evaluate(() => JSON.parse(localStorage.getItem('calsync_food_library_v1')!).changes.at(-1).food);
+    const stored = await storedDefinition();
+    expect(stored).toMatchObject({ nutritionBasisAmount: 130, defaultUnit: 'g' });
+    expect(stored.portion).toBeUndefined();
+    await editCreatedFood(page, 'Small drink');
+    await expect(basis).toHaveValue('130'); await save.click();
+    await expect(page.locator('#editFoodModal')).toHaveCount(0);
+    expect(await storedDefinition()).toEqual(stored);
+});
+
+test('temporary food joins an existing selection and stays distinct in offline logging and history', async ({ page, context }) => {
+    await prepare(page); await page.goto('/food'); await open(page, 'create-food');
+    await fillManualFood(page, 'Reference oats');
+    const basis = page.getByLabel('Nutrition basis amount');
+    const save = page.getByRole('button', { name: 'Save food', exact: true });
+    await basis.fill('150'); await save.click(); await closeCustomFoods(page);
+    await open(page, 'search-food');
+    const add = page.getByRole('button', { name: 'Add Reference oats to selection', exact: true });
+    await add.click(); await closeSavedFoods(page);
+    await open(page, 'create-food'); await fillManualFood(page, 'Reference oats');
+    await basis.fill('150'); await page.getByRole('checkbox', { name: 'Temporary food' }).check();
+    await save.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
+    await expect(page.locator('#customFoodsOverlay')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Search', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.food-selection-chips button')).toHaveCount(2);
+    const beforeReview = await page.evaluate(() => ({
+        logged: localStorage.getItem('calsync_v1'),
+        selection: JSON.parse(localStorage.getItem('calsync_food_selection_v1')!),
+        library: JSON.parse(localStorage.getItem('calsync_food_library_v1')!),
+    }));
+    expect(beforeReview.logged).toBeNull();
+    expect(beforeReview.selection.items[0]).toMatchObject({ amount: '150', unit: 'g', food: { temporary: true } });
+    expect(beforeReview.selection.items[1].food.temporary).toBeUndefined();
+    expect(beforeReview.library.changes).toHaveLength(1);
+    await page.getByRole('button', { name: 'Review selected foods' }).click();
+    await page.getByLabel('Amount (g)', { exact: true }).first().fill('80');
+    await expect(page.locator('.food-review-card').first()).toContainText('160 kcal');
+    await expect(page.locator('.food-review-card').first()).toContainText('8 g');
+    await context.setOffline(true);
+    await page.getByRole('button', { name: 'Log selected foods' }).click();
+    await expect(page.locator('#savedFoodsOverlay')).toHaveCount(0);
+    await context.setOffline(false);
+    await page.reload();
+    const logs = () => page.evaluate(() => JSON.parse(localStorage.getItem('calsync_v1')!));
+    const firstLogs = await logs();
+    expect(firstLogs).toHaveLength(2);
+    const tempLog = firstLogs.find((entry: { foodSnapshot: { temporary?: boolean } }) => entry.foodSnapshot.temporary);
+    expect(tempLog).toMatchObject({ amount: 80, kcal: 160, prot: 8, foodSnapshot: { nutritionBasisAmount: 150 } });
+    expect(tempLog.catalogFoodId).toBeUndefined();
+    expect(firstLogs.find((entry: { id: string }) => entry.id !== tempLog.id).catalogFoodId).toBeTruthy();
+    const libraryBeforeRelog = await page.evaluate(() => localStorage.getItem('calsync_food_library_v1'));
+    expect(JSON.parse(libraryBeforeRelog!).changes).toHaveLength(2);
+    await open(page, 'search-food');
+    await expect(add).toHaveCount(2);
+    await page.locator('.food-library-row').filter({ hasText: 'Temporary food' }).getByRole('button', { name: 'Add Reference oats to selection' }).click();
+    await page.getByRole('button', { name: 'Review selected foods' }).click();
+    await expect(page.getByLabel('Amount (g)', { exact: true })).toHaveValue('80');
+    await page.getByRole('button', { name: 'Log selected foods' }).click();
+    await expect(page.locator('#savedFoodsOverlay')).toHaveCount(0);
+    const afterRelog = await logs();
+    expect(afterRelog).toHaveLength(3);
+    expect(afterRelog.filter((entry: { catalogFoodId?: string }) => !entry.catalogFoodId)).toHaveLength(2);
+    expect(await page.evaluate(() => localStorage.getItem('calsync_food_library_v1'))).toBe(libraryBeforeRelog);
+    await page.evaluate(() => {
+        const logs = JSON.parse(localStorage.getItem('calsync_v1')!);
+        for (const entry of logs) if (entry.foodSnapshot.temporary) {
+            entry.ts -= 15 * 86400000;
+            entry.date = new Date(entry.ts).toDateString();
+        }
+        localStorage.setItem('calsync_v1', JSON.stringify(logs));
+    });
+    await page.reload(); await open(page, 'search-food');
+    await expect(add).toHaveCount(1);
+    expect(await logs()).toHaveLength(3);
+});
+
+test('temporary food retains the draft on blocked or failed selection writes and can be removed unlogged', async ({ page }) => {
+    await prepare(page); await page.goto('/food'); await open(page, 'create-food');
+    await fillManualFood(page, 'Temporary juice');
+    await page.getByLabel('Nutrition per', { exact: true }).selectOption('ml');
+    const basis = page.getByLabel('Nutrition basis amount');
+    await basis.fill('250');
+    await page.getByRole('checkbox', { name: 'Temporary food' }).check();
+    const save = page.getByRole('button', { name: 'Save food', exact: true });
+    const alert = page.locator('#createFoodModal').getByRole('alert');
+    const prepared = { version: 1, items: [{ id: 'pending', food: sample, amount: '100', unit: 'g' }], ts: 123456,
+        batch: [{ id: 'fixed-retry-id', food: 'Oats' }] };
+    await page.evaluate(cache => localStorage.setItem('calsync_food_selection_v1', JSON.stringify(cache)), prepared);
+    await save.click();
+    await expect(alert).toContainText('Finish the pending food batch');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('calsync_food_selection_v1')!))).toEqual(prepared);
+    await page.evaluate(() => {
+        localStorage.removeItem('calsync_food_selection_v1');
+        sessionStorage.setItem('fail-food-selection', '1');
+        const set = Storage.prototype.setItem;
+        Storage.prototype.setItem = function(key, value) {
+            if (key === 'calsync_food_selection_v1' && sessionStorage.getItem('fail-food-selection')) throw new DOMException('Quota', 'QuotaExceededError');
+            return set.call(this, key, value);
+        };
+    });
+    await save.click();
+    await expect(alert).toContainText('Check browser storage');
+    await expect(basis).toHaveValue('250');
+    await expect(page.getByRole('checkbox', { name: 'Temporary food' })).toBeChecked();
+    await page.evaluate(() => sessionStorage.removeItem('fail-food-selection'));
+    await save.click();
+    const remove = page.getByRole('button', { name: 'Remove Temporary juice from selection' });
+    await expect(remove).toHaveCount(1);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('calsync_food_selection_v1')!).items[0])).toMatchObject({ amount: '250', unit: 'ml' });
+    await remove.click();
+    await expect(remove).toHaveCount(0);
+    expect(await page.evaluate(() => [localStorage.getItem('calsync_v1'), localStorage.getItem('calsync_food_library_v1')])).toEqual([null, null]);
+});
+
 test('custom foods, search and favorites share details/editing and stars never save unfinished edits', async ({ page }) => {
     await prepare(page); await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/food');
     await create(page);
@@ -575,7 +736,15 @@ test('compact add feedback, icon avatars, detail facts and tab transitions follo
 });
 
 test('partial local failure reopens review with the same timestamp, amounts and IDs; retry never duplicates', async ({ page }) => {
-    await prepare(page); await page.goto('/food'); await queuedReview(page);
+    await prepare(page); await page.goto('/food'); await create(page); await closeCustomFoods(page);
+    await open(page, 'search-food');
+    await page.getByRole('button', { name: 'Add Oats to selection', exact: true }).click();
+    await closeSavedFoods(page);
+    await open(page, 'create-food'); await fillManualFood(page, 'Retry juice');
+    await page.getByLabel('Nutrition per', { exact: true }).selectOption('ml');
+    await page.getByRole('checkbox', { name: 'Temporary food' }).check();
+    await page.getByRole('button', { name: 'Save food', exact: true }).click();
+    await page.getByRole('button', { name: 'Review selected foods' }).click();
     await page.getByLabel('Amount (ml)', { exact: true }).fill('250');
     const date = page.locator('.food-batch-date time');
     const before = await date.getAttribute('datetime');
@@ -595,6 +764,8 @@ test('partial local failure reopens review with the same timestamp, amounts and 
     await expect(date).toHaveAttribute('datetime', before!);
     const prepared = await page.evaluate(() => JSON.parse(localStorage.getItem('calsync_food_selection_v1')!));
     expect(prepared.items).toHaveLength(2); expect(prepared.batch).toHaveLength(2);
+    expect(prepared.batch[0]).toMatchObject({ food: 'Retry juice', amount: 250, foodSnapshot: { temporary: true } });
+    expect(prepared.batch[0].catalogFoodId).toBeUndefined();
     await page.evaluate(() => sessionStorage.removeItem('fail-local-food'));
     await page.getByRole('button', { name: 'Log selected foods', exact: true }).click();
     await expect(page.locator('#savedFoodsOverlay')).toHaveCount(0);
@@ -818,7 +989,7 @@ test('mobile sheets trap/restore focus, support Escape, overlay and dragging, an
     for (const label of ['Calories (kcal)', 'Protein (g)', 'Carbohydrates (g)', 'Fat (g)'])
         await page.getByLabel(label, { exact: true }).fill('0');
     await page.getByRole('button', { name: 'Save food', exact: true }).click();
-    await expect(page.locator('#createFoodModal').getByRole('alert')).toHaveText('Enter a name, all four finite non-negative nutrition values, and a positive portion size.');
+    await expect(page.locator('#createFoodModal').getByRole('alert')).toContainText('Enter a name');
     await page.screenshot({ path: test.info().outputPath('custom-food-editor-mobile.png') });
     expect(await page.evaluate(() => localStorage.getItem('calsync_custom_foods'))).toBeNull();
     await page.getByRole('button', { name: 'Save food', exact: true }).focus();
@@ -844,35 +1015,39 @@ test('mobile sheets trap/restore focus, support Escape, overlay and dragging, an
     await expect(page.locator('#savedFoodsOverlay')).toHaveCount(0);
     await expect(page.locator('body')).not.toHaveClass(/modal-open/);
     await open(page, 'create-food');
-    await chooseCreation(page, 'food');
-    await page.getByLabel('Name', { exact: true }).fill('Private unsaved draft');
+    await fillManualFood(page, 'Private unsaved draft');
+    await page.getByRole('checkbox', { name: 'Temporary food' }).check();
     await page.evaluate(() => {
         localStorage.setItem('healthsync_active_owner', 'another-fixture-owner');
+        document.querySelector<HTMLFormElement>('#createFoodModal form')!.requestSubmit();
         window.dispatchEvent(new Event('storage'));
     });
     await expect(page.getByLabel('Name', { exact: true })).not.toBeVisible();
     await expect(page.locator('#customFoodsOverlay')).toHaveCount(0);
     expect(await page.evaluate(() => localStorage.getItem('calsync_custom_foods'))).toBeNull();
+    expect(await page.evaluate(() => localStorage.getItem('calsync_food_selection_v1'))).toBeNull();
 });
 
-async function prepareScanner(page: Page) {
-    await prepare(page, true);
-    await page.addInitScript(() => {
+async function prepareScanner(page: Page, { consent = true, denyCamera = false } = {}) {
+    await prepare(page, consent);
+    await page.addInitScript(({ denyCamera }) => {
         type ScannerWindow = Window & { scanFixture?: (code: string) => void; ZXingBrowser?: unknown };
         const scannerWindow = window as ScannerWindow;
         Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { value: async () => {
+            if (denyCamera) throw new DOMException('Camera denied', 'NotAllowedError');
             const canvas = document.createElement('canvas');
             canvas.width = canvas.height = 4;
             return canvas.captureStream(1);
         } });
         scannerWindow.ZXingBrowser = { BrowserMultiFormatReader: class {
-            decodeFromStream(_stream: unknown, _video: unknown, callback: (result: { getText: () => string }) => void) {
+            decodeFromStream(stream: MediaStream, video: HTMLVideoElement, callback: (result: { getText: () => string }) => void) {
+                video.srcObject = stream;
                 scannerWindow.scanFixture = code => callback({ getText: () => code });
             }
             stop() { scannerWindow.scanFixture = undefined; }
             reset() { scannerWindow.scanFixture = undefined; }
         } };
-    });
+    }, { denyCamera });
 }
 
 async function scanCode(page: Page, code: string) {
@@ -883,6 +1058,237 @@ async function scanCode(page: Page, code: string) {
         return true;
     }, code);
 }
+
+async function chooseRecipeFood(page: Page, name: string) {
+    await page.getByRole('button', { name: 'Choose Food', exact: true }).click();
+    const picker = page.getByRole('dialog', { name: 'Choose Food', exact: true });
+    const search = picker.getByRole('searchbox', { name: 'Search recipe ingredients' });
+    await expect(search).toBeFocused();
+    await search.fill(name);
+    await picker.getByRole('button', { name: new RegExp(name, 'i') }).click();
+    await expect(picker).toHaveCount(0);
+}
+
+const recipeBarcodeProduct = {
+    product_name: 'Scanned oats', quantity: '250 g', serving_size: '50 g',
+    nutriments: { 'energy-kcal_100g': 200, proteins_100g: 10, carbohydrates_100g: 20, fat_100g: 5 },
+};
+
+test('recipe barcode ingredients work with an empty library, survive reload and stay editable at 320 px', async ({ page }) => {
+    await prepareScanner(page);
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.route('https://world.openfoodfacts.org/**', route => route.fulfill({
+        headers: { 'access-control-allow-origin': '*' },
+        json: { status: 1, product: recipeBarcodeProduct },
+    }));
+    await page.goto('/food'); await open(page, 'create-food'); await chooseCreation(page, 'recipe');
+    const editor = page.locator('#createFoodModal');
+    const scanner = page.locator('#recipeBarcodeSearchModal');
+    const choose = editor.getByRole('button', { name: 'Choose Food', exact: true });
+    await page.getByLabel('Recipe name').fill('Scanned breakfast');
+    await choose.click();
+    await expect(page.getByRole('status', { name: '' }).filter({ hasText: 'No foods available in your library.' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(choose).toBeFocused();
+    const scan = editor.getByRole('button', { name: 'Scan Barcode', exact: true });
+    await scan.focus(); await page.keyboard.press('Enter');
+    await expect(page.locator('#createFoodOverlay')).toHaveAttribute('inert', '');
+    await expect(scanner.getByRole('button', { name: 'Enter food manually' })).toHaveCount(0);
+    await scanCode(page, '100001');
+    const add = scanner.getByRole('button', { name: 'Add to recipe', exact: true });
+    await expect(scanner.getByRole('button', { name: 'Favorite food' })).toHaveCount(0);
+    await scanner.getByLabel('Amount', { exact: true }).fill('0');
+    await expect(add).toBeDisabled();
+    await expect(scanner.getByText('Enter a positive amount in an available unit.')).toBeVisible();
+    await scanner.getByLabel('Amount', { exact: true }).fill('150');
+    await expect(scanner.locator('.calorie-big')).toHaveText('300kcal');
+    await add.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
+    await expect(scanner).toHaveCount(0);
+    await expect(editor.locator('.recipe-ingredient')).toHaveCount(1);
+    await expect(editor.getByLabel('Ingredient 1 amount')).toBeFocused();
+    await expect(editor.getByLabel('Ingredient 1 amount')).toHaveValue('150');
+    await expect(editor.getByLabel('Ingredient 1 unit')).toHaveValue('g');
+    await expect(editor.getByRole('status')).toContainText('300.0 kcal');
+    expect(await page.evaluate(() => localStorage.getItem('calsync_food_library_v1'))).toBeNull();
+    await scan.click(); await scanCode(page, '100001');
+    await scanner.getByLabel('Amount unit').selectOption('serving');
+    await scanner.getByLabel('Amount', { exact: true }).fill('1');
+    await add.click();
+    await expect(editor.getByLabel('Ingredient 2 unit')).toHaveValue('serving');
+    await expect(editor.getByRole('status')).toContainText('400.0 kcal');
+    await editor.getByRole('button', { name: 'Save recipe', exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    const definitions = await page.evaluate(() => JSON.parse(localStorage.getItem('calsync_food_library_v1')!).changes);
+    expect(definitions).toHaveLength(1);
+    expect(definitions[0].food.recipe.ingredients).toMatchObject([
+        { amount: 150, unit: 'g', barcodeFood: { name: 'Scanned oats', kcalPer100: 200 } },
+        { amount: 1, unit: 'serving', barcodeFood: { barcode: '100001' } },
+    ]);
+    expect(definitions[0].food.recipe.ingredients.every((item: { foodId?: string }) => !item.foodId)).toBe(true);
+    const sideEffects = () => page.evaluate(() => ['calsync_v1', 'dropsync_v3', 'calsync_food_selection_v1', 'calsync_favourites'].map(key => localStorage.getItem(key)));
+    expect(await sideEffects()).toEqual([null, null, null, null]);
+    await page.unroute('https://world.openfoodfacts.org/**');
+    await page.reload(); await open(page, 'create-food'); await editCreatedFood(page, 'Scanned breakfast');
+    const edit = page.locator('#editFoodModal');
+    await expect(edit.getByRole('button', { name: 'Choose Food', exact: true })).toBeEnabled();
+    await edit.getByRole('button', { name: 'Scan Barcode', exact: true }).click();
+    await expect(page.locator('#editFoodOverlay')).toHaveAttribute('inert', '');
+    await scanner.getByRole('button', { name: 'Close barcode scanner' }).click();
+    await expect(edit.getByRole('button', { name: 'Choose Food', exact: true })).toBeFocused();
+    await expect(edit.locator('.food-edit-ring')).toHaveText('400kcal');
+    await expect(edit.getByLabel('Ingredient 2 unit')).toHaveValue('serving');
+    await edit.getByLabel('Ingredient 2 amount').fill('2');
+    await expect(edit.getByRole('status')).toContainText('500.0 kcal');
+    await edit.getByRole('button', { name: 'Remove ingredient 1', exact: true }).click();
+    await expect(edit.getByRole('status')).toContainText('200.0 kcal');
+    await edit.getByRole('button', { name: 'Save recipe', exact: true }).click();
+    await expect(edit).toHaveCount(0);
+    expect(await sideEffects()).toEqual([null, null, null, null]);
+});
+
+test('closing the recipe scanner preserves the draft, stops its camera and discards a late lookup', async ({ page }) => {
+    await prepareScanner(page);
+    await page.setViewportSize({ width: 390, height: 640 });
+    let release!: () => void;
+    const delayed = new Promise<void>(resolve => { release = resolve; });
+    let requestStarted = false;
+    await page.route('https://world.openfoodfacts.org/**', async route => {
+        requestStarted = true;
+        await delayed;
+        await route.fulfill({ headers: { 'access-control-allow-origin': '*' }, json: { status: 1, product: recipeBarcodeProduct } }).catch(() => {});
+    });
+    await page.goto('/food'); await create(page); await chooseCreation(page, 'recipe');
+    const editor = page.locator('#createFoodModal');
+    const scanner = page.locator('#recipeBarcodeSearchModal');
+    const choose = editor.getByRole('button', { name: 'Choose Food', exact: true });
+    const scan = editor.getByRole('button', { name: 'Scan Barcode', exact: true });
+    await editor.getByLabel('Recipe name').fill('Keep this draft');
+    await editor.getByLabel('Final yield').fill('2.5');
+    await chooseRecipeFood(page, 'oats');
+    await editor.getByLabel('Ingredient 1 amount').fill('125');
+    await scan.scrollIntoViewIfNeeded();
+    const body = editor.locator('.modal-body');
+    const scrollTop = await body.evaluate(el => el.scrollTop);
+    for (const method of ['button', 'escape', 'backdrop', 'drag']) {
+        await scan.click();
+        await expect(page.locator('#recipeBarcodeSearchOverlay')).toHaveAttribute('data-sheet-phase', 'open');
+        const track = await page.waitForFunction(() => {
+            const video = document.querySelector<HTMLVideoElement>('#recipeBarcodeSearchModal video');
+            const track = (video?.srcObject as MediaStream | null)?.getVideoTracks()[0];
+            return track?.readyState === 'live' ? track : null;
+        });
+        if (method === 'button') await scanner.getByRole('button', { name: 'Close barcode scanner' }).click();
+        if (method === 'escape') {
+            await scanCode(page, '100001');
+            await expect.poll(() => requestStarted).toBe(true);
+            await page.keyboard.press('Escape');
+            release();
+        }
+        if (method === 'backdrop') await page.locator('#recipeBarcodeSearchOverlay').click({ position: { x: 4, y: 4 } });
+        if (method === 'drag') {
+            const handle = (await scanner.locator('.modal-handle-zone').boundingBox())!;
+            await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+            await page.mouse.down();
+            await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2 + 160, { steps: 8 });
+            await page.mouse.up();
+        }
+        await expect(scanner).toHaveCount(0);
+        expect(await track.evaluate(track => track?.readyState)).toBe('ended');
+        await track.dispose();
+        await expect(choose).toBeFocused();
+        await expect(page.locator('#recipeFoodPickerOverlay')).toHaveCount(0);
+        await expect(editor.getByLabel('Recipe name')).toHaveValue('Keep this draft');
+        await expect(editor.getByLabel('Final yield')).toHaveValue('2.5');
+        await expect(editor.getByLabel('Ingredient 1 amount')).toHaveValue('125');
+        await expect(editor.locator('.recipe-ingredient')).toHaveCount(1);
+        expect(await body.evaluate(el => el.scrollTop)).toBe(scrollTop);
+    }
+    await scan.click(); await scanCode(page, '100001');
+    await scanner.getByRole('button', { name: 'Add to recipe' }).click();
+    await expect(editor.locator('.recipe-ingredient')).toHaveCount(2);
+    await editor.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'View Keep this draft' })).toHaveCount(0);
+    const library = await page.evaluate(() => JSON.parse(localStorage.getItem('calsync_food_library_v1')!).changes);
+    expect(library).toHaveLength(1);
+    expect(library[0].food.name).toBe('Oats');
+});
+
+for (const denyCamera of [false, true]) {
+    test(`recipe scanner explains ${denyCamera ? 'denied camera access' : 'missing consent'} without adding an ingredient`, async ({ page }) => {
+        await prepareScanner(page, { consent: denyCamera, denyCamera });
+        await page.goto('/food'); await open(page, 'create-food'); await chooseCreation(page, 'recipe');
+        const editor = page.locator('#createFoodModal');
+        await editor.getByRole('button', { name: 'Scan Barcode', exact: true }).click();
+        const scanner = page.locator('#recipeBarcodeSearchModal');
+        await expect(scanner.getByText(denyCamera ? /Camera permission was denied/ : /requires third-party consent/)).toBeVisible();
+        await expect(scanner.getByRole('button', { name: 'Add to recipe' })).toHaveCount(0);
+        await scanner.getByRole('button', { name: 'Close barcode scanner' }).click();
+        await expect(editor.getByRole('button', { name: 'Choose Food', exact: true })).toBeFocused();
+        await expect(editor.locator('.recipe-ingredient')).toHaveCount(0);
+    });
+}
+
+test('recipe scanner rejects unknown and incomplete products and closes on workspace change', async ({ page }) => {
+    await prepareScanner(page);
+    let release!: () => void;
+    const delayed = new Promise<void>(resolve => { release = resolve; });
+    let waiting = false;
+    await page.route('https://world.openfoodfacts.org/**', async route => {
+        const url = route.request().url();
+        if (url.includes('100003')) { waiting = true; await delayed; }
+        const product = url.includes('100002')
+            ? { ...recipeBarcodeProduct, nutriments: { 'energy-kcal_100g': 200 } }
+            : recipeBarcodeProduct;
+        await route.fulfill({ headers: { 'access-control-allow-origin': '*' },
+            json: url.includes('100001') ? { status: 0 } : { status: 1, product } }).catch(() => {});
+    });
+    await page.goto('/food'); await open(page, 'create-food'); await chooseCreation(page, 'recipe');
+    const editor = page.locator('#createFoodModal');
+    const scanner = page.locator('#recipeBarcodeSearchModal');
+    await editor.getByRole('button', { name: 'Scan Barcode', exact: true }).click();
+    await scanCode(page, '100001');
+    await expect(scanner.getByText(/Product not found/)).toBeVisible();
+    await scanner.getByRole('button', { name: 'Restart' }).click();
+    await scanCode(page, '100002');
+    await expect(scanner.getByRole('alert')).toContainText('incomplete nutrition');
+    await expect(scanner.getByRole('button', { name: 'Add to recipe' })).toBeDisabled();
+    await scanner.getByRole('button', { name: 'Back to barcode scanner' }).click();
+    await scanCode(page, '100003');
+    await expect.poll(() => waiting).toBe(true);
+    await page.evaluate(() => {
+        localStorage.setItem('healthsync_active_owner', 'other-fixture-owner');
+        window.dispatchEvent(new Event('storage'));
+    });
+    release();
+    await expect(scanner).toHaveCount(0);
+    await expect(editor).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem('calsync_food_library_v1'))).toBeNull();
+});
+
+test('the 100-ingredient recipe limit disables both chooser actions', async ({ page }) => {
+    await prepare(page); await page.goto('/food');
+    await page.evaluate(sample => {
+        localStorage.setItem('calsync_custom_foods', JSON.stringify([{ ...sample, id: 'oats' }]));
+        const food = { ...sample, id: 'full', name: 'Full recipe', kind: 'recipe',
+            recipe: { ingredients: Array.from({ length: 100 }, () => ({ foodId: 'oats', amount: 1, unit: 'g' })),
+                yield: { amount: 1, unit: 'serving' } } };
+        localStorage.setItem('calsync_food_library_v1', JSON.stringify({ version: 1, imported: [], pending: [],
+            changes: [{ id: 'full-fixture', foodId: food.id, at: 1, kind: 'definition', food }] }));
+    }, sample);
+    await open(page, 'create-food'); await editCreatedFood(page, 'Full recipe');
+    const editor = page.locator('#editFoodModal');
+    const choose = editor.getByRole('button', { name: 'Choose Food', exact: true });
+    const scan = editor.getByRole('button', { name: 'Scan Barcode', exact: true });
+    await expect(choose).toBeDisabled();
+    await expect(scan).toBeDisabled();
+    await editor.getByRole('button', { name: 'Remove ingredient 100', exact: true }).click();
+    await expect(choose).toBeEnabled();
+    await expect(scan).toBeEnabled();
+    await chooseRecipeFood(page, 'Oats');
+    await expect(choose).toBeDisabled();
+    await expect(scan).toBeDisabled();
+});
 
 test('barcode product data stays read-only and its inline Font Awesome star toggles favorites', async ({ page }) => {
     await prepareScanner(page);
@@ -942,7 +1348,7 @@ test('incomplete scanned products stay read-only while separate manual barcode e
     }));
     await page.goto('/food'); await open(page, 'scan-barcode');
     await scanCode(page, '123456');
-    await expect(page.getByRole('alert')).toContainText('Scan another product or create a food manually.');
+    await expect(page.locator('#barcodeSearchModal').getByRole('alert')).toContainText('Scan another product or create a food manually.');
     await expect(page.getByRole('button', { name: 'Edit food details', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Log food', exact: true })).toBeDisabled();
     await page.keyboard.press('Escape');
@@ -1218,7 +1624,7 @@ test('recipe editing uses a separate sheet with calculated ingredient rows and p
     await create(page);
     await chooseCreation(page, 'recipe');
     await page.getByLabel('Recipe name').fill('Porridge');
-    await page.getByRole('button', { name: 'Add ingredient', exact: true }).click();
+    await chooseRecipeFood(page, 'Oats');
     await page.getByLabel('Ingredient 1 amount').fill('100');
     await page.getByLabel('Final yield').fill('2');
     await page.getByRole('button', { name: 'Save recipe', exact: true }).click();
@@ -1363,7 +1769,7 @@ test('recipes calculate yield, prevent ingredient deletion and preserve logged s
     await page.goto('/food'); await create(page);
     await chooseCreation(page, 'recipe');
     await page.getByLabel('Recipe name').fill('Porridge');
-    await page.getByRole('button', { name: 'Add ingredient', exact: true }).click();
+    await chooseRecipeFood(page, 'Oats');
     await page.getByLabel('Ingredient 1 amount').fill('100');
     await page.getByLabel('Final yield').fill('2');
     await expect(page.locator('#createFoodModal').getByRole('status')).toContainText('190.0 kcal');
@@ -1435,9 +1841,12 @@ for (const recipe of [false, true]) {
             await expect(page.locator('#amountInput')).toHaveValue('30');
             await page.getByRole('button', { name: 'Edit food details' }).click();
             await page.getByLabel('Name', { exact: true }).fill('Corrected oats');
-            await page.getByLabel('Calories (kcal)', { exact: true }).fill('380');
+            await page.getByLabel('Nutrition basis amount').fill('150');
+            await page.getByLabel('Calories (kcal)', { exact: true }).fill('570');
             await page.getByRole('button', { name: 'Save food', exact: true }).click();
             await expect(page.locator('#foodReviewEditorModal')).toHaveCount(0);
+            await expect(page.locator('#amountInput')).toHaveValue('30');
+            await expect(page.locator('#foodPreviewPer')).toHaveText('Nutrition for 30 g');
             await expect(page.locator('#calculatedCalories')).toHaveText('114');
             const header = (await page.locator('#modal .modal-title').boundingBox())!;
             await page.mouse.move(header.x + header.width / 2, header.y + header.height / 2);

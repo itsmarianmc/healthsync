@@ -2783,7 +2783,7 @@ input::-webkit-inner-spin-button {
 }
 
 #appOverlay[data-sheet-covered]>.modal,
-#barcodeSearchOverlay[data-sheet-covered]>.modal {
+.barcode-search-overlay[data-sheet-covered]>.modal {
 	scale: 0.92;
 	translate: 0 10px;
 }
@@ -3267,11 +3267,11 @@ input::-webkit-inner-spin-button {
 	width: 22px;
 }
 
-.app-toggle-switch[aria-pressed="true"] {
+.app-toggle-switch[aria-checked="true"] {
 	background: var(--accent);
 }
 
-.app-toggle-switch[aria-pressed="true"]::after {
+.app-toggle-switch[aria-checked="true"]::after {
 	transform: translateX(20px);
 }
 
@@ -4525,21 +4525,21 @@ input::-webkit-inner-spin-button {
 	}
 }
 
-#barcodeSearchModal .search-step-inner,
-#barcodeSearchModal .food-confirm-inner {
+.barcode-search-modal .search-step-inner,
+.barcode-search-modal .food-confirm-inner {
 	animation: searchPopupFadeIn 0.25s ease;
 }
 
-#barcodeSearchBody {
+.barcode-search-body {
 	transition: height 0.3s var(--ease, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
-#barcodeSearchBody .search-step-inner,
-#barcodeSearchBody .food-confirm-inner {
+.barcode-search-body .search-step-inner,
+.barcode-search-body .food-confirm-inner {
 	padding: 0 0 24px;
 }
 
-#barcodeSearchPreviewCard {
+.barcode-search-preview-card {
 	scroll-margin-top: 16px;
 }
 
@@ -9741,6 +9741,48 @@ body:has(.app-overlay.visible) .update-banner {
 .food-library-modal .food-library-hint {
 	color: var(--food-library-secondary);
 	font-size: 12px;
+}
+
+.food-library-modal .food-library-body .food-temporary-option {
+	flex-direction: row;
+	align-items: center;
+	gap: 12px;
+	min-height: 44px;
+	padding: 10px 12px;
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	background: var(--surface2);
+	cursor: pointer;
+	text-align: left;
+}
+
+.food-temporary-option input {
+	flex: 0 0 auto;
+	width: 18px;
+	height: 18px;
+	margin: 0;
+	accent-color: var(--accent);
+	color-scheme: dark;
+	cursor: inherit;
+}
+
+[data-theme="light"] .food-temporary-option input {
+	color-scheme: light;
+}
+
+.food-temporary-title,
+.food-temporary-option .food-library-hint {
+	display: block;
+}
+
+.food-temporary-title {
+	color: var(--text);
+	font-weight: 600;
+}
+
+.food-temporary-option:has(input:focus-visible) {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
 }
 
 .food-selection-row {

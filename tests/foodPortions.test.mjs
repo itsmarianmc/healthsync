@@ -26,6 +26,27 @@ test('per-piece nutrition normalizes and scales through the shared FoodEntry cal
   assert.equal(entry.unit, 'g');
 });
 
+test('a custom nutrition reference normalizes independently of consumption and survives storage', () => {
+  for (const [reference, unit, amount, kcal, prot] of [[150, 'g', 80, 160, 8], [250, 'ml', 125, 150, 7.5], [12.5, 'g', 6.25, 150, 7.5]]) {
+    const template = food({ defaultUnit: unit, nutritionBasisAmount: reference,
+      kcalPer100: portions.nutritionPer100(300, reference), protPer100: portions.nutritionPer100(15, reference) });
+    library.saveCustomFoods([template], 'guest');
+    const [saved] = library.readCustomFoods();
+    assert.equal(saved.nutritionBasisAmount, reference);
+    assert.deepEqual(portions.foodDefaultAmount(saved), { amount: reference, unit });
+    const entry = entries.buildFoodAmountEntry(saved, amount, unit);
+    assert.equal(entry.kcal, kcal);
+    assert.equal(entry.prot, prot);
+    assert.equal(entry.foodSnapshot.nutritionBasisAmount, reference);
+    assert.equal(entry.foodSnapshot.selectedAmount.amount, amount);
+  }
+  assert.deepEqual(portions.foodDefaultAmount(food()), { amount: 100, unit: 'g' });
+  for (const nutritionBasisAmount of [0, -1, NaN, Infinity, '50', null]) {
+    assert.equal(library.parseCustomFoods([food({ nutritionBasisAmount })]), null);
+    assert.throws(() => portions.nutritionPer100(300, nutritionBasisAmount));
+  }
+});
+
 test('ounce, US fluid ounce, kilogram and liter have separate mass/volume conversions', () => {
   const solid = food();
   const liquid = food({ defaultUnit: 'ml', isLiquid: true });

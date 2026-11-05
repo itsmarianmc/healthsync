@@ -12,6 +12,9 @@ function validFood(value: unknown): value is FoodSearchResult & Record<string, u
     return typeof food.name === 'string' && !!food.name.trim() && food.name.trim().length <= 200 &&
         (food.brand === undefined || (typeof food.brand === 'string' && food.brand.trim().length <= 200)) &&
         (food.portion === undefined || validFoodPortion(food.portion)) &&
+        (food.nutritionBasisAmount === undefined || (!food.portion &&
+            (food.defaultUnit === 'g' || food.defaultUnit === 'ml') &&
+            Number.isFinite(food.nutritionBasisAmount) && food.nutritionBasisAmount > 0)) &&
         validBarcodeAmounts(food.barcodeAmounts) &&
         nutrients.every(key => typeof food[key] === 'number' && Number.isFinite(food[key]) && food[key] >= 0);
 }
@@ -30,6 +33,7 @@ export function parseCustomFoods(value: unknown): CustomFood[] | null {
             kcalPer100: item.kcalPer100, protPer100: item.protPer100,
             carbPer100: item.carbPer100, fatPer100: item.fatPer100,
             defaultUnit: item.defaultUnit, isLiquid: item.defaultUnit === 'ml',
+            ...(item.nutritionBasisAmount === undefined ? {} : { nutritionBasisAmount: item.nutritionBasisAmount }),
             ...(item.portion ? { portion: { unit: item.portion.unit, amount: item.portion.amount } } : {}),
         });
     }
@@ -91,7 +95,7 @@ function foodIdentity(food: FoodSearchResult): string {
         food.defaultUnit || (food.isLiquid ? 'ml' : 'g'), !!food.isLiquid,
         ...nutrients.map(nutrient => food[nutrient]), food.servingSize ?? null,
         food.satFatPer100 ?? null, food.sugarPer100 ?? null, food.saltPer100 ?? null,
-        !!food.isPrepared, food.portion?.unit ?? null, food.portion?.amount ?? null]);
+        !!food.isPrepared, food.portion?.unit ?? null, food.portion?.amount ?? null, food.nutritionBasisAmount ?? 100]);
 }
 
 export function searchSavedFoods(custom: CustomFood[], favourites: unknown, query: string): SavedFood[] {

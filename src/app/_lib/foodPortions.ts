@@ -94,7 +94,8 @@ export function foodDefaultAmount(food: FoodSearchResult): { amount: number; uni
     if (selected && Number.isFinite(selected.amount) && selected.amount > 0 && units.includes(selected.unit)) return selected;
     const unit = food.recipeSnapshot?.recipe.yield.unit === 'serving' || food.barcodeAmounts?.basis === 'serving' ? 'serving'
         : food.portion && units.includes(food.portion.unit) ? food.portion.unit : units[0] || '';
-    return { amount: unit === 'serving' || unit === food.portion?.unit ? 1 : 100, unit };
+    return { amount: unit === 'serving' || unit === food.portion?.unit ? 1 :
+        unit === 'g' || unit === 'ml' ? food.nutritionBasisAmount ?? 100 : 100, unit };
 }
 
 export function foodAmountLabel(food: FoodSearchResult, amount: number, unit: FoodAmountUnit): string {
@@ -105,7 +106,7 @@ export function foodBasisLabel(food: FoodSearchResult): string {
     if (food.barcodeAmounts) return food.barcodeAmounts.basisLabel;
     if (food.recipeSnapshot?.recipe.yield.unit === 'serving') return '1 serving';
     return food.portion ? `1 ${FOOD_UNIT_LABELS[food.portion.unit]} (${formatFoodAmount(food.portion.amount)} ${foodBaseUnit(food)})` :
-        `100 ${food.defaultUnit || (food.isLiquid ? 'ml' : 'g')}`;
+        `${food.nutritionBasisAmount ?? 100} ${food.defaultUnit || (food.isLiquid ? 'ml' : 'g')}`;
 }
 
 export function foodUnitLabel(food: FoodSearchResult, unit: FoodAmountUnit): string {

@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
 import { APP_BUILD_ID } from './app/_lib/build';
 
 const csp = [
@@ -15,7 +14,7 @@ const csp = [
     "object-src 'none'",
 ].join(' ');
 
-export function proxy(_request: NextRequest) {
+export function proxy() {
     const response = NextResponse.next();
 
     response.headers.set('Content-Security-Policy', csp);

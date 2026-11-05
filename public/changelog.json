@@ -2,7 +2,7 @@
     "5.0.0": {
         "Create Foods And Recipes": [
             "You can choose Food or Recipe from Create food in the Custom Food menu, edit it in a separate window and return to your list without losing its scroll position.",
-            "You can save a food or recipe for later or add it to your meal selection before confirming food logging."
+            "Choose Temporary food to review and log a one-off food without saving it to your library. You can find it in Search for 14 days after logging it."
         ],
         "Find Saved Foods Offline": [
             "You can find recently logged foods from the last 14 days alongside your saved foods, browse results by the day you last used them and switch to a separate Favorites view; foods you save stay in your library.",
@@ -25,7 +25,7 @@
             "You can include your saved food library when you export your data from Settings."
         ],
         "Build Your Own Recipes": [
-            "You can combine foods from your library into a recipe, enter ingredient quantities and choose a final number of servings, weight or volume to calculate its nutrition.",
+            "Choose ingredients from your library or scan a barcode directly into your recipe. You can adjust each amount and set a final yield in servings, grams or milliliters.",
             "You keep the original nutrition of meals you already logged when you later edit a recipe or one of its ingredients."
         ],
         "Choose When You Ate": [
@@ -35,7 +35,7 @@
         "Review Food Details In Place": [
             "You can view nutrition, adjust a portion and edit a saved food or recipe in a window above your list, then return to the same search and scroll position.",
             "You can preview calories and nutrients while editing, inspect recipe ingredients and change a favorite without saving unfinished food edits.",
-            "You see compact nutrition numbers with up to three significant digits, without extra zeros or changes to your saved nutrition values."
+            "You can enter nutrition for the amount on the label, such as 150 g or 250 ml. HealthSync keeps that reference when you edit the food again and shows compact nutrition numbers in previews."
         ],
         "Review AI Suggestions": [
             "You can open food or recipe editing in a separate window from the action below the preview, then save or cancel and return to the same portion before logging. You can review an AI recipe by choosing matching ingredients from your library.",

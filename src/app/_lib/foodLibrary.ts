@@ -1,4 +1,4 @@
-import type { CatalogFood, FoodEntry, FoodSearchResult } from './types';
+import type { CatalogFood, FoodEntry, FoodSearchResult, RecipeBarcodeFood, RecipeIngredient } from './types';
 import { activeOwner } from './localData';
 import { parseCustomFoods, readCustomFoods, readFavourites } from './customFoods';
 import { foodAmountToBase, foodAmountUnits } from './foodPortions';
@@ -6,6 +6,7 @@ import { generateId } from './ids';
 
 export const FOOD_LIBRARY_KEY = 'calsync_food_library_v1';
 export const NUTRIENTS = ['kcalPer100', 'protPer100', 'carbPer100', 'fatPer100'] as const;
+export const MAX_RECIPE_INGREDIENTS = 100;
 export type LibraryChange = { id: string; foodId: string; at: number } & (
     { kind: 'definition'; food: CatalogFood | null } | { kind: 'favorite'; favorite: boolean }
 );
@@ -25,6 +26,7 @@ export function foodIdentity(food: FoodSearchResult): string {
     return JSON.stringify([food.name.trim(), food.brand?.trim() || '', food.barcode || '',
         food.defaultUnit || (food.isLiquid ? 'ml' : 'g'), ...NUTRIENTS.map(key => food[key]),
         food.portion?.unit || '', food.portion?.amount || null, food.servingSize || null,
+        ...(food.nutritionBasisAmount !== undefined && food.nutritionBasisAmount !== 100 ? [food.nutritionBasisAmount] : []),
         ...(food.barcodeAmounts ? [food.barcodeAmounts] : [])]);
 }
 
@@ -47,6 +49,34 @@ function preferredFood<T extends FoodSearchResult>(foods: T[]): T | undefined {
     return foods.find(food => food.barcodeAmounts && foodAmountUnits(food).length) || foods[0];
 }
 
+function validRecipeIngredient(item: RecipeIngredient): boolean {
+    if (!item || !Number.isFinite(item.amount) || item.amount <= 0 ||
+        typeof item.unit !== 'string' || !item.unit || item.unit.length > 200) return false;
+    if (item.barcodeFood === undefined) return typeof item.foodId === 'string' && !!item.foodId;
+    const food = item.barcodeFood;
+    if (item.foodId !== undefined || food?.isBarcode !== true || food.provenance !== 'barcode' ||
+        !food.barcodeAmounts || food.barcodeAmounts.basis === 'unknown' ||
+        (food.emoji !== undefined && typeof food.emoji !== 'string') ||
+        (food.color !== undefined && typeof food.color !== 'string') ||
+        (food.barcode !== undefined && (typeof food.barcode !== 'string' || !food.barcode.trim() || food.barcode.length > 80)) ||
+        !parseCustomFoods([{ ...food, id: 'recipe-barcode' }])) return false;
+    try { foodAmountToBase(food, item.amount, item.unit); return true; }
+    catch { return false; }
+}
+
+export function createBarcodeIngredient(food: FoodSearchResult, amount: number, unit: string): RecipeIngredient {
+    if (!food.isBarcode || !food.barcodeAmounts) throw new Error('Invalid scanned product');
+    const barcodeFood: RecipeBarcodeFood = {
+        name: food.name.trim(), brand: food.brand?.trim(), barcode: food.barcode, emoji: food.emoji, color: food.color,
+        kcalPer100: food.kcalPer100, protPer100: food.protPer100, carbPer100: food.carbPer100, fatPer100: food.fatPer100,
+        defaultUnit: food.barcodeAmounts.basis === 'ml' ? 'ml' : 'g', isBarcode: true, provenance: 'barcode',
+        barcodeAmounts: food.barcodeAmounts,
+    };
+    const ingredient = { barcodeFood, amount, unit };
+    if (!validRecipeIngredient(ingredient)) throw new Error('Invalid barcode ingredient');
+    return ingredient;
+}
+
 export function validateDefinition(value: unknown): CatalogFood {
     const food = value as CatalogFood;
     if (!food || !['food', 'recipe'].includes(food.kind) || !parseCustomFoods([food]) ||
@@ -54,13 +84,11 @@ export function validateDefinition(value: unknown): CatalogFood {
         (food.barcode !== undefined && (typeof food.barcode !== 'string' || food.barcode.length > 80))) throw new Error('Invalid food definition');
     if (food.kind === 'recipe') {
         const recipe = food.recipe;
-        if (!recipe || !Array.isArray(recipe.ingredients) || !recipe.ingredients.length || recipe.ingredients.length > 100 ||
+        if (!recipe || !Array.isArray(recipe.ingredients) || !recipe.ingredients.length || recipe.ingredients.length > MAX_RECIPE_INGREDIENTS ||
             !recipe.yield || !['g', 'ml', 'serving'].includes(recipe.yield.unit) || !Number.isFinite(recipe.yield.amount) || recipe.yield.amount <= 0 ||
-            recipe.ingredients.some(item => !item || typeof item.foodId !== 'string' || !item.foodId ||
-                !Number.isFinite(item.amount) || item.amount <= 0 ||
-                typeof item.unit !== 'string' || !item.unit || item.unit.length > 200)) throw new Error('Invalid recipe');
+            !recipe.ingredients.every(validRecipeIngredient)) throw new Error('Invalid recipe');
     }
-    return { ...food, name: food.name.trim(), brand: food.brand?.trim(), catalogFoodId: food.id, isLiquid: food.defaultUnit === 'ml' };
+    return { ...food, temporary: undefined, name: food.name.trim(), brand: food.brand?.trim(), catalogFoodId: food.id, isLiquid: food.defaultUnit === 'ml' };
 }
 
 export function validChange(value: unknown): value is LibraryChange {
@@ -177,7 +205,7 @@ export function ensureLibraryFood(food: FoodSearchResult, owner = activeOwner(),
         JSON.stringify(existing.selectedAmount) !== JSON.stringify(food.selectedAmount)) {
         saveLibraryFood({ ...existing, selectedAmount: food.selectedAmount }, owner);
     }
-    return { ...food, catalogFoodId: id };
+    return { ...food, temporary: undefined, catalogFoodId: id };
 }
 
 export function setFoodFavorite(food: FoodSearchResult, favorite: boolean, owner = activeOwner()): FoodSearchResult {
@@ -203,7 +231,7 @@ export function deleteLibraryFood(id: string, owner = activeOwner()): void {
     const { foods } = libraryData();
     const selected = foods.get(id);
     const ids = new Set(selected?.kind === 'food' ? [...foods.values()].filter(food => food.kind === 'food' && sameFood(food, selected)).map(food => food.id) : [id]);
-    if ([...foods.values()].some(food => food.recipe?.ingredients.some(item => ids.has(item.foodId)))) throw new Error('Used by a recipe. Edit or delete that recipe first.');
+    if ([...foods.values()].some(food => food.recipe?.ingredients.some(item => item.foodId && ids.has(item.foodId)))) throw new Error('Used by a recipe. Edit or delete that recipe first.');
     for (const foodId of ids) mutate({ foodId, kind: 'definition', food: null } as Omit<LibraryChange, 'id' | 'at'>, owner);
 }
 
@@ -216,9 +244,14 @@ export function resolveFood(id: string, foods: Map<string, CatalogFood>, path = 
     if (definition.kind !== 'recipe') return { ...validated, catalogFoodId: id };
     const recipe = definition.recipe!;
     const nextPath = new Set([...path, id]);
-    const ingredients = recipe.ingredients.map(item => ({ ...item, food: resolveFood(item.foodId, foods, nextPath, budget) }));
-    const totals = Object.fromEntries(NUTRIENTS.map(key => [key, ingredients.reduce((total, item) =>
-        total + item.food[key] * foodAmountToBase(item.food, item.amount, item.unit).amount / 100, 0)]));
+    const ingredients = recipe.ingredients.map(item => {
+        if (!item.barcodeFood) return { amount: item.amount, unit: item.unit, food: resolveFood(item.foodId, foods, nextPath, budget) };
+        if (--budget.remaining < 0) throw new Error('This recipe has too many nested ingredients. Simplify it before logging.');
+        return { amount: item.amount, unit: item.unit, food: item.barcodeFood };
+    });
+    const baseAmounts = ingredients.map(item => foodAmountToBase(item.food, item.amount, item.unit).amount);
+    const totals = Object.fromEntries(NUTRIENTS.map(key => [key, ingredients.reduce((total, item, index) =>
+        total + item.food[key] * baseAmounts[index] / 100, 0)]));
     const factor = recipe.yield.unit === 'serving' ? 1 / recipe.yield.amount : 100 / recipe.yield.amount;
     const result = { ...definition, ...Object.fromEntries(NUTRIENTS.map(key => [key, totals[key] * factor])),
         catalogFoodId: id, defaultUnit: recipe.yield.unit === 'ml' ? 'ml' : 'g', isLiquid: recipe.yield.unit === 'ml',
@@ -231,7 +264,8 @@ export function resolveFood(id: string, foods: Map<string, CatalogFood>, path = 
 export function historyFood(entry: FoodEntry): FoodSearchResult | null {
     if (entry.foodSnapshot) {
         const food = { ...entry.foodSnapshot, barcode: entry.foodSnapshot.barcode || entry.barcode,
-            isBarcode: entry.foodSnapshot.isBarcode || entry.isBarcode, catalogFoodId: entry.catalogFoodId };
+            isBarcode: entry.foodSnapshot.isBarcode || entry.isBarcode,
+            catalogFoodId: entry.foodSnapshot.temporary ? undefined : entry.catalogFoodId };
         if (!food.selectedAmount && entry.amount && foodAmountUnits(food).includes(entry.unit || 'g')) food.selectedAmount = { amount: entry.amount, unit: entry.unit || 'g' };
         return food;
     }
@@ -254,7 +288,7 @@ export function searchLibrary(entries: FoodEntry[], query: string, onlyFavorites
     for (const entry of [...entries].sort((a, b) => b.ts - a.ts)) {
         const food = historyFood(entry);
         if (!food) continue;
-        let id = entry.catalogFoodId;
+        let id = food.temporary ? `temporary:${foodIdentity(food)}` : food.catalogFoodId;
         if (!id) {
             const matches = [...foods.values()].filter(item => item.kind === 'food' && sameFood(item, food));
             id = preferredFood(matches)?.id || `history:${foodIdentity(food)}`;
@@ -272,7 +306,7 @@ export function searchLibrary(entries: FoodEntry[], query: string, onlyFavorites
     const unique = new Map<string, LibraryItem>();
     for (const item of results.values()) {
         const recipe = item.food.recipeSnapshot || ('kind' in item.food && item.food.kind === 'recipe');
-        const key = recipe ? item.id : barcodeIdentity(item.food) || `food:${foodIdentity(item.food)}`;
+        const key = recipe || item.food.temporary ? item.id : barcodeIdentity(item.food) || `food:${foodIdentity(item.food)}`;
         const previous = unique.get(key);
         if (!previous) { unique.set(key, item); continue; }
         const preferred = preferredFood([previous.food, item.food]) === item.food ? item : previous;

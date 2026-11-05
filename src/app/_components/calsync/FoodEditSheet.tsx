@@ -33,7 +33,7 @@ function FoodEditDetails({ food, initialFood }: { food: FoodSearchResult | null;
             <div className="food-preview-info"><div className="food-detail-heading"><h3 title={food?.name || initialFood.name}>{food?.name || initialFood.name}</h3>
                 <FoodFavoriteButton food={{ ...initialFood, selectedAmount: { amount: Number(amount), unit: activeUnit } }} label={food?.name || initialFood.name} />
             </div>{libraryBrand(food?.brand) && <p>{libraryBrand(food?.brand)}</p>}</div></div>
-        <NutritionFacts nutrition={nutrition} />
+        <NutritionFacts nutrition={nutrition} amountLabel={nutrition && food ? `${amount} ${foodUnitLabel(food, activeUnit)}` : undefined} />
         <section className="food-edit-portion" aria-label="Portion size"><h3>Portion size</h3>
             <div className="food-edit-portion-row"><div className="food-edit-portion-fields">
                 <input className="form-input" aria-label="Preview amount" type="text" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} />

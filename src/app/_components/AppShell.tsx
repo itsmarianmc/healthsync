@@ -404,12 +404,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <SupplementsModal isOpen={supplementsOpen} onClose={closeSupplements} />
 
                 <BarcodeSearchPopup
+                    mode="log"
                     isOpen={searchPopupOpen}
                     onClose={() => setSearchPopupOpen(false)}
                     onLog={handleFoodLog}
                 />
 
-                {customFoodsOpen && <CustomFoodsModal onClose={() => setCustomFoodsOpen(false)} />}
+                {customFoodsOpen && <CustomFoodsModal onClose={() => setCustomFoodsOpen(false)} onOpenSearch={() => {
+                    setLibraryView('search');
+                    setSavedFoodsOpen(true);
+                }} />}
                 {savedFoodsOpen && <SavedFoodsModal initialView={libraryView} onClose={() => setSavedFoodsOpen(false)} />}
 
                 {pathname !== '/food' && showFooter && <GlobalFoodActions key={user?.id ?? 'guest'} />}

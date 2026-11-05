@@ -9,6 +9,7 @@ interface BarcodeScannerProps {
     onClose: () => void;
     onScanned: (barcode: string) => void;
     embedded?: boolean;
+    manualFallback?: boolean;
     selectedDeviceId?: string;
     onCamerasChange?: (cameras: MediaDeviceInfo[], activeDeviceId?: string) => void;
     onStatusChange?: (status: string) => void;
@@ -20,7 +21,7 @@ type Reader = {
     stop?: () => void;
 };
 
-export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded, selectedDeviceId, onCamerasChange, onStatusChange }: BarcodeScannerProps) {
+export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded, manualFallback = true, selectedDeviceId, onCamerasChange, onStatusChange }: BarcodeScannerProps) {
     const sheet = useDraggableSheet({ onClose });
     const openSheet = sheet.open;
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -69,7 +70,10 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded, s
     }, []);
 
     const startCamera = useCallback(async (requestedDeviceId?: string) => {
-        if (!navigator.mediaDevices?.getUserMedia) { updateStatus('Camera scanning is not supported by this browser. Enter the barcode manually.'); return; }
+        if (!navigator.mediaDevices?.getUserMedia) {
+            updateStatus(manualFallback ? 'Camera scanning is not supported by this browser. Enter the barcode manually.' : 'Camera scanning is not supported by this browser.');
+            return;
+        }
         const ZXing = (window as unknown as { ZXingBrowser?: { BrowserMultiFormatReader: new () => Reader } }).ZXingBrowser;
         if (!ZXing) { updateStatus('Barcode scanner is still loading. Try again in a moment.'); return; }
         const epoch = startEpochRef.current;
@@ -78,9 +82,10 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded, s
         let lastError: unknown;
         let stream: MediaStream | undefined;
         for (const constraints of barcodeCameraConstraints(requestedDeviceId)) {
+            if (epoch !== startEpochRef.current || !mountedRef.current) return;
             try { stream = await navigator.mediaDevices.getUserMedia(constraints); break; } catch (error) { lastError = error; }
         }
-        if (!stream) { if (epoch === startEpochRef.current) updateStatus(describeCameraError(lastError)); return; }
+        if (!stream) { if (epoch === startEpochRef.current) updateStatus(describeCameraError(lastError, manualFallback)); return; }
         if (epoch !== startEpochRef.current || !mountedRef.current) { stream.getTracks().forEach(track => track.stop()); return; }
         streamRef.current = stream;
         const track = stream.getVideoTracks()[0];
@@ -117,9 +122,9 @@ export default function BarcodeScanner({ isOpen, onClose, onScanned, embedded, s
         } catch (error) {
             if (epoch !== startEpochRef.current || !mountedRef.current) return;
             stopCamera();
-            updateStatus(describeCameraError(error));
+            updateStatus(describeCameraError(error, manualFallback));
         }
-    }, [embedded, refreshCameraList, stopCamera, updateStatus]);
+    }, [embedded, manualFallback, refreshCameraList, stopCamera, updateStatus]);
 
     const scheduleStart = useCallback((deviceId?: string, delay = 250) => {
         if (startTimerRef.current) clearTimeout(startTimerRef.current);

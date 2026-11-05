@@ -7,11 +7,25 @@ export type FoodSelection = { id: string; food: FoodSearchResult; amount: string
 export const FOOD_SELECTION_KEY = 'calsync_food_selection_v1';
 export type FoodSelectionCache = { version: 1; items: FoodSelection[]; ts?: number; batch?: FoodEntry[] };
 
-export function readFoodSelection(): FoodSelectionCache {
+export function readFoodSelection(strict = false): FoodSelectionCache {
     try {
         const value = JSON.parse(localStorage.getItem(FOOD_SELECTION_KEY) || '{"version":1,"items":[]}');
-        return value.version === 1 && Array.isArray(value.items) ? value : { version: 1, items: [] };
-    } catch { return { version: 1, items: [] }; }
+        if (value.version === 1 && Array.isArray(value.items)) return value;
+        throw new Error('Invalid food selection');
+    } catch (error) {
+        if (strict) throw error;
+        return { version: 1, items: [] };
+    }
+}
+
+export function prependFoodSelection(item: FoodSelection): boolean {
+    const cached = readFoodSelection(true);
+    if (cached.batch?.length) return false;
+    if (!cached.items.some(existing => existing.id === item.id)) {
+        localStorage.setItem(FOOD_SELECTION_KEY, JSON.stringify({ ...cached, items: [item, ...cached.items] }));
+        window.dispatchEvent(new Event('storage'));
+    }
+    return true;
 }
 
 export function createFoodSelection(food: FoodSearchResult): FoodSelection {

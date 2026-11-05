@@ -15,7 +15,7 @@ import { workspaceGuard } from '../../_lib/localData';
 import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
 import { BEFORE_APP_RELOAD } from '../../_lib/appUpdates';
 import { useSheetSteps } from '../../_hooks/useSheetSteps';
-import { formatFoodNumber } from '../../_lib/foodPortions';
+import { foodUnitLabel, formatFoodNumber } from '../../_lib/foodPortions';
 
 
 interface CalSyncModalProps {
@@ -559,7 +559,8 @@ export default function CalSyncModal({
                                                     </button>}
                                                 </div>
                                                 <div className="food-preview-brand" id="foodPreviewBrand">{selFood.brand}</div>
-                                                <div className="food-preview-per" id="foodPreviewPer">{selFood.recipeSnapshot?.recipe.yield.unit === 'serving' ? 'per serving' : `per 100${selFood.defaultUnit}`}</div>
+                                                <div className="food-preview-per" id="foodPreviewPer">Nutrition for {selFood.recipeSnapshot?.recipe.yield.unit === 'serving'
+                                                    ? `${amount / 100} serving(s)` : `${amount} ${foodUnitLabel(selFood, unit)}`}</div>
                                             </div>
                                         </div>
 

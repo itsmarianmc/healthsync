@@ -106,6 +106,13 @@ Exit layers remain blocking until completion. Read-only dialogs focus their
 panel when there is no visible focusable control. Centered exceptions use
 `useBlockingDialog` to share this ownership without adopting sheet translation.
 
+The manual recipe form opens the compact catalog picker or recipe-mode
+`BarcodeSearchPopup` in a portal outside the editor overlay. The shared stack
+covers the mounted editor through child exit. Scanner `onCloseStart`
+invalidates the lookup and stops the camera for button, Escape, backdrop and
+drag dismissal. After stack release, focus returns to **Choose Food** without
+scrolling the form, or to the new ingredient's amount after a confirmed scan.
+
 ### Established causes
 
 The old hook cleared its opening flag when the CSS transition **started**.
@@ -182,7 +189,8 @@ physical iOS results. The command-results section records final run status.
 | CalSyncModal description child | AI → Describe Text; Extra actions → Describe Food | shared sheet (migrated) | M; submit closes child without dismissing result |
 | AiMethodModal | Food AI button; Dashboard quick add | shared sheet | M; native picker remains in initiating click |
 | CalHistoryModal | Food History | shared sheet | M |
-| BarcodeSearchPopup camera/confirmation/manual editing | Extra actions → Scan Barcode | shared sheet | M/R; delayed mocked OFF response; internal steps never replay entrance |
+| BarcodeSearchPopup camera/confirmation/manual editing | Extra actions → Scan Barcode, recipe editor → Scan Barcode | shared sheet; recipe mode nests over the editor | M/R; delayed mocked OFF response; internal steps never replay entrance |
+| Recipe ingredient catalog picker | Recipe editor → Choose Food | compact nested food-library sheet | Local search; mounted editor and focus return |
 | BarcodeScanner standalone branch | No production caller: current popup embeds its video | shared sheet | Component harness M/R only; not claimed as a real app entry |
 | CustomFoodsModal manager | Extra actions → Create food | FoodLibrarySheet → shared sheet | M; list remains mounted |
 | FoodCreateChoiceSheet | Manager → Create food | FoodLibrarySheet, compact | M/R; expanded preference does not enlarge chooser |

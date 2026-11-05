@@ -7,33 +7,50 @@ import { useCookieConsent } from '../../_lib/useCookieConsent';
 import { useAuth } from '../../_context/AuthContext';
 import { friendlyCameraLabel } from '../../_lib/camera';
 import { buildFoodAmountEntry, foodNutrition } from '../../_lib/foodEntry';
-import type { FoodEntry, FoodSearchResult } from '../../_lib/types';
+import type { FoodEntry, FoodSearchResult, RecipeIngredient } from '../../_lib/types';
 import { mapBarcodeProduct } from '../../_lib/barcodeFood';
-import { foodAmountToBase, foodAmountUnits, foodUnitOptionLabel, foodBasisLabel, foodConversionIssue, formatFoodNumber, type FoodAmountUnit } from '../../_lib/foodPortions';
+import { foodAmountToBase, foodAmountUnits, foodUnitLabel, foodUnitOptionLabel, foodBasisLabel, foodConversionIssue, formatFoodNumber, type FoodAmountUnit } from '../../_lib/foodPortions';
 import FoodReviewEditorSheet from './FoodReviewEditorSheet';
 import { useSheetSteps } from '../../_hooks/useSheetSteps';
 import { isBarcodeFood } from './foodLibraryPresentation';
-import { ensureLibraryFood, isFoodFavorite, setFoodFavorite } from '../../_lib/foodLibrary';
+import { createBarcodeIngredient, ensureLibraryFood, isFoodFavorite, setFoodFavorite } from '../../_lib/foodLibrary';
 import { activeOwner, workspaceGuard } from '../../_lib/localData';
 
 type Step = 'camera' | 'confirm';
 
-interface BarcodeSearchPopupProps {
+type BarcodeSearchPopupProps = {
     isOpen: boolean;
     onClose: () => void;
-    onLog: (entry: FoodEntry) => Promise<void>;
-}
+} & ({ mode: 'log'; onLog: (entry: FoodEntry) => Promise<void> } |
+    { mode: 'recipe'; onAddIngredient: (ingredient: RecipeIngredient) => boolean });
 
-export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSearchPopupProps) {
+export default function BarcodeSearchPopup(props: BarcodeSearchPopupProps) {
+    const { isOpen, onClose } = props;
+    const forRecipe = props.mode === 'recipe';
+    const idPrefix = forRecipe ? 'recipeBarcodeSearch' : 'barcodeSearch';
     const { canUseThirdParty } = useCookieConsent();
     const { showToast, retrySync, user } = useAuth();
     const [editing, setEditing] = useState(false);
+    const [closing, setClosing] = useState(false);
     const guard = useRef<() => boolean>(() => false);
-    const { open, close, refreshHeight, modalRef, overlayRef, handleProps } = useDraggableSheet({ onClose, additionalTransitionProperties: ['scale', 'translate'] });
+    const lookup = useRef<AbortController | null>(null);
+    const cancelLookup = useCallback(() => {
+        lookup.current?.abort();
+        lookup.current = null;
+    }, []);
+    const { open, close, refreshHeight, modalRef, overlayRef, handleProps } = useDraggableSheet({
+        onClose, restoreFocus: !forRecipe, additionalTransitionProperties: ['scale', 'translate'],
+        onCloseStart: () => {
+            guard.current = () => false;
+            cancelLookup();
+            setClosing(true);
+        },
+    });
 
     const [step, setStep] = useState<Step>('camera');
     const { setTrackRef, painted, changing, onTransitionEnd } = useSheetSteps(step === 'camera' ? 0 : 1);
     const [saving, setSaving] = useState(false);
+    const savingRef = useRef(false);
 
     const [cameraKey, setCameraKey] = useState(0);
     const [cameraStatus, setCameraStatus] = useState('Scanning...');
@@ -49,6 +66,7 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
     useEffect(() => {
         if (isOpen) {
             guard.current = workspaceGuard();
+            setClosing(false);
             setEditing(false);
             setStep('camera');
         } else {
@@ -62,7 +80,21 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
             setCameraList([]);
             setActiveCameraId(undefined);
         }
-    }, [isOpen]);
+        return () => {
+            openedRef.current = false;
+            guard.current = () => false;
+            cancelLookup();
+        };
+    }, [isOpen, cancelLookup]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const checkWorkspace = () => { if (!guard.current()) close(); };
+        window.addEventListener('storage', checkWorkspace);
+        return () => window.removeEventListener('storage', checkWorkspace);
+    }, [isOpen, close]);
+
+    useEffect(() => { if (!canUseThirdParty) cancelLookup(); }, [canUseThirdParty, cancelLookup]);
 
     const prevStepRef = useRef<Step | null>(null);
     useEffect(() => {
@@ -95,49 +127,72 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
 
     const handleScanned = useCallback(async (code: string) => {
         const isCurrent = guard.current;
+        if (!isCurrent()) return;
         if (!canUseThirdParty) {
             setCameraStatus('Barcode lookup requires third-party consent.');
             return;
         }
+        cancelLookup();
+        const request = new AbortController();
+        lookup.current = request;
+        const timeout = window.setTimeout(() => request.abort(), 15000);
         setCameraStatus(`Scanned: ${code}`);
         try {
-            const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`, { signal: AbortSignal.timeout(15000) });
+            const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`, {
+                signal: request.signal,
+            });
             if (!res.ok) throw new Error('Barcode lookup failed');
             const data = await res.json();
-            if (guard.current !== isCurrent || !isCurrent()) return;
+            if (lookup.current !== request || guard.current !== isCurrent || !isCurrent()) return;
             if (data?.status === 1 && data.product) {
                 selectFood(mapBarcodeProduct({ ...data.product, code }));
             } else {
-                setCameraStatus('Product not found. Use manual entry below or scan another barcode.');
+                setCameraStatus(forRecipe ? 'Product not found. Restart to scan another barcode.' : 'Product not found. Use manual entry below or scan another barcode.');
             }
         } catch {
-            if (guard.current === isCurrent && isCurrent()) setCameraStatus('Lookup failed. Use manual entry below or check your connection.');
+            if (lookup.current === request && guard.current === isCurrent && isCurrent()) setCameraStatus(forRecipe
+                ? 'Lookup failed. Check your connection and restart the scanner.'
+                : 'Lookup failed. Use manual entry below or check your connection.');
+        } finally {
+            window.clearTimeout(timeout);
+            if (lookup.current === request) lookup.current = null;
         }
-    }, [canUseThirdParty]);
+    }, [canUseThirdParty, forRecipe, cancelLookup]);
 
-    const handleClose = useCallback(() => {
-        guard.current = () => false;
-        close();
-    }, [close]);
+    const restart = () => {
+        cancelLookup();
+        setCameraStatus('Scanning...');
+        setCameraKey(k => k + 1);
+    };
 
     let base: ReturnType<typeof foodAmountToBase> | null = null;
     try { if (selFood) base = foodAmountToBase(selFood, amount, unit); } catch {}
     const conversionIssue = selFood ? foodConversionIssue(selFood, unit) : undefined;
     const { kcal: calcKcal, prot: calcProt, carb: calcCarb, fat: calcFat } = selFood && base
         ? foodNutrition(selFood, base.amount) : { kcal: 0, prot: 0, carb: 0, fat: 0 };
+    const completeNutrition = selFood && [selFood.kcalPer100, selFood.protPer100, selFood.carbPer100, selFood.fatPer100]
+        .every(value => Number.isFinite(value) && value >= 0);
 
-    const logFood = async () => {
-        if (!selFood || saving || amount <= 0 || !guard.current() || activeOwner() !== (user?.id || 'guest')) return;
+    const confirmFood = async () => {
+        if (!selFood || !base || !completeNutrition || savingRef.current || !guard.current()) return;
+        if (props.mode !== 'recipe' && activeOwner() !== (user?.id || 'guest')) return;
+        if (props.mode === 'recipe' && !canUseThirdParty) return;
+        savingRef.current = true;
         setSaving(true);
         try {
-            buildFoodAmountEntry(selFood, amount, unit);
-            const saved = ensureLibraryFood({ ...selFood, selectedAmount: { amount, unit } }, undefined, true);
-            await onLog(buildFoodAmountEntry(saved, amount, unit));
-            void retrySync();
-            handleClose();
+            if (props.mode === 'recipe') {
+                if (!props.onAddIngredient(createBarcodeIngredient(selFood, amount, unit))) return;
+            } else {
+                buildFoodAmountEntry(selFood, amount, unit);
+                const saved = ensureLibraryFood({ ...selFood, selectedAmount: { amount, unit } }, undefined, true);
+                await props.onLog(buildFoodAmountEntry(saved, amount, unit));
+                void retrySync();
+            }
+            close();
         } catch {
-            showToast('Could not save food locally. Please try again.');
+            showToast(forRecipe ? 'Could not add this product. Check the nutrition and amount.' : 'Could not save food locally. Please try again.');
         } finally {
+            savingRef.current = false;
             setSaving(false);
         }
     };
@@ -147,14 +202,14 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
 
     return (<>
         <div
-            className="app-overlay"
-            id="barcodeSearchOverlay"
+            className={`app-overlay barcode-search-overlay${forRecipe ? ' food-library-nested-overlay' : ''}`}
+            id={`${idPrefix}Overlay`}
             aria-hidden={!isOpen}
             ref={overlayRef}
-            onClick={e => { if (e.target === overlayRef.current) handleClose(); }}
+            onClick={e => { if (e.target === overlayRef.current) close(); }}
         >
-            <div className="modal" id="barcodeSearchModal" ref={modalRef} role="dialog" aria-modal="true" aria-label="Barcode scanner" style={{ transform: 'translateY(100%)' }}>
-                <div className="modal-handle-zone" id="barcodeSearchHandleZone" {...handleProps}>
+            <div className="modal barcode-search-modal" id={`${idPrefix}Modal`} ref={modalRef} role="dialog" aria-modal="true" aria-label="Barcode scanner" style={{ transform: 'translateY(100%)' }}>
+                <div className="modal-handle-zone" id={`${idPrefix}HandleZone`} {...handleProps}>
                     <div className="modal-handle" />
                 </div>
 
@@ -163,39 +218,40 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
                         <button
                             className="back-btn"
                             type="button" aria-label="Back to barcode scanner"
-                            onClick={() => { setStep('camera'); setCameraKey(k => k + 1); }}
+                            onClick={() => { setStep('camera'); restart(); }}
                         >
                             <i className="fa-solid fa-arrow-left" aria-hidden="true" />
                         </button>
                     </div>}
                     <div className="modal-title">{titles[step]}</div>
-                    {!showBack && <div className="modal-btn--right">
-                        <button type="button" className="back-btn" aria-label="Close barcode scanner" onClick={handleClose}>
+                    {(!showBack || forRecipe) && <div className="modal-btn--right">
+                        <button type="button" className="back-btn" aria-label="Close barcode scanner" onClick={close}>
                             <i className="fa-solid fa-xmark" aria-hidden="true" />
                         </button>
                     </div>}
                 </div>
 
-                <div className="modal-body" id="barcodeSearchBody">
+                <div className="modal-body barcode-search-body" id={`${idPrefix}Body`}>
                     <div className="sheet-step-track" ref={setTrackRef} data-content-changing={changing} onTransitionEnd={onTransitionEnd}
                         style={{ display: 'flex', width: '200%', alignItems: 'flex-start', transform: `translateX(${step === 'camera' ? '0' : '-50%'})` }}>
                     <div inert={step !== 'camera'} aria-hidden={step !== 'camera'} style={{ width: '50%', flexShrink: 0, height: painted(0) ? 'auto' : 0, overflow: 'hidden' }}>
                         <div className="search-step-inner">
                             <div className="camera-sheet" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 <div className="camera-body">
-                                    <div className="camera-preview">
+                                    {(!forRecipe || canUseThirdParty) && <div className="camera-preview">
                                         <BarcodeScanner
                                             key={cameraKey}
-                                            isOpen={isOpen && step === 'camera'}
+                                            isOpen={isOpen && !closing && step === 'camera' && (!forRecipe || canUseThirdParty)}
                                             onClose={() => {}}
                                             onScanned={handleScanned}
                                             embedded={true}
+                                            manualFallback={!forRecipe}
                                             selectedDeviceId={activeCameraId}
                                             onCamerasChange={(cams, active) => { setCameraList(cams); setActiveCameraId(active); }}
                                             onStatusChange={setCameraStatus}
                                         />
                                         <div className="camera-overlay-frame" />
-                                    </div>
+                                    </div>}
                                     {cameraList.length > 1 && (
                                         <select
                                             className="form-input camera-select"
@@ -207,15 +263,17 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
                                             ))}
                                         </select>
                                     )}
-                                    <div className="search-status" aria-live="polite">{cameraStatus}</div>
+                                    <div className={`search-status${forRecipe ? ' active' : ''}`} aria-live="polite">{forRecipe && !canUseThirdParty
+                                        ? 'Barcode lookup requires third-party consent. Enable it in cookie settings to scan an ingredient.' : cameraStatus}</div>
                                     <div className="camera-controls">
-                                        <button type="button" className="option-btn" onClick={() => {
+                                        {!forRecipe && <button type="button" className="option-btn" onClick={() => {
+                                            cancelLookup();
                                             guard.current = workspaceGuard();
                                             setSelFood({ name: '', kcalPer100: NaN, protPer100: NaN, carbPer100: NaN, fatPer100: NaN, defaultUnit: 'g' }); setStep('confirm'); setEditing(true);
-                                        }}>Enter food manually</button>
-                                        <button className="option-btn" onClick={() => { setCameraStatus('Scanning...'); setCameraKey(k => k + 1); }}>
+                                        }}>Enter food manually</button>}
+                                        {(!forRecipe || canUseThirdParty) && <button type="button" className="option-btn" onClick={restart}>
                                             <i className="fa-solid fa-rotate" /> Restart
-                                        </button>
+                                        </button>}
                                     </div>
                                 </div>
                             </div>
@@ -226,15 +284,17 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
                     <div inert={step !== 'confirm'} aria-hidden={step !== 'confirm'} style={{ width: '50%', flexShrink: 0, height: painted(1) ? 'auto' : 0, overflow: 'hidden' }}>
                     {selFood && (
                         <div className="food-confirm-inner">
-                            {!isBarcodeFood(selFood) && (
+                            {!forRecipe && !isBarcodeFood(selFood) && (
                                 <button type="button" className="option-btn" onClick={() => setEditing(true)}>Edit food details</button>
                             )}
-                            {![selFood.kcalPer100, selFood.protPer100, selFood.carbPer100, selFood.fatPer100].every(Number.isFinite) && <p className="food-portion-notice" role="alert">{isBarcodeFood(selFood) ? 'This product has incomplete nutrition. Scan another product or create a food manually.' : 'Nutrition is incomplete. Edit food details before logging.'}</p>}
-                            <div className="food-preview-card" id="barcodeSearchPreviewCard">
+                            {!completeNutrition && <p className="food-portion-notice" role="alert">{forRecipe
+                                ? 'This product has incomplete nutrition. Go back and scan another barcode.'
+                                : isBarcodeFood(selFood) ? 'This product has incomplete nutrition. Scan another product or create a food manually.' : 'Nutrition is incomplete. Edit food details before logging.'}</p>}
+                            <div className="food-preview-card barcode-search-preview-card" id={`${idPrefix}PreviewCard`}>
                                 <div className="food-preview-emoji"><i className={selFood.emoji || 'fa-solid fa-utensils'} style={{ color: selFood.color }} /></div>
                                 <div className="food-preview-info">
                                     <div className="food-preview-name food-preview-name--with-favorite"><span className="food-preview-name-text">{selFood.name}</span>
-                                        <button type="button" className={`food-preview-fav${isFoodFavorite(selFood) ? ' active' : ''}`} aria-label="Favorite food" title={isFoodFavorite(selFood) ? 'Remove from favourites' : 'Save to favourites'} aria-pressed={isFoodFavorite(selFood)} onClick={() => {
+                                        {!forRecipe && <button type="button" className={`food-preview-fav${isFoodFavorite(selFood) ? ' active' : ''}`} aria-label="Favorite food" title={isFoodFavorite(selFood) ? 'Remove from favourites' : 'Save to favourites'} aria-pressed={isFoodFavorite(selFood)} onClick={() => {
                                             if (!guard.current()) return;
                                             try {
                                                 const favorite = !isFoodFavorite(selFood);
@@ -243,14 +303,14 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
                                                 void retrySync();
                                             }
                                             catch { showToast('Complete the food details before saving a favorite.'); }
-                                        }}><i className={isFoodFavorite(selFood) ? 'fa-solid fa-star' : 'fa-regular fa-star'} aria-hidden="true" /></button>
+                                        }}><i className={isFoodFavorite(selFood) ? 'fa-solid fa-star' : 'fa-regular fa-star'} aria-hidden="true" /></button>}
                                     </div>
                                     <div className="food-preview-brand">{selFood.brand}</div>
-                                    <div className="food-preview-per">{`per ${foodBasisLabel(selFood)}`}</div>
+                                    {base && <div className="food-preview-per">Nutrition for {amount} {foodUnitLabel(selFood, unit)}</div>}
                                 </div>
                             </div>
 
-                            <div className="amount-section" id="barcodeSearchAmountSection">
+                            <div className="amount-section" id={`${idPrefix}AmountSection`}>
                                 <div className="amount-label">Amount / Serving</div>
                                 <div className="amount-input-row">
                                     <input
@@ -278,8 +338,10 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
                                 </div>}
                             </div>
 
-                            {conversionIssue && <p className="food-portion-notice" role="alert"><i className="fa-solid fa-circle-info" aria-hidden="true" /><span>{conversionIssue}</span></p>}
-                            <div className="calorie-preview-row" id="barcodeSearchCalorieRow">
+                            {conversionIssue && <p className="food-portion-notice" role="alert"><i className="fa-solid fa-circle-info" aria-hidden="true" /><span>{forRecipe ? 'This product has no supported amount. Go back and scan another barcode.' : conversionIssue}</span></p>}
+                            {forRecipe && !canUseThirdParty && <p className="food-portion-notice" role="alert">Enable third-party consent in cookie settings to use barcode results.</p>}
+                            {forRecipe && !base && !conversionIssue && <p className="food-portion-notice" role="status">Enter a positive amount in an available unit.</p>}
+                            <div className="calorie-preview-row" id={`${idPrefix}CalorieRow`}>
                                 <div className="calorie-big">
                                     <span>{base ? formatFoodNumber(calcKcal) : '—'}</span>
                                     <span className="calorie-unit-label">kcal</span>
@@ -291,10 +353,10 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
                                 </div>
                             </div>
 
-                            <div className="nutrition-facts-table" id="barcodeSearchNftTable">
+                            <div className="nutrition-facts-table" id={`${idPrefix}NftTable`}>
                                 <div className="nutrition-facts-header">
                                     <h3 className="nutrition-facts-title">Nutrition Facts</h3>
-                                    <div className="nutrition-facts-subtitle">per {foodBasisLabel(selFood)}</div>
+                                    <div className="nutrition-facts-subtitle">per {selFood.barcodeAmounts ? foodBasisLabel(selFood) : `100 ${selFood.defaultUnit}`}</div>
                                 </div>
                                 <div className="nutrition-facts-body">
                                     <div className="nutrition-row nutrition-row-main"><span className="nutrition-label">Energy</span><span className="nutrition-value">{formatFoodNumber(selFood.energyKj)} kJ / {formatFoodNumber(selFood.kcalPer100)} kcal</span></div>
@@ -312,21 +374,25 @@ export default function BarcodeSearchPopup({ isOpen, onClose, onLog }: BarcodeSe
                     </div>
                 </div>
 
-                <div className="modal-footer" id="barcodeSearchFooter">
+                {(!forRecipe || step === 'confirm') && <div className="modal-footer" id={`${idPrefix}Footer`}>
                     <button
+                        type="button"
                         className="confirm-btn"
-                        aria-label="Log food"
-                        disabled={step !== 'confirm' || !selFood || saving || editing || !base || !Number.isFinite(amount) || amount <= 0 || ![selFood.kcalPer100, selFood.protPer100, selFood.carbPer100, selFood.fatPer100].every(Number.isFinite)}
-                        onClick={() => { if (step === 'confirm' && selFood) logFood(); }}
+                        aria-label={forRecipe ? 'Add to recipe' : 'Log food'}
+                        disabled={step !== 'confirm' || closing || saving || editing || !base || !completeNutrition || (forRecipe && !canUseThirdParty)}
+                        onClick={() => { if (step === 'confirm') void confirmFood(); }}
                     >
-                        <svg viewBox="0 -960 960 960" fill="currentColor" height="22" width="22">
+                        {forRecipe ? 'Add to recipe' : <svg viewBox="0 -960 960 960" fill="currentColor" height="22" width="22">
                             <path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" />
-                        </svg>
+                        </svg>}
                     </button>
-                </div>
+                </div>}
             </div>
         </div>
         {selFood && editing && <FoodReviewEditorSheet food={selFood} onClose={() => setEditing(false)}
-            onSaveFood={food => { if (guard.current()) { setSelFood(food); setUnit(food.defaultUnit); } }} />}
+            onSaveFood={food => { if (guard.current()) {
+                setSelFood(food);
+                if (!foodAmountUnits(food).includes(unit)) setUnit(food.defaultUnit);
+            } }} />}
     </>);
 }

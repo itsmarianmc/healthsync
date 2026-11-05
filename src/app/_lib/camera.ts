@@ -38,10 +38,10 @@ export async function applyBarcodeFocus(track: MediaStreamTrack): Promise<void> 
     }
 }
 
-export function describeCameraError(error: unknown): string {
+export function describeCameraError(error: unknown, manualFallback = true): string {
     const name = (error as DOMException | undefined)?.name;
     if (name === 'NotAllowedError' || name === 'SecurityError') return 'Camera permission was denied. Allow camera access in your browser settings.';
-    if (name === 'NotFoundError') return 'No camera was found. Connect a camera or enter the barcode manually.';
+    if (name === 'NotFoundError') return manualFallback ? 'No camera was found. Connect a camera or enter the barcode manually.' : 'No camera was found. Connect a camera and try again.';
     if (name === 'NotReadableError' || name === 'TrackStartError') return 'Camera is already in use by another app. Close it and try again.';
     if (name === 'OverconstrainedError') return 'This camera does not support the requested scan settings. Try another camera.';
     if (name === 'AbortError') return 'Camera startup was interrupted. Try again.';

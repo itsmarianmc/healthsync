@@ -34,7 +34,7 @@ export function buildFoodEntry(
         unit: food.recipeSnapshot?.recipe.yield.unit === 'serving' || food.barcodeAmounts?.basis === 'serving' ? 'serving' : unit,
         ts, date: new Date(ts).toDateString(), isDrink,
         isBarcode: !!food.isBarcode, barcode: food.barcode || undefined,
-        catalogFoodId: food.catalogFoodId,
-        foodSnapshot: JSON.parse(JSON.stringify(food)),
+        catalogFoodId: food.temporary ? undefined : food.catalogFoodId,
+        foodSnapshot: JSON.parse(JSON.stringify(food.temporary ? { ...food, catalogFoodId: undefined } : food)),
     };
 }

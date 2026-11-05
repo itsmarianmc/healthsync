@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import FoodLibrarySheet from './FoodLibrarySheet';
 import FoodCreationSheet from './FoodCreationSheet';
 import FoodDetailSheet from './FoodDetailSheet';
@@ -9,16 +9,18 @@ import { libraryBrand, libraryPortionLabel } from './foodLibraryPresentation';
 import { useAuth } from '../../_context/AuthContext';
 import { workspaceGuard } from '../../_lib/localData';
 import { libraryData, searchLibrary, deleteLibraryFood, resolveFood, type LibraryItem } from '../../_lib/foodLibrary';
-import { readFoodSelection, FOOD_SELECTION_KEY } from '../../_lib/foodBatch';
+import { prependFoodSelection } from '../../_lib/foodBatch';
 import type { CatalogFood, FoodSearchResult } from '../../_lib/types';
 
-export default function CustomFoodsModal({ onClose }: { onClose: () => void }) {
+export default function CustomFoodsModal({ onClose, onOpenSearch }: { onClose: () => void; onOpenSearch: () => void }) {
     const { retrySync, showToast } = useAuth();
     const [isCurrent] = useState(() => workspaceGuard());
     const [editing, setEditing] = useState<'food' | 'recipe' | null>(null);
     const [selected, setSelected] = useState<LibraryItem | null>(null);
     const [editOpener, setEditOpener] = useState<HTMLButtonElement | null>(null);
     const [choosing, setChoosing] = useState(false);
+    const [dismiss, setDismiss] = useState(false);
+    const openSearch = useRef(false);
     const [revision, refresh] = useState(0);
     const [error, setError] = useState('');
     let foods: CatalogFood[] = [], unavailable = false;
@@ -28,7 +30,10 @@ export default function CustomFoodsModal({ onClose }: { onClose: () => void }) {
         window.addEventListener('storage', update);
         return () => window.removeEventListener('storage', update);
     }, [isCurrent]);
-    return <><FoodLibrarySheet id="customFoods" title="Custom Food" onClose={onClose} covered={!!selected || choosing || !!editing} returnFocusTo={editOpener}>
+    return <><FoodLibrarySheet id="customFoods" title="Custom Food" dismiss={dismiss} onClose={() => {
+        onClose();
+        if (openSearch.current && isCurrent()) onOpenSearch();
+    }} covered={!!selected || choosing || !!editing} returnFocusTo={dismiss ? undefined : editOpener}>
         {unavailable && <p role="alert">The saved library could not be read. Existing storage has been preserved. Export your data before repairing browser storage.</p>}
                 <button type="button" className="add-workout custom-food-add" onClick={event => { setEditOpener(event.currentTarget); setChoosing(true); }}><span className="add-wo-btn"><i className="fas fa-plus" aria-hidden="true" /></span><span className="add-wo-text">Create food</span></button>
                 <ul className="food-library-list">{foods.map(food => {
@@ -90,16 +95,16 @@ export default function CustomFoodsModal({ onClose }: { onClose: () => void }) {
         setChoosing(false);
         if (kind && isCurrent()) { setEditing(kind); setError(''); }
     }} />}
-    {editing && <FoodCreationSheet kind={editing} onClose={() => setEditing(null)} />}
+    {editing && <FoodCreationSheet kind={editing} onClose={search => {
+        setEditing(null);
+        if (search) {
+            openSearch.current = true;
+            setDismiss(true);
+        }
+    }} />}
     {selected && <FoodDetailSheet item={selected} onClose={() => setSelected(null)} backLabel="Back to created foods" onAdd={item => {
         if (!isCurrent()) return false;
-        try {
-            const cached = readFoodSelection();
-            if (cached.batch?.length) return false;
-            localStorage.setItem(FOOD_SELECTION_KEY, JSON.stringify({ ...cached, items: [item, ...cached.items] }));
-            window.dispatchEvent(new Event('storage'));
-            return true;
-        } catch { return false; }
+        try { return prependFoodSelection(item); } catch { return false; }
     }} />}
     </>;
 }

@@ -18,11 +18,16 @@ the unchanged manager and restores focus to Create food. The chooser remains
 compact even with the expanded-modals setting enabled, with its covered parent
 inert and hidden from assistive technology. It uses the existing workspace guard.
 
-Manual food creation and editing use `FoodEditor.tsx`, including nutrition per
-100 g/ml, piece, serving, ounce or US fluid ounce. AI review offers the same
+Manual food creation and editing use `FoodEditor.tsx`. New foods start at
+100 g. For grams and milliliters, enter the reference amount next to the unit
+under “Nutrition per”. Decimal points and decimal commas are accepted. The
+reference must be finite and positive, and all four nutrients must be finite
+and non-negative. Piece, serving, weight ounce and US fluid ounce still use
+nutrition for one portion with a conversion to grams or milliliters.
+AI review offers the same
 editor in a separate nested `FoodReviewEditorSheet` before confirmation. Its
 edit/review action sits below the portion and nutrition preview, above the final
-confirmation button; editing keeps that preview and amount mounted underneath.
+confirmation button. Editing keeps the selected consumption quantity in that preview.
 Barcode-sourced product names, brands and nutrition
 are read-only in scanner confirmation and the saved library; amount/serving
 controls and favorites remain available. Both `isBarcode` and barcode provenance
@@ -46,7 +51,9 @@ with no expiry. Stable catalog IDs take precedence. Legacy fallback requires
 matching name, brand, barcode, basis, nutrition and portion metadata; a name
 alone never groups foods. Ambiguous matches are left unlinked. Legacy rounded
 snapshots may remain separate when their original per-100 basis cannot be
-recovered exactly. Every original log occurrence remains unchanged.
+recovered exactly. Temporary history groups separately from catalog results,
+even for an identical definition. Its latest occurrence sets the search result's
+age. The diary entry remains after the search result expires.
 
 Search results appear once under the local usage day of their most recent
 associated log (`FoodEntry.date`): Today, Yesterday, then dates without times.
@@ -157,6 +164,16 @@ IDs and default portions as Search/Favorites. It prepends the chosen snapshot,
 preserves other selections and their shared timestamp, and never logs a food
 directly. A prepared batch awaiting retry blocks additions without replacing
 its fixed IDs or cache. Search/Favorites read this selection when opened.
+
+For a new manual food, “Temporary food” starts unchecked. With it checked,
+“Save food” adds one chip and opens Search after the editor and manager dismiss.
+It preserves existing chips and the shared timestamp. The first amount is the
+entered reference for g/ml or one piece, serving or ounce. A pending batch
+or failed selection write keeps the editor open with its draft. Removing the
+chip before confirmation discards that selection. “Log selected foods” commits
+temporary and regular selections in one local batch. Temporary selections
+skip catalog saving, including when selected again from history. The favorite
+action can explicitly save a definition to the library.
 
 The date/time picker uses its content height by default. The existing expanded-
 modals preference can still open it expanded, and its usual drag expansion remains
@@ -270,18 +287,47 @@ Explicit guest import retains its existing tracked-entry-only behavior;
 definitions/favorites/recipes are not silently copied into an account. Settings
 JSON export includes the versioned library but never includes the Gemini key.
 
-New `FoodEntry.catalogFoodId` is optional. `foodSnapshot` stores the selected
-nutrition basis and optional recursively calculated recipe/ingredient snapshot.
+New `FoodEntry.catalogFoodId` is optional. `foodSnapshot` stores the definition's
+nutrition basis, selected consumption amount and optional recursively calculated
+recipe/ingredient snapshot. For manual g/ml definitions, optional
+`nutritionBasisAmount` records the entered reference in the existing JSON.
+Core nutrients are normalized per 100 with `nutritionPer100`. For example,
+300 kcal per 150 g becomes 200 kcal per 100 g, and an 80 g occurrence logs
+160 kcal. The editor reconstructs its displayed values from the reference
+and keeps the stored per-100 values for unchanged nutrients at the same
+reference. Older g/ml definitions open at 100. A saved consumption preference
+takes priority over the reference when starting a new selection. Barcode and
+recipe definitions keep their source and yield rules.
+Temporary selections and logged snapshots carry `temporary: true`. The diary
+entry has no catalog ID. Local recovery and cloud transport use the existing
+selection, journal and food snapshot JSON.
 Calories/macros on each occurrence remain authoritative for dashboard/history.
 Dates still use `Date.toDateString()` and timestamps are milliseconds.
 
 ## Recipes
 
 Each recipe is a stable catalog definition with optional brand/description,
-ingredient catalog IDs and quantities/units, and positive final yield in
-servings, grams or milliliters. Nested recipes work; missing references,
-invalid nutrients, unsupported conversions, cycles and excessive nesting are
-rejected. Recipe editors calculate totals instead of accepting typed totals.
+up to 100 ingredients and a positive final yield in servings, grams or
+milliliters. In the manual recipe editor, **Choose Food** opens a compact,
+local catalog search and adds the chosen definition by `foodId`.
+**Scan Barcode** opens the existing scanner even with an empty catalog.
+**Add to recipe** adds an embedded `barcodeFood` snapshot to the draft
+with the chosen amount and unit. The snapshot retains the product identity,
+normalized nutrients and the conversion choices. This also applies when the
+same product exists in the catalog. Saving the recipe writes one catalog
+definition. Scanned ingredients do not create separate catalog definitions,
+favorites, selection chips or diary entries.
+
+Closing the picker or scanner returns to the mounted recipe form. Closing
+the scanner without adding restores focus to **Choose Food**. Saving persists
+the snapshot through the existing library operation JSON and cloud sync, so
+viewing or editing the recipe requires no new product lookup. Canceling the
+recipe discards uncommitted scans. Both ingredient types support amount/unit
+edits and removal. Catalog references continue to resolve nested recipes and
+protect referenced definitions from deletion. The resolver uses
+`foodAmountToBase` for both types and rejects missing references, invalid
+nutrients, unsupported conversions, cycles and excessive nesting. The editor
+calculates recipe totals from the ingredients.
 
 For a weight/volume yield, stored per-100 values use that declared yield. A
 serving yield uses a 100-unit internal normalization for one serving and a

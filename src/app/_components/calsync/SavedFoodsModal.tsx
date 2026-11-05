@@ -92,7 +92,9 @@ export default function SavedFoodsModal({ onClose, initialView = 'search' }: {
         try {
             // Validate the whole selection before any library writes.
             queue.forEach(entryFor);
-            const pendingBatch = batch || queue.map(item => entryFor({ ...item, food: ensureLibraryFood({ ...item.food, selectedAmount: { amount: Number(item.amount), unit: item.unit } }) }));
+            const pendingBatch = batch || queue.map(item => entryFor(item.food.temporary ? item : {
+                ...item, food: ensureLibraryFood({ ...item.food, selectedAmount: { amount: Number(item.amount), unit: item.unit } }),
+            }));
             const snapshot: CachedSelection = { version: 1, items: queue, ts: timestamp ?? pendingBatch[0].ts, batch: pendingBatch };
             localStorage.setItem(SELECTION_KEY, JSON.stringify(snapshot));
             setBatch(pendingBatch);
@@ -221,7 +223,7 @@ export default function SavedFoodsModal({ onClose, initialView = 'search' }: {
                                     'Needs repair'
                                 ) : (
                                     <>
-                                        {libraryPortionLabel(item.food)}
+                                        {item.food.temporary && 'Temporary food · '}{libraryPortionLabel(item.food)}
                                     </>
                                 )}
                             </span>

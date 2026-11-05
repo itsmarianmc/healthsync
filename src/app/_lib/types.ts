@@ -149,6 +149,9 @@ export interface FoodSearchResult {
     raw: Record<string, string | number>;
   };
   selectedAmount?: { amount: number; unit: string };
+  /** Entered g/ml reference amount. Nutrients remain normalized per 100. */
+  nutritionBasisAmount?: number;
+  temporary?: boolean;
   aiRecipeCandidate?: AiRecipeCandidate;
   catalogFoodId?: string;
   recipeSnapshot?: RecipeSnapshot;
@@ -187,11 +190,18 @@ export interface CustomFood extends FoodSearchResult {
   defaultUnit: 'g' | 'ml';
 }
 
-export interface RecipeIngredient {
-  foodId: string;
+export type RecipeBarcodeFood = Pick<FoodSearchResult, 'name' | 'brand' | 'barcode' | 'emoji' | 'color' |
+  'kcalPer100' | 'protPer100' | 'carbPer100' | 'fatPer100'> & {
+  defaultUnit: 'g' | 'ml';
+  isBarcode: true;
+  provenance: 'barcode';
+  barcodeAmounts: NonNullable<FoodSearchResult['barcodeAmounts']>;
+};
+
+export type RecipeIngredient = {
   amount: number;
   unit: import('./foodPortions').FoodAmountUnit;
-}
+} & ({ foodId: string; barcodeFood?: never } | { foodId?: never; barcodeFood: RecipeBarcodeFood });
 
 export interface FoodRecipe {
   ingredients: RecipeIngredient[];
