@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/).
 
-### [5.0.0] - 2026-11-03
+### [5.0.0] - 2026-11-05
 
 #### Added
 - **Versioned personal food library**: Added `foodLibrary.ts` with stable catalog IDs, separate immutable definition/favorite operations, deterministic conflict resolution and deletion tombstones. Legacy custom foods and favorites are imported without deleting their source keys or rewriting logs. The library, selection cache and batch journal use the existing isolated guest/account workspaces.
