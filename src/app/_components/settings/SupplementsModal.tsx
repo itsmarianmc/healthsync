@@ -88,7 +88,7 @@ interface SupplementsModalProps {
 }
 
 export default function SupplementsModal({ isOpen, onClose }: SupplementsModalProps) {
-    const sheet = useDraggableSheet({ onClose });
+    const sheet = useDraggableSheet({ onClose, initialExpanded: true });
     const { user, retrySync } = useAuth();
     const { canUsePreferences } = useCookieConsent();
     const week = useMemo(() => buildWeek(), [isOpen]);
@@ -116,7 +116,6 @@ export default function SupplementsModal({ isOpen, onClose }: SupplementsModalPr
         setCustomSupplements(readCustomSupplements());
 
         sheet.open();
-        setTimeout(() => sheet.snapToExpanded(), 80);
     }, [isOpen, canUsePreferences]);
 
     useEffect(() => {

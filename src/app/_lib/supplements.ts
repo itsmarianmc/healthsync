@@ -49,7 +49,7 @@ function validateSchedule(value: unknown): SupplementSchedule | null {
     return null;
 }
 
-/** Returns normalized definitions, or null when the stored payload is malformed. */
+/** Malformed stored definitions return null rather than a partial collection. */
 export function parseCustomSupplements(value: unknown): CustomSupplement[] | null {
     let parsed = value;
     if (typeof parsed === 'string') {

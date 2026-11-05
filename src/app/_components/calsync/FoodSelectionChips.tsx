@@ -37,13 +37,11 @@ export default function FoodSelectionChips({ items, onRemove, onRemovingChange }
                     const animation = button.animate([{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(0)', opacity: 0 }],
                         { duration: 180, easing: 'ease-in', fill: 'forwards' });
                     try { await animation.finished; } catch { /* Cancellation still completes the requested removal. */ }
-                    // Keep the final frame until React removes the node. Cancelling
-                    // first would briefly paint the chip at its original size.
+                    // Retain the final frame to prevent a flash before React removes the chip.
                     button.style.opacity = '0'; button.style.transform = 'scale(0)';
                     animation.cancel();
                 }
                 if (button.isConnected) {
-                    // Move keyboard focus before removing its node.
                     if (hadFocus) {
                         const target = button.nextElementSibling || button.previousElementSibling || document.getElementById('savedFoodsSearch');
                         (target as HTMLElement | null)?.focus();

@@ -15,7 +15,7 @@ export default function ReportBugModal({ isOpen, onClose }: ReportBugModalProps)
     const { user } = useAuth();
     const pathname = usePathname();
     const [src, setSrc] = useState('');
-    const sheet = useDraggableSheet({ onClose });
+    const sheet = useDraggableSheet({ onClose, initialExpanded: true });
 
     useEffect(() => {
         if (!isOpen) return;
@@ -47,10 +47,6 @@ export default function ReportBugModal({ isOpen, onClose }: ReportBugModalProps)
     useEffect(() => {
         if (isOpen) {
             sheet.open();
-            const t = setTimeout(() => {
-                if (sheet.stateRef.current !== 'closed') sheet.snapToExpanded();
-            }, 80);
-            return () => window.clearTimeout(t);
         } else if (sheet.stateRef.current !== 'closed') {
             sheet.close();
         }

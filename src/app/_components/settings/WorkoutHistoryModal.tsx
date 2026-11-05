@@ -55,7 +55,7 @@ interface WorkoutHistoryModalProps {
 }
 
 export default function WorkoutHistoryModal({ isOpen, onClose }: WorkoutHistoryModalProps) {
-    const sheet = useDraggableSheet({ onClose });
+    const sheet = useDraggableSheet({ onClose, initialExpanded: true });
     const [logs, setLogs] = useState<WorkoutLog[]>([]);
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -63,8 +63,7 @@ export default function WorkoutHistoryModal({ isOpen, onClose }: WorkoutHistoryM
         if (isOpen) {
             setLogs(loadLogs());
             sheet.open();
-            setTimeout(() => sheet.snapToExpanded(), 80);
-        } else if (sheet.stateRef.current !== 'closed') {
+            } else if (sheet.stateRef.current !== 'closed') {
             sheet.close();
         }
     }, [isOpen]);

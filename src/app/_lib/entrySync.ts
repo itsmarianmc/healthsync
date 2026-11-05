@@ -31,8 +31,7 @@ export async function syncEntries<T extends Entry>(
   assertCurrent();
   if (!final) throw new Error('Unable to confirm complete entry history');
 
-  // Read again immediately before the synchronous commit, including successful
-  // single uploads whose pending marker has already been acknowledged.
+  // Reread before commit to retain concurrent entries whose uploads already cleared their pending markers.
   const current = read();
   const currentIds = new Set(current.map(entry => entry.id));
   const deleted = localDeleted();

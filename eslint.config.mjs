@@ -10,6 +10,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     ".codex-build/**",
+    ".update-test/**",
     "next-env.d.ts",
   ]),
 ]);

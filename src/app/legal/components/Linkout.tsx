@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useBlockingDialog } from '../../_hooks/useBlockingDialog';
 import { useRouter } from 'next/navigation';
 
 type LinkOutType = 'internal' | 'external';
@@ -25,6 +26,7 @@ export default function LinkOut({
     const [, setOpen] = useState(false);
     const [showPortal, setShowPortal] = useState(false);
     const [animateIn, setAnimateIn] = useState(false);
+    const dialog = useBlockingDialog(showPortal, () => closeAndCleanup());
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     function handleClick(e: React.MouseEvent<HTMLAnchorElement>) {
@@ -89,6 +91,7 @@ export default function LinkOut({
 
             {type === 'external' && showPortal && createPortal(
                 <div
+                    ref={dialog.overlayRef}
                     id="linkout-overlay"
                     className={`linkout-overlay${animateIn ? ' open' : ''}`}
                     onClick={handleOverlayClick}
@@ -97,7 +100,7 @@ export default function LinkOut({
                     aria-labelledby="linkout-title"
                     aria-describedby="linkout-desc"
                 >
-                    <div id="linkout-popup" className="linkout-popup">
+                    <div ref={dialog.panelRef} id="linkout-popup" className="linkout-popup">
                         <div className="linkout-popup-header">
                             <span className="linkout-popup-icon" aria-hidden="true">
                                 <i className="fas fa-exclamation-triangle"></i>

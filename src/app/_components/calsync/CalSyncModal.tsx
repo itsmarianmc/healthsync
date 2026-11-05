@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { FoodEntry, FoodSearchResult, DraftChange } from '../../_lib/types';
 import { useCookieConsent } from '../../_lib/useCookieConsent';
 import type { Detection, DetectionMode } from '../../_context/AiDetectionContext';
@@ -9,14 +9,14 @@ import { logger } from '@/lib/logger';
 import { describeGeminiError, toGeminiFoodSearchResult } from '../../_lib/gemini';
 import { useAuth } from '../../_context/AuthContext';
 import { ensureLibraryFood, isFoodFavorite, setFoodFavorite, saveLibraryFood, libraryData, resolveFood } from '../../_lib/foodLibrary';
-import FoodEditor from './FoodEditor';
-import RecipeEditor from './RecipeEditor';
+import FoodReviewEditorSheet from './FoodReviewEditorSheet';
 import { isBarcodeFood } from './foodLibraryPresentation';
 import { workspaceGuard } from '../../_lib/localData';
-import { useSheetDragGestures } from '../../_hooks/useSheetDragGestures';
+import { useDraggableSheet } from '../../_hooks/useDraggableSheet';
+import { BEFORE_APP_RELOAD } from '../../_lib/appUpdates';
+import { useSheetSteps } from '../../_hooks/useSheetSteps';
+import { foodUnitLabel, formatFoodNumber } from '../../_lib/foodPortions';
 
-const EASE = 'cubic-bezier(0.34, 1.15, 0.64, 1)';
-const SHEET_TOP_MARGIN = 24;
 
 interface CalSyncModalProps {
     isOpen: boolean;
@@ -62,12 +62,14 @@ export default function CalSyncModal({
     const [editingRecipe, setEditingRecipe] = useState(false);
 
     const [step, setStep] = useState(0);
+    const { setTrackRef, painted, changing, onTransitionEnd } = useSheetSteps(step);
     const [category, setCategory] = useState<Category | null>(null);
     const [selFood, setSelFood] = useState<FoodSearchResult | null>(null);
     const [unit, setUnit] = useState<'g' | 'ml' | 'pcs'>('g');
     const [amount, setAmount] = useState(100);
+
     const [entryCreatedAt, setEntryCreatedAt] = useState<number | null>(null);
-    const [modalState, setModalState] = useState<'closed' | 'open' | 'expanded'>('closed');
+    const [modalState, setModalState] = useState<'closed' | 'open'>('closed');
     const [showNFT, setShowNFT] = useState(false);
     const [selectedFilePreview, setSelectedFilePreview] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -83,19 +85,14 @@ export default function CalSyncModal({
     const analyzingRef = useRef<HTMLDivElement>(null);
     const confirmRef = useRef<HTMLDivElement>(null);
     const contextRef = useRef<HTMLDivElement>(null);
-    const bodyHRef = useRef(0);
-    const modalRef = useRef<HTMLDivElement>(null);
-    const overlayRef = useRef<HTMLDivElement>(null);
+    const sheet = useDraggableSheet({ onClose: () => completeClose(), additionalTransitionProperties: ['scale', 'translate'] });
+    const { modalRef, overlayRef, handleProps, open, refreshHeight, close: closeSheet, stateRef: sheetStateRef } = sheet;
     const bodyRef = useRef<HTMLDivElement>(null);
-    const naturalH = useRef(0);
-    const chromeHRef = useRef(0);
-    const dragStartY = useRef(0);
-    const dragDY = useRef(0);
-    const vel = useRef(0);
-    const dragLastY = useRef(0);
-    const lastTime = useRef(0);
-    const isCapturing = useRef(false);
-    const prevAiTextOpenRef = useRef(false);
+    const textSheet = useDraggableSheet({ onClose: () => {
+        setAiTextOpen(false);
+        if (aiTextOpen && !aiProcessingRef.current) snapToClosedRef.current();
+    }, initialFocus: '#aiTextInput' });
+    const { open: openText, close: closeText, modalRef: textModalRef, overlayRef: textOverlayRef, handleProps: textHandleProps } = textSheet;
     const closingRef = useRef(false);
     const stepRef = useRef(0);
     const currentDetectionIdRef = useRef<string | null>(null);
@@ -105,7 +102,6 @@ export default function CalSyncModal({
     const snapToClosedRef = useRef<() => void>(() => {});
     const toastedDetectionIdRef = useRef<string | null>(null);
     const appliedResultRef = useRef<Detection['result'] | null>(null);
-    const skipStepTransitionRef = useRef(false);
     const candidateGuard = useRef<() => boolean>(() => false);
     useEffect(() => {
         if (!isOpen) return;
@@ -119,35 +115,29 @@ export default function CalSyncModal({
         window.addEventListener('storage', check);
         return () => window.removeEventListener('storage', check);
     }, [isOpen]);
-    useEffect(() => { stepRef.current = step; }, [step]);
-
-    const expandedH = () => window.innerHeight - SHEET_TOP_MARGIN;
-    const setNoTrans = () => { if (modalRef.current) modalRef.current.style.transition = 'none'; };
-    const setTrans = (props: string[]) => { if (modalRef.current) modalRef.current.style.transition = props.map(p => `${p} 0.42s ${EASE}`).join(', '); };
-
-    useLayoutEffect(() => {
-        return () => {
-            setModalState('closed');
+    useEffect(() => {
+        const isCurrent = workspaceGuard();
+        const persist = (event: Event) => {
+            if (!isOpen || !selFood || editingCandidate || editingRecipe || !isCurrent() || !candidateGuard.current()) return;
+            try {
+                if (!editingDraftId) {
+                    const active = JSON.parse(localStorage.getItem('calsync_active_draft') || 'null');
+                    if (pendingDetection && active?.id === pendingDetection.id) {
+                        localStorage.setItem('calsync_active_draft', JSON.stringify({ ...active, food: selFood, amount, unit }));
+                    }
+                    return;
+                }
+                const drafts = JSON.parse(localStorage.getItem('calsync_pending') || '[]');
+                if (!Array.isArray(drafts)) throw new Error('Invalid draft storage');
+                const id = editingDraftId;
+                const next = { id, food: selFood, amount, unit, ts: Date.now() };
+                localStorage.setItem('calsync_pending', JSON.stringify([...drafts.filter(item => item.id !== id), next]));
+            } catch { event.preventDefault(); }
         };
-    }, []);
-
-    const snapToOpen = useCallback(() => {
-        setModalState('open');
-        setTrans(['height', 'transform']);
-        if (!modalRef.current || !bodyRef.current) return;
-        if (chromeHRef.current > 0 && bodyHRef.current > 0) {
-            naturalH.current = chromeHRef.current +  bodyHRef.current;
-        }
-        modalRef.current.style.height = naturalH.current + 'px';
-        modalRef.current.style.transform = 'translateY(0)';
-        if (bodyHRef.current > 0) bodyRef.current.style.height = bodyHRef.current + 'px';
-    }, []);
-
-    const snapToExpanded = useCallback(() => {
-        setModalState('expanded');
-        setTrans(['height', 'transform']);
-        if (modalRef.current) { modalRef.current.style.height = expandedH() + 'px'; modalRef.current.style.transform = 'translateY(0)'; }
-    }, []);
+        window.addEventListener(BEFORE_APP_RELOAD, persist);
+        return () => window.removeEventListener(BEFORE_APP_RELOAD, persist);
+    }, [isOpen, selFood, amount, unit, editingCandidate, editingRecipe, editingDraftId, pendingDetection]);
+    useEffect(() => { stepRef.current = step; }, [step]);
 
     const resultToFoodSearchResult = (result: NonNullable<Detection['result']>, cat: Category): FoodSearchResult => {
         return toGeminiFoodSearchResult(result, {
@@ -157,26 +147,7 @@ export default function CalSyncModal({
         }) as FoodSearchResult;
     };
 
-    const snapToClosed = useCallback(() => {
-        if (!modalRef.current || closingRef.current) return;
-        closingRef.current = true;
-        setModalState('closed');
-        const curH = modalRef.current.offsetHeight;
-        setNoTrans();
-        modalRef.current.style.height = curH + 'px';
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            if (!modalRef.current) return;
-            modalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4,0,0.2,1)';
-            modalRef.current.style.transform = 'translateY(110%)';
-            document.body.classList.remove('modal-open');
-        }));
-        if (overlayRef.current) overlayRef.current.classList.remove('visible');
-        setTimeout(() => {
-            if (!modalRef.current) return;
-            modalRef.current.style.transform = '';
-            modalRef.current.style.height = '';
-            modalRef.current.style.transition = '';
-            naturalH.current = 0;
+    const completeClose = useCallback(() => {
             const detectionId = currentDetectionIdRef.current;
             const errorMessage = errorMessageRef.current;
             currentDetectionIdRef.current = null;
@@ -210,23 +181,21 @@ export default function CalSyncModal({
             }
             loggedRef.current = false;
             closingRef.current = false;
+            setModalState('closed');
             resetState();
             onClose(candidateGuard.current());
-        }, 440);
     }, [onClose, selFood, amount, unit, editingDraftId, onDraftChange, onDetectionResolved, onShowToast]);
-
+    const snapToClosed = useCallback(() => {
+        if (sheetStateRef.current === 'closed') return;
+        closingRef.current = true;
+        closeSheet();
+    }, [closeSheet, sheetStateRef]);
     const revealModal = useCallback(() => {
-        if (!isModalHiddenForAiRef.current) return;
         isModalHiddenForAiRef.current = false;
-        if (overlayRef.current) overlayRef.current.classList.add('visible');
-        document.body.classList.add('modal-open');
-        if (modalRef.current) {
-        modalRef.current.style.transition = `transform 0.42s ${EASE}`;
-        modalRef.current.style.transform = 'translateY(0)';
-        }
-    }, []);
+        open();
+    }, [open]);
 
-    const resetState = () => {
+    function resetState() {
         setEditingCandidate(false); setEditingRecipe(false);
         setStep(0); setCategory(null); setSelFood(null); setUnit('g'); setAmount(100);
         setEntryCreatedAt(null);
@@ -370,32 +339,6 @@ export default function CalSyncModal({
         }
     }, [pendingDetection?.id, pendingDetection?.status, pendingDetection?.result, pendingDetection?.errorMessage, category, onShowToast, handleAIError]);
 
-    const MODAL_BODY_PADDING_TOP = 55;
-
-    const measureChrome = useCallback((): number => {
-        if (!modalRef.current || !bodyRef.current) return 0;
-        const prevDisplay = bodyRef.current.style.display;
-        bodyRef.current.style.display = 'none';
-        const chromeH = modalRef.current.offsetHeight;
-        bodyRef.current.style.display = prevDisplay;
-        return chromeH;
-    }, []);
-
-    const setupModalForOpen = useCallback((initialStep: 0 | 1, targetStepHeight: number, onStep2?: () => void) => {
-        if (!modalRef.current || !bodyRef.current) return;
-        const chromeH = measureChrome();
-        chromeHRef.current = chromeH;
-        const fullBodyH = targetStepHeight + MODAL_BODY_PADDING_TOP;
-        bodyHRef.current = fullBodyH;
-        naturalH.current = chromeH + fullBodyH;
-        bodyRef.current.style.height = fullBodyH + 'px';
-        modalRef.current.style.height = naturalH.current + 'px';
-        if (initialStep === 1 && onStep2) {
-            setStep(1);
-            onStep2();
-        }
-    }, [measureChrome]);
-
     useEffect(() => {
         if (isOpen && modalState === 'closed') {
             if (closingRef.current) return;
@@ -416,142 +359,34 @@ export default function CalSyncModal({
             }
 
             resetState();
+            setAiTextOpen(openWithAi === 'describe');
             setCategory(cat);
             setStep(0);
             isModalHiddenForAiRef.current = true;
             if (!modalRef.current) return;
             setModalState('open');
-            setNoTrans();
-            modalRef.current.style.height = 'auto';
-            modalRef.current.style.transform = 'translateY(100%)';
 
-            const onStep2Callback = (): void => {
-                skipStepTransitionRef.current = true;
-                if (hasPrefill) {
-                    selectFoodWithAmount(prefill!.food, prefill!.amount, prefill!.unit, prefill!.createdAt);
-                } else if (hasCompletedDetection) {
-                    const food = resultToFoodSearchResult(pendingDetection!.result!, cat);
-                    const amt = pendingDetection!.result!.amount || 100;
-                    const u = (pendingDetection!.result!.unit || 'g') as 'g' | 'ml' | 'pcs';
-                    setSelFood(food);
-                    setUnit(u);
-                    setAmount(amt);
-                    setEntryCreatedAt(pendingDetection!.startedAt);
-                    appliedResultRef.current = pendingDetection!.result ?? null;
-                    setStep(3);
-                    if (toastedDetectionIdRef.current !== pendingDetection!.id) {
-                        toastedDetectionIdRef.current = pendingDetection!.id;
-                    }
-                }
-                requestAnimationFrame(() => requestAnimationFrame(() => {
-                    skipStepTransitionRef.current = false;
-                }));
-            };
-
-            if (hasPrefill || hasCompletedDetection) {
-                requestAnimationFrame(() => requestAnimationFrame(() => {
-                    if (!modalRef.current || !bodyRef.current) return;
-                    const confirmH = confirmRef.current?.offsetHeight ?? 0;
-                    setupModalForOpen(1, confirmH, onStep2Callback);
-                    revealModal();
-                }));
-                return;
+            if (hasPrefill) {
+                selectFoodWithAmount(prefill!.food, prefill!.amount, prefill!.unit, prefill!.createdAt);
+            } else if (hasCompletedDetection) {
+                const food = resultToFoodSearchResult(pendingDetection!.result!, cat);
+                setSelFood(food);
+                setUnit((pendingDetection!.result!.unit || 'g') as 'g' | 'ml' | 'pcs');
+                setAmount(pendingDetection!.result!.amount || 100);
+                setEntryCreatedAt(pendingDetection!.startedAt);
+                appliedResultRef.current = pendingDetection!.result ?? null;
+                setStep(3);
             }
-
-            requestAnimationFrame(() => requestAnimationFrame(() => {
-                if (!modalRef.current || !bodyRef.current) return;
-                const procH = processingRef.current?.offsetHeight ?? 0;
-                setupModalForOpen(0, procH);
-                revealModal();
-            }));
+            revealModal();
         } else if (!isOpen && modalState !== 'closed') {
             snapToClosed();
         }
-    }, [isOpen, onClose, prefill, openWithAi, pendingDetection, measureChrome, setupModalForOpen, onShowToast]);
+    }, [isOpen, onClose, prefill, openWithAi, pendingDetection, revealModal, onShowToast]);
 
-    useEffect(() => {
-        if (!modalRef.current || !bodyRef.current || modalState === 'closed') return;
-        if (naturalH.current === 0) return;
-        const refs = [processingRef, contextRef, analyzingRef, confirmRef];
-        const el = refs[step].current;
-        if (!el) return;
-        const newStepH = el.offsetHeight;
-        if (newStepH === 0) return;
-        const newBodyH = newStepH + MODAL_BODY_PADDING_TOP;
-        bodyHRef.current = newBodyH;
-        if (chromeHRef.current > 0) naturalH.current = chromeHRef.current + newBodyH;
-        if (modalState === 'expanded') return;
-        bodyRef.current.style.transition = 'height 0.38s cubic-bezier(0.4,0,0.2,1)';
-        bodyRef.current.style.height = newBodyH + 'px';
-        modalRef.current.style.transition = `height 0.38s cubic-bezier(0.4,0,0.2,1), transform 0.42s ${EASE}`;
-        modalRef.current.style.height = naturalH.current + 'px';
-        setTimeout(() => {
-            if (bodyRef.current) bodyRef.current.style.transition = '';
-            if (modalRef.current) modalRef.current.style.transition = '';
-        }, 440);
-    }, [step, selFood, modalState]);
+    useEffect(() => { refreshHeight(); }, [step, selFood, refreshHeight]);
+    useEffect(() => { if (aiTextOpen) openText(); else closeText(); }, [aiTextOpen, openText, closeText]);
 
-    useEffect(() => {
-        if (step >= 1 && isModalHiddenForAiRef.current) {
-            revealModal();
-        }
-    }, [step, revealModal]);
-
-    useEffect(() => {
-        const wasOpen = prevAiTextOpenRef.current;
-        prevAiTextOpenRef.current = aiTextOpen;
-        if (!aiTextOpen && wasOpen) {
-            if (!aiProcessingRef.current) {
-                setTimeout(() => { 
-                    snapToClosed();
-                }, 250);
-            }
-        }
-    }, [aiTextOpen, snapToClosed]);
-
-    useEffect(() => {
-        if (!bodyRef.current) return;
-        bodyRef.current.style.overflowY = step === 1 ? 'auto' : 'hidden';
-    }, [step]);
-
-    const startDrag = (clientY: number) => {
-        dragStartY.current = clientY; dragLastY.current = clientY; vel.current = 0; dragDY.current = 0;
-        lastTime.current = Date.now(); isCapturing.current = true;
-        setNoTrans();
-    };
-    const moveDrag = (clientY: number) => {
-        if (!isCapturing.current) return;
-        const now = Date.now(); const dt = now - lastTime.current;
-        if (dt > 0) vel.current = (clientY - dragLastY.current) / dt * 1000;
-        dragLastY.current = clientY; lastTime.current = now;
-        const dy = clientY - dragStartY.current; dragDY.current = dy;
-        if (!modalRef.current) return;
-        if (modalState === 'expanded') {
-            if (dy > 0) modalRef.current.style.height = Math.max(naturalH.current, expandedH() - dy) + 'px';
-        }
-        else {
-            if (dy > 0) modalRef.current.style.transform = `translateY(${dy}px)`;
-            else {
-                modalRef.current.style.height = Math.min(expandedH(), naturalH.current + Math.abs(dy)) + 'px'; modalRef.current.style.transform = 'translateY(0)';
-            }
-        }
-    };
-    const finishDrag = (cancelled: boolean) => {
-        if (!isCapturing.current) return; isCapturing.current = false;
-        if (modalState === 'closed' || closingRef.current) { dragDY.current = 0; vel.current = 0; return; }
-        const dy = dragDY.current; const v = Date.now() - lastTime.current > 100 ? 0 : vel.current;
-        if (cancelled) { if (modalState === 'expanded') snapToExpanded(); else snapToOpen(); }
-        else if (v > 1500 && dy > 12) { snapToClosed(); }
-        else if (dy > 80 || (v > 400 && dy > 12)) { if (modalState === 'expanded') snapToOpen(); else snapToClosed(); }
-        else if (dy < -60 || (v < -400 && dy < -12)) snapToExpanded();
-        else { if (modalState === 'expanded') snapToExpanded(); else snapToOpen(); }
-        dragDY.current = 0;
-        vel.current = 0;
-    };
-
-    useSheetDragGestures({ modalRef, overlayRef, onStart: startDrag, onMove: moveDrag, onEnd: finishDrag, pointerHandle: true });
-
-    const selectFoodWithAmount = (food: FoodSearchResult, amt: number, u: 'g' | 'ml' | 'pcs', createdAt: number) => {
+    function selectFoodWithAmount(food: FoodSearchResult, amt: number, u: 'g' | 'ml' | 'pcs', createdAt: number) {
         setSelFood(food);
         setUnit(u);
         setAmount(amt);
@@ -563,12 +398,13 @@ export default function CalSyncModal({
     const toggleSelFoodFav = () => {
         if (!selFood || !candidateGuard.current()) return;
         try {
-            setSelFood({ ...setFoodFavorite(selFood, !isFoodFavorite(selFood)) });
+            const selectedAmount = selFood.recipeSnapshot?.recipe.yield.unit === 'serving' ? { amount: amount / 100, unit: 'serving' } : { amount, unit };
+            setSelFood({ ...setFoodFavorite({ ...selFood, selectedAmount }, !isFoodFavorite(selFood)) });
             void retrySync();
         } catch { onShowToast('Could not save favorite on this device.'); }
     };
 
-    const goToStep = (n: number) => { setStep(n); };
+    function goToStep(n: number) { setStep(n); }
 
     const calcKcal = () => {
         if (!selFood) return 0;
@@ -592,7 +428,8 @@ export default function CalSyncModal({
         loggingRef.current = true;
         try {
             buildFoodEntry(selFood, amount, unit || 'g');
-            const saved = ensureLibraryFood({ ...selFood, provenance: isBarcodeFood(selFood) ? 'barcode' : 'ai' }, undefined, true);
+            const selectedAmount = selFood.recipeSnapshot?.recipe.yield.unit === 'serving' ? { amount: amount / 100, unit: 'serving' } : { amount, unit };
+            const saved = ensureLibraryFood({ ...selFood, selectedAmount, provenance: isBarcodeFood(selFood) ? 'barcode' : 'ai' }, undefined, true);
             const entry = buildFoodEntry(saved, amount, unit || 'g', entryCreatedAt ?? Date.now(), unit === 'ml');
             const outcome = await onLog(entry);
             loggedRef.current = true;
@@ -611,12 +448,6 @@ export default function CalSyncModal({
     useEffect(() => {
         snapToClosedRef.current = snapToClosed;
     }, [snapToClosed]);
-
-    useEffect(() => {
-        if (openWithAi !== 'describe' || modalState === 'closed') return;
-        const timer = window.setTimeout(() => setAiTextOpen(true), 100);
-        return () => window.clearTimeout(timer);
-    }, [openWithAi, modalState]);
 
     const titles: Record<number, string> = { 0: 'Upload', 1: 'Context', 2: 'Analyzing', 3: 'Finalize' };
     const isLastStep = step === 3;
@@ -644,8 +475,8 @@ export default function CalSyncModal({
     return (
         <>
             <div className="app-overlay" id="appOverlay" ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) snapToClosed(); }}>
-                <div className="modal" id="modal" ref={modalRef}>
-                    <div className="modal-handle-zone" id="handleZone">
+                <div className="modal" id="modal" ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+                    <div className="modal-handle-zone" id="handleZone" {...handleProps}>
                         <div className="modal-handle" />
                     </div>
                     <div className="modal-header">
@@ -653,8 +484,8 @@ export default function CalSyncModal({
                     </div>
 
                     <div className="modal-body" id="modalBody" ref={bodyRef}>
-                        <div style={{ display: 'flex', width: '400%', alignItems: 'flex-start', transform: `translateX(-${step * 25}%)`, transition: skipStepTransitionRef.current ? 'none' : 'transform 0.38s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-                            <div className="modal-step" id="cs-step-processing" ref={processingRef} style={{ display: 'block', width: '25%', flexShrink: 0 }}>
+                        <div className="sheet-step-track" ref={setTrackRef} data-content-changing={changing} onTransitionEnd={onTransitionEnd} style={{ display: 'flex', width: '400%', alignItems: 'flex-start', transform: `translateX(-${step * 25}%)` }}>
+                            <div className="modal-step" id="cs-step-processing" ref={processingRef} inert={step !== 0} aria-hidden={step !== 0} style={{ display: 'block', width: '25%', flexShrink: 0, height: painted(0) ? 'auto' : 0, overflow: 'hidden', visibility: painted(0) ? 'visible' : 'hidden' }}>
                                 <div className="search-step-inner">
                                     <input ref={aiImageInputRef} type="file" accept="image/*" tabIndex={-1} aria-hidden="true"
                                     style={{ position: 'absolute', left: 0, top: 0, width: 1, height: 1, opacity: 0, overflow: 'hidden', pointerEvents: 'none' }}
@@ -676,7 +507,7 @@ export default function CalSyncModal({
                                 </div>
                             </div>
 
-                            <div className="modal-step" id="cs-step-context" ref={contextRef} style={{ display: 'block', width: '25%', flexShrink: 0 }}>
+                            <div className="modal-step" id="cs-step-context" ref={contextRef} inert={step !== 1} aria-hidden={step !== 1} style={{ display: 'block', width: '25%', flexShrink: 0, height: painted(1) ? 'auto' : 0, overflow: 'hidden', visibility: painted(1) ? 'visible' : 'hidden' }}>
                                 {(selectedFilePreview || (selFood && pendingDetection?.status !== 'completed')) && (
                                     <div className="context-step">
                                         <div className="context-image-preview">
@@ -695,7 +526,7 @@ export default function CalSyncModal({
                                 )}
                             </div>
 
-                            <div className="modal-step" id="cs-step-analyzing" ref={analyzingRef} style={{ display: 'block', width: '25%', flexShrink: 0 }}>
+                            <div className="modal-step" id="cs-step-analyzing" ref={analyzingRef} inert={step !== 2} aria-hidden={step !== 2} style={{ display: 'block', width: '25%', flexShrink: 0, height: painted(2) ? 'auto' : 0, overflow: 'hidden', visibility: painted(2) ? 'visible' : 'hidden' }}>
                                 <div className="search-step-inner">
                                     <div className="ai-processing" id="aiProcessing" style={{ display: 'block' }}>
                                         <div className="processing-spinner">
@@ -706,19 +537,9 @@ export default function CalSyncModal({
                                 </div>
                             </div>
 
-                            <div className="modal-step" id="cs-step-finalize" ref={confirmRef} style={{ display: 'block', width: '25%', flexShrink: 0 }}>
+                            <div className="modal-step" id="cs-step-finalize" ref={confirmRef} inert={step !== 3} aria-hidden={step !== 3} style={{ display: 'block', width: '25%', flexShrink: 0, height: painted(3) ? 'auto' : 0, overflow: 'hidden', visibility: painted(3) ? 'visible' : 'hidden' }}>
                                 {selFood && (!pendingDetection || pendingDetection.status === 'completed') && (
                                     <div className="food-confirm-inner">
-                                        {!isBarcodeFood(selFood) && (editingRecipe ? <RecipeEditor candidate={selFood.aiRecipeCandidate}
-                                            food={selFood.catalogFoodId ? libraryData().foods.get(selFood.catalogFoodId) : undefined}
-                                            onCancel={() => setEditingRecipe(false)} onSave={food => {
-                                            if (!candidateGuard.current()) return;
-                                            saveLibraryFood({ ...food, emoji: food.emoji || selFood.emoji }); setSelFood(resolveFood(food.id, libraryData().foods));
-                                            setUnit(food.defaultUnit); setAmount(100); setEditingRecipe(false); void retrySync();
-                                        }} /> : selFood.aiRecipeCandidate ? <button type="button" className="option-btn" onClick={() => setEditingRecipe(true)}>Review recipe ingredients</button> :
-                                            editingCandidate ? <FoodEditor food={selFood} onCancel={() => setEditingCandidate(false)} onSave={food => {
-                                                setSelFood(food); setUnit(food.defaultUnit); setEditingCandidate(false);
-                                            }} /> : <button type="button" className="option-btn" onClick={() => selFood.recipeSnapshot ? setEditingRecipe(true) : setEditingCandidate(true)}>{selFood.recipeSnapshot ? 'Edit recipe' : 'Edit food details'}</button>)}
                                         <div className="food-preview-card" id="foodPreviewCard">
                                             <div className="food-preview-emoji" id="foodPreviewEmoji">
                                                 <i className={selFood.emoji || 'fa-solid fa-utensils'} style={{ color: selFood.color || 'var(--accent)' }} />
@@ -738,7 +559,8 @@ export default function CalSyncModal({
                                                     </button>}
                                                 </div>
                                                 <div className="food-preview-brand" id="foodPreviewBrand">{selFood.brand}</div>
-                                                <div className="food-preview-per" id="foodPreviewPer">{selFood.recipeSnapshot?.recipe.yield.unit === 'serving' ? 'per serving' : `per 100${selFood.defaultUnit}`}</div>
+                                                <div className="food-preview-per" id="foodPreviewPer">Nutrition for {selFood.recipeSnapshot?.recipe.yield.unit === 'serving'
+                                                    ? `${amount / 100} serving(s)` : `${amount} ${foodUnitLabel(selFood, unit)}`}</div>
                                             </div>
                                         </div>
 
@@ -785,21 +607,19 @@ export default function CalSyncModal({
 
                                         <div className="calorie-preview-row" id="caloriePreviewRow">
                                             <div className="calorie-big">
-                                                <span id="calculatedCalories">{Math.round(calcKcal())}</span>
+                                                <span id="calculatedCalories">{formatFoodNumber(calcKcal())}</span>
                                                 <span className="calorie-unit-label">kcal</span>
                                             </div>
                                             <div className="macro-pills" id="macroPills">
                                                 {(calcProt() > 0 || calcCarb() > 0 || calcFat() > 0) && (
                                                 <>
-                                                    <div className="macro-pill">P: {Math.round(calcProt())}g</div>
-                                                    <div className="macro-pill">C: {Math.round(calcCarb())}g</div>
-                                                    <div className="macro-pill">F: {Math.round(calcFat())}g</div>
+                                                    <div className="macro-pill">P: {formatFoodNumber(calcProt())}g</div>
+                                                    <div className="macro-pill">C: {formatFoodNumber(calcCarb())}g</div>
+                                                    <div className="macro-pill">F: {formatFoodNumber(calcFat())}g</div>
                                                 </>
                                                 )}
                                             </div>
                                         </div>
-
-                                        {!showNFT && <div id="manualNutrients" style={{ display: 'block' }} />}
 
                                         {showNFT && selFood.isBarcode && (
                                         <div className="nutrition-facts-table" id="nutritionFactsTable">
@@ -808,15 +628,20 @@ export default function CalSyncModal({
                                             <div className="nutrition-facts-subtitle">per 100<span id="nftUnit">{selFood.defaultUnit}</span></div>
                                             </div>
                                             <div className="nutrition-facts-body">
-                                            <div className="nutrition-row nutrition-row-main"><span className="nutrition-label">Energy</span><span className="nutrition-value" id="nftEnergy">{selFood.energyKj} kJ / {selFood.kcalPer100} kcal</span></div>
-                                            <div className="nutrition-row"><span className="nutrition-label">Fat</span><span className="nutrition-value"><span id="nftFat">{selFood.fatPer100}</span> g</span></div>
-                                            <div className="nutrition-row nutrition-row-sub"><span className="nutrition-label">of which saturates</span><span className="nutrition-value" id="nftSatFat">{selFood.satFatPer100 !== null ? `${selFood.satFatPer100} g` : '-'}</span></div>
-                                            <div className="nutrition-row"><span className="nutrition-label">Carbohydrate</span><span className="nutrition-value"><span id="nftCarbs">{selFood.carbPer100}</span> g</span></div>
-                                            <div className="nutrition-row nutrition-row-sub"><span className="nutrition-label">of which sugars</span><span className="nutrition-value" id="nftSugar">{selFood.sugarPer100 !== null ? `${selFood.sugarPer100} g` : '-'}</span></div>
-                                            <div className="nutrition-row"><span className="nutrition-label">Protein</span><span className="nutrition-value"><span id="nftProtein">{selFood.protPer100}</span> g</span></div>
-                                            <div className="nutrition-row"><span className="nutrition-label">Salt</span><span className="nutrition-value" id="nftSalt">{selFood.saltPer100 !== null ? `${selFood.saltPer100} g` : '-'}</span></div>
+                                            <div className="nutrition-row nutrition-row-main"><span className="nutrition-label">Energy</span><span className="nutrition-value" id="nftEnergy">{formatFoodNumber(selFood.energyKj)} kJ / {formatFoodNumber(selFood.kcalPer100)} kcal</span></div>
+                                            <div className="nutrition-row"><span className="nutrition-label">Fat</span><span className="nutrition-value"><span id="nftFat">{formatFoodNumber(selFood.fatPer100)}</span> g</span></div>
+                                            <div className="nutrition-row nutrition-row-sub"><span className="nutrition-label">of which saturates</span><span className="nutrition-value" id="nftSatFat">{selFood.satFatPer100 !== null ? `${formatFoodNumber(selFood.satFatPer100)} g` : '-'}</span></div>
+                                            <div className="nutrition-row"><span className="nutrition-label">Carbohydrate</span><span className="nutrition-value"><span id="nftCarbs">{formatFoodNumber(selFood.carbPer100)}</span> g</span></div>
+                                            <div className="nutrition-row nutrition-row-sub"><span className="nutrition-label">of which sugars</span><span className="nutrition-value" id="nftSugar">{selFood.sugarPer100 !== null ? `${formatFoodNumber(selFood.sugarPer100)} g` : '-'}</span></div>
+                                            <div className="nutrition-row"><span className="nutrition-label">Protein</span><span className="nutrition-value"><span id="nftProtein">{formatFoodNumber(selFood.protPer100)}</span> g</span></div>
+                                            <div className="nutrition-row"><span className="nutrition-label">Salt</span><span className="nutrition-value" id="nftSalt">{selFood.saltPer100 !== null ? `${formatFoodNumber(selFood.saltPer100)} g` : '-'}</span></div>
                                             </div>
                                         </div>
+                                        )}
+                                        {!isBarcodeFood(selFood) && (
+                                            <button type="button" className="option-btn" onClick={() => selFood.aiRecipeCandidate || selFood.recipeSnapshot ? setEditingRecipe(true) : setEditingCandidate(true)}>
+                                                {selFood.aiRecipeCandidate ? 'Review recipe ingredients' : selFood.recipeSnapshot ? 'Edit recipe' : 'Edit food details'}
+                                            </button>
                                         )}
                                     </div>
                                 )}
@@ -831,11 +656,18 @@ export default function CalSyncModal({
                 </div>
 
             </div>
-            <div className={`app-overlay${aiTextOpen ? ' visible' : ''}`} id="aiTextOverlay"
-                onClick={e => { if (e.currentTarget === e.target) setAiTextOpen(false); }}>
-                <div className="modal" id="aiTextModal"
-                style={{ transform: aiTextOpen ? 'translateY(0)' : 'translateY(110%)', transition: 'transform 0.42s cubic-bezier(0.34, 1.15, 0.64, 1)' }}>
-                    <div className="modal-handle-zone" id="aiTextHandleZone">
+            {selFood && (editingCandidate || editingRecipe) && <FoodReviewEditorSheet food={selFood} recipe={editingRecipe}
+                onClose={() => { setEditingCandidate(false); setEditingRecipe(false); }}
+                onSaveFood={food => { if (candidateGuard.current()) { setSelFood(food); setUnit(food.defaultUnit); } }}
+                onSaveRecipe={food => {
+                    if (!candidateGuard.current()) return;
+                    saveLibraryFood({ ...food, emoji: food.emoji || selFood.emoji }); setSelFood(resolveFood(food.id, libraryData().foods));
+                    setUnit(food.defaultUnit); setAmount(100); void retrySync();
+                }} />}
+            <div className="app-overlay" id="aiTextOverlay" ref={textOverlayRef}
+                onClick={e => { if (e.currentTarget === e.target) closeText(); }}>
+                <div className="modal" id="aiTextModal" ref={textModalRef} role="dialog" aria-modal="true" aria-label="Describe your meal">
+                    <div className="modal-handle-zone" id="aiTextHandleZone" {...textHandleProps}>
                         <div className="modal-handle" />
                     </div>
                     <div className="modal-header">

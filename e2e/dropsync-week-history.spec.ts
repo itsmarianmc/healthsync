@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000';
+test.use({ serviceWorkers: 'block' });
 
 async function openHistory(page: Page) {
     await page.goto(`${BASE_URL}/drinks`);
@@ -21,6 +22,7 @@ async function expectAverageInsideChart(page: Page, chartSelector: string) {
 }
 
 test.beforeEach(async ({ page }) => {
+    await page.route('**/*', route => new URL(route.request().url()).origin === new URL(BASE_URL).origin ? route.continue() : route.abort());
     await page.setViewportSize({ width: 390, height: 844 });
     await page.addInitScript(() => {
         localStorage.setItem('calsync_onboarding_done', '1');
@@ -96,10 +98,14 @@ test('totals local days, divides the average by seven and caps color at 200%', a
     expect(await chart.locator('.week-chart-avg-row strong').evaluate(el => getComputedStyle(el).color)).not.toBe(aboveGoalColor);
     await page.evaluate(() => { localStorage.setItem('dropsync_goal', '500'); window.dispatchEvent(new Event('storage')); });
     await expect(chart.locator('.week-chart-avg-row strong')).toHaveCSS('--ds-week-mix', '100%');
+    await chart.locator('.week-chart-avg-row strong').evaluate(async el => {
+        getComputedStyle(el).getPropertyValue('color'); // Commit the existing global color transition.
+        await Promise.all(el.getAnimations().map(animation => animation.finished.catch(() => {})));
+    });
     const cappedColor = await chart.locator('.week-chart-avg-row strong').evaluate(el => getComputedStyle(el).color);
     await page.evaluate(() => { localStorage.setItem('dropsync_goal', '200'); window.dispatchEvent(new Event('storage')); });
     await expect(chart.locator('.week-chart-avg-row strong')).toHaveCSS('--ds-week-mix', '100%');
-    expect(await chart.locator('.week-chart-avg-row strong').evaluate(el => getComputedStyle(el).color)).toBe(cappedColor);
+    await expect(chart.locator('.week-chart-avg-row strong')).toHaveCSS('color', cappedColor);
     expect(await cols.evaluateAll(elements => elements.map(el => getComputedStyle(el.querySelector('.week-chart-bar-fill')!).backgroundColor))).toEqual(colors);
     await expect(page.locator('#ds-historyList .log-date-header')).toHaveCount(6);
     await expect(page.locator('#ds-historyList .log-item')).toHaveCount(6);

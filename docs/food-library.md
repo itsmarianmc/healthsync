@@ -18,9 +18,17 @@ the unchanged manager and restores focus to Create food. The chooser remains
 compact even with the expanded-modals setting enabled, with its covered parent
 inert and hidden from assistive technology. It uses the existing workspace guard.
 
-Manual food creation and editing use `FoodEditor.tsx`, including nutrition per
-100 g/ml, piece, serving, ounce or US fluid ounce. AI review offers the same
-editor before confirmation. Barcode-sourced product names, brands and nutrition
+Manual food creation and editing use `FoodEditor.tsx`. New foods start at
+100 g. For grams and milliliters, enter the reference amount next to the unit
+under “Nutrition per”. Decimal points and decimal commas are accepted. The
+reference must be finite and positive, and all four nutrients must be finite
+and non-negative. Piece, serving, weight ounce and US fluid ounce still use
+nutrition for one portion with a conversion to grams or milliliters.
+AI review offers the same
+editor in a separate nested `FoodReviewEditorSheet` before confirmation. Its
+edit/review action sits below the portion and nutrition preview, above the final
+confirmation button. Editing keeps the selected consumption quantity in that preview.
+Barcode-sourced product names, brands and nutrition
 are read-only in scanner confirmation and the saved library; amount/serving
 controls and favorites remain available. Both `isBarcode` and barcode provenance
 identify these products, including older saved products. A manually created food
@@ -43,7 +51,9 @@ with no expiry. Stable catalog IDs take precedence. Legacy fallback requires
 matching name, brand, barcode, basis, nutrition and portion metadata; a name
 alone never groups foods. Ambiguous matches are left unlinked. Legacy rounded
 snapshots may remain separate when their original per-100 basis cannot be
-recovered exactly. Every original log occurrence remains unchanged.
+recovered exactly. Temporary history groups separately from catalog results,
+even for an identical definition. Its latest occurrence sets the search result's
+age. The diary entry remains after the search result expires.
 
 Search results appear once under the local usage day of their most recent
 associated log (`FoodEntry.date`): Today, Yesterday, then dates without times.
@@ -72,7 +82,7 @@ removal scales/fades the chip before persisting its removal. The final hidden
 frame stays applied until React removes the node, avoiding a cancellation flash;
 a failed selection write restores the chip. Review is disabled
 while removals finish. Reduced motion applies the changes immediately.
-Review shows one food at a time in a vertical snap viewport, with independent
+Review shows foods in an internally scrolling review viewport, with independent
 amount/unit controls, favorite, calculated nutrition tiles and Remove action.
 Cards scroll internally when their controls exceed the available height. The
 `.modal-footer.food-review-footer` is a flex sibling of the scrolling body and
@@ -145,7 +155,7 @@ it is inert while covered. Cancel, Back, Close, Escape, drag dismissal or Save
 return to the same view, quantity/unit, selection and scroll position, with
 focus restored to the Edit button after the main sheet becomes interactive.
 Save updates the catalog; the current detail/selection snapshots are retained,
-and selecting the food again reads the updated definition. Creation and
+and selecting the food again reads the updated definition. Creation uses the separate nested dialog described below.
 AI correction and separate manual entry retain their existing editor flows;
 barcode-sourced products do not offer editing.
 
@@ -154,6 +164,16 @@ IDs and default portions as Search/Favorites. It prepends the chosen snapshot,
 preserves other selections and their shared timestamp, and never logs a food
 directly. A prepared batch awaiting retry blocks additions without replacing
 its fixed IDs or cache. Search/Favorites read this selection when opened.
+
+For a new manual food, “Temporary food” starts unchecked. With it checked,
+“Save food” adds one chip and opens Search after the editor and manager dismiss.
+It preserves existing chips and the shared timestamp. The first amount is the
+entered reference for g/ml or one piece, serving or ounce. A pending batch
+or failed selection write keeps the editor open with its draft. Removing the
+chip before confirmation discards that selection. “Log selected foods” commits
+temporary and regular selections in one local batch. Temporary selections
+skip catalog saving, including when selected again from history. The favorite
+action can explicitly save a definition to the library.
 
 The date/time picker uses its content height by default. The existing expanded-
 modals preference can still open it expanded, and its usual drag expansion remains
@@ -201,7 +221,7 @@ correction, catalog saving and log snapshots. No new storage key is introduced.
 
 The Saved Foods browser coverage in `e2e/saved-foods.spec.ts` checks portrait
 (390×844), short (320×480) and landscape (844×390) viewports, wheel scrolling
-between snap pages, internal access to Remove, independent quantities/units and
+between review cards, internal access to Remove, independent quantities/units and
 favorites, selection persistence, final batch logging and stable sheet height
 through details/editing and viewport rotation. It also covers mounted/inert
 parent state and focus return, exact footer totals/shared timestamps, long date
@@ -267,18 +287,47 @@ Explicit guest import retains its existing tracked-entry-only behavior;
 definitions/favorites/recipes are not silently copied into an account. Settings
 JSON export includes the versioned library but never includes the Gemini key.
 
-New `FoodEntry.catalogFoodId` is optional. `foodSnapshot` stores the selected
-nutrition basis and optional recursively calculated recipe/ingredient snapshot.
+New `FoodEntry.catalogFoodId` is optional. `foodSnapshot` stores the definition's
+nutrition basis, selected consumption amount and optional recursively calculated
+recipe/ingredient snapshot. For manual g/ml definitions, optional
+`nutritionBasisAmount` records the entered reference in the existing JSON.
+Core nutrients are normalized per 100 with `nutritionPer100`. For example,
+300 kcal per 150 g becomes 200 kcal per 100 g, and an 80 g occurrence logs
+160 kcal. The editor reconstructs its displayed values from the reference
+and keeps the stored per-100 values for unchanged nutrients at the same
+reference. Older g/ml definitions open at 100. A saved consumption preference
+takes priority over the reference when starting a new selection. Barcode and
+recipe definitions keep their source and yield rules.
+Temporary selections and logged snapshots carry `temporary: true`. The diary
+entry has no catalog ID. Local recovery and cloud transport use the existing
+selection, journal and food snapshot JSON.
 Calories/macros on each occurrence remain authoritative for dashboard/history.
 Dates still use `Date.toDateString()` and timestamps are milliseconds.
 
 ## Recipes
 
 Each recipe is a stable catalog definition with optional brand/description,
-ingredient catalog IDs and quantities/units, and positive final yield in
-servings, grams or milliliters. Nested recipes work; missing references,
-invalid nutrients, unsupported conversions, cycles and excessive nesting are
-rejected. Recipe editors calculate totals instead of accepting typed totals.
+up to 100 ingredients and a positive final yield in servings, grams or
+milliliters. In the manual recipe editor, **Choose Food** opens a compact,
+local catalog search and adds the chosen definition by `foodId`.
+**Scan Barcode** opens the existing scanner even with an empty catalog.
+**Add to recipe** adds an embedded `barcodeFood` snapshot to the draft
+with the chosen amount and unit. The snapshot retains the product identity,
+normalized nutrients and the conversion choices. This also applies when the
+same product exists in the catalog. Saving the recipe writes one catalog
+definition. Scanned ingredients do not create separate catalog definitions,
+favorites, selection chips or diary entries.
+
+Closing the picker or scanner returns to the mounted recipe form. Closing
+the scanner without adding restores focus to **Choose Food**. Saving persists
+the snapshot through the existing library operation JSON and cloud sync, so
+viewing or editing the recipe requires no new product lookup. Canceling the
+recipe discards uncommitted scans. Both ingredient types support amount/unit
+edits and removal. Catalog references continue to resolve nested recipes and
+protect referenced definitions from deletion. The resolver uses
+`foodAmountToBase` for both types and rejects missing references, invalid
+nutrients, unsupported conversions, cycles and excessive nesting. The editor
+calculates recipe totals from the ingredients.
 
 For a weight/volume yield, stored per-100 values use that declared yield. A
 serving yield uses a 100-unit internal normalization for one serving and a
@@ -298,9 +347,11 @@ are acknowledged individually; a late response cannot clear newer edits.
 Downloads union with current local operations rather than replacing a whole
 array. Logical definition tombstones remain retained and block stale pulls.
 
-The unapplied additive migration is
-[`20261029010000_food_library.sql`](../supabase/migrations/20261029010000_food_library.sql).
-It adds `catalog_food_id` and `food_snapshot` to `calsync_entries` and creates
+Historical documentation describes an additive
+`supabase/migrations/20261029010000_food_library.sql`. As inspected on
+November 2, 2026, this checkout has no `supabase/` directory or that migration.
+The following is the previously documented design, not executable rollout
+evidence from this checkout. That design adds `catalog_food_id` and `food_snapshot` to `calsync_entries` and creates
 `food_library_changes` with auth-user cascade and owner/MFA-gated SELECT/INSERT
 RLS. Authenticated users have no UPDATE/DELETE permission on operations. A
 narrow definer helper checks only the caller's verified TOTP factors. A trigger
@@ -312,10 +363,149 @@ Before rollout inspect target column types/grants, table/function/trigger name
 collisions, auth MFA schema, reset RPC semantics and migration history. In an
 isolated project test owner A/B isolation, no-factor AAL1, verified-factor AAL1
 denial/AAL2 access, immutable duplicate insert, reset transaction and auth-user
-cascade. Deploy the migration with the matching client; old schemas retain local
+cascade. Locate/reconcile the actual migration and target schema before any rollout;
+old schemas retain local
 writes but cannot sync new food-log columns/library operations. No live schema,
 migration application or real Auth/RLS behavior is established by local tests.
 
 Operation logs intentionally retain revisions and tombstones; no automatic
 compaction is implemented. Browser quota is a practical limit. Any future
 compaction must preserve deleted identities and multi-device reconciliation.
+
+
+## Barcode amount contract (November 2, 2026)
+
+`barcodeFood.ts` maps the **existing v0** lookup at
+`https://world.openfoodfacts.org/api/v0/product/{code}.json`. It expects numeric
+`status: 1` and a `product` object; it does not assume v3's response envelope or
+a provider-supplied unit list. The legacy
+[Display::display_product_api implementation](https://github.com/openfoodfacts/openfoodfacts-server/blob/main/lib/ProductOpener/Display.pm)
+returns stored/customized product fields. The
+[v3 documentation](https://openfoodfacts.github.io/documentation/docs/Product-Opener/v3/products/get-api-v3-product-code/)
+was reviewed for comparison; no API migration was made. The live endpoint could
+not be reached from this execution environment; response coverage uses mocked
+v0 products and the official implementation, not a live availability claim.
+
+Inspected fields: `quantity`, `product_quantity`, `product_quantity_unit`,
+`serving_size`, `serving_quantity`, `serving_quantity_unit`, `nutrition_data_per`,
+`nutrition_data_prepared_per`, and `nutriments`. Available amount/basis fields
+are retained in `barcodeAmounts.raw`. Per-100 nutrient suffixes represent
+normalized nutrition; raw nutrients are accepted only with a matching declared
+basis. Prepared and as-sold macro fields are never mixed to fill gaps.
+Incomplete core nutrition remains invalid for logging/favoriting. Names, brands
+and source nutrition remain read-only.
+
+The official [Units.pm implementation](https://github.com/openfoodfacts/openfoodfacts-server/blob/main/lib/ProductOpener/Units.pm)
+normalizes raw quantity/serving text to **g or ml**, including multipacks:
+`2 kg` becomes `product_quantity: 2000, product_quantity_unit: g`. These derived
+values are not converted again. Unexpected nonstandard structured units are
+shown but their numeric values are not treated as already-normalized amounts.
+Package mass/volume determines the per-100 basis; serving information is a
+fallback. An otherwise unqualified `_100g` basis remains grams. Categories
+such as beverages never establish density or override a mass basis.
+
+The selector uses shared `foodPortions.ts` conversions in confirmation, details,
+recipes and review. Equivalent-unit switching divides the canonical quantity
+by the new factor, preserving consumption and nutrition. Standard choices are
+g/kg/weight ounces for mass, or ml/L/US fluid ounces for volume. Returned
+text/structured units additionally expose mg, micrograms, lb, cl, dl, cups,
+metric cups, US customary cups, teaspoons, tablespoons, US pints/quarts/gallons,
+explicit Imperial fluid ounces, pieces, named portions, servings, packages and
+multipack units where present. Decimal commas and ordinary/mixed fractions are
+parsed. Common English/French/German aliases, case and plurals deduplicate;
+unrecognized numbered labels remain in source metadata under stable `off:` identifiers.
+This is not a complete multilingual copy of the OFF taxonomy: unknown labels
+are excluded from amount selectors unless a reliable conversion is known. Energy/nutrient
+labels such as kcal/kJ/IU/% are excluded from consumption units.
+
+The [OFF unit taxonomy](https://github.com/openfoodfacts/openfoodfacts-server/blob/main/taxonomies/units.txt)
+defines an unqualified cup as the **240 ml US legal nutrition cup**. The UI
+labels this convention. Shared constants use 28.349523125 g per avoirdupois
+ounce and 29.5735295625 ml per US fluid ounce; explicit Imperial fluid ounces
+use 28.4130625 ml. Cups paired with a product amount use that relationship:
+`1 cup (120 g)` supplies a product-specific density, which takes priority over
+the explicitly labeled 1:1 ml estimate available for mass-based foods.
+Pieces/named amounts require a count and known total in the same
+serving or package, e.g. `2 pieces (30 g)` means 15 g/piece. A serving retains
+its full source text. Multipack totals and per-pack amounts are separate choices.
+
+If only directly declared per-serving nutrition is usable, 100 internal
+calculation units represent one serving (as with serving-yield recipes);
+the occurrence records actual servings, without an invented gram weight.
+Choices without reliable factors are retained as source metadata but omitted
+from amount selectors, apart from the explicitly requested mass-to-ml estimate.
+If no usable portion remains, amount controls are
+disabled and a bordered, padded notice explains how to enter a manual food.
+Manual food creation can supply an explicit mapping; barcode
+nutrition is never edited to make an unsupported choice appear valid.
+Complex/unrecognized labels can therefore require a manual definition.
+
+`FoodSearchResult.barcodeAmounts` stores the independent nutrition basis, display
+basis label, raw fields and `{unit, label, baseAmount?, issue?}` choices.
+`selectedAmount: {amount, unit}` retains consumption controls. Both travel in
+existing catalog JSON and `FoodEntry.foodSnapshot`; no new key, column or
+migration is required. Entry `amount/unit` remain canonical g/ml (or actual
+servings for serving-only nutrition), so hydration mirroring still receives
+whole ml. The snapshot retains selected cups, pieces, ounces etc. Details and
+selection/review/reload read these values. Legacy food identities and entries
+without metadata keep their previous interpretation.
+
+## Creation and shared geometry
+
+Custom Food keeps its list DOM and scrolling body mounted throughout creation.
+The compact chooser closes completely, then mounts a distinct `FoodCreationSheet`
+(`createFoodModal`) above the manager. It reuses FoodEditor/RecipeEditor, local
+persistence and cloud retries. Save is latched once and closes through the shared
+animation. Cancel, Back, Escape, backdrop and drag return to the manager.
+The manager stays inert/aria-hidden through the chooser-to-editor transition;
+chooser focus restoration is skipped when an editor will open. Closing the
+editor restores the Create food opener and refreshes the manager list.
+
+Shared viewport, scroll-lock, gesture ownership and sizing are documented in
+[architecture.md](./architecture.md#modals-and-sheets). Barcode confirmation
+is measured after committed step/content changes rather than retaining camera
+height. Long content fills the visible maximum and scrolls above the footer.
+Compact chooser/picker sizing and expanded-modals preferences stay
+consumer-specific.
+
+The extra-menu grid uses explicit equal border-box width/height derived from
+available width **and** dynamic viewport height minus navigation/safe areas.
+Its three-column rows scroll inside that fixed square when necessary. Icon
+surfaces have fixed equal dimensions, no shrinking, centered glyphs and native
+button padding reset. See [verification](./food-sheet-verification.md) for
+measured coverage and remaining physical-iOS checks.
+
+Shared sheet animation, modal stacking and the complete consumer inventory are documented in [shared-sheets.md](shared-sheets.md). FoodLibrarySheet keeps its food-specific markup while the shared hook owns entrance/exit, measurement, viewport, locks, focus and gestures. Internal search/review and food/recipe editor content changes do not replay entrance motion.
+
+## Saved portions and duplicate products (November 3, 2026)
+
+Saving/favoriting/logging a reviewed portion retains its positive amount and
+supported unit in `selectedAmount`, including an explicit amount of 1. Saved
+Foods and Custom Food labels show the chosen portion followed by its calculated
+calories, e.g. `500ml • 10kcal`, and details/selection reopen with that amount.
+Older snapshots without this preference can use a compatible logged amount.
+Definition nutrition and past food logs retain their original precision.
+Nutrition labels use at most three significant digits without zero padding;
+this is display formatting, not a change to log rounding or source data.
+
+Rescanning the same barcode/preparation reuses its saved food ID even if source
+unit metadata or nutrition has changed. New identical manual definitions also
+reuse an existing ID; different brands, nutrition, units and recipes stay
+distinct. Existing duplicate rows collapse in discovery/management, preferring
+usable barcode amount metadata. Their underlying IDs and historical snapshots
+remain intact for recipe links and cloud operation history. Unfavoriting a
+combined row clears matching favorite aliases, and explicit deletion checks
+all aliases for recipe references before marking matching definitions deleted.
+No database migration or new storage key is required.
+
+### Optional ml estimate for mass-based foods
+
+Mass-based g/kg foods also offer `ml (1:1 estimate)` in the shared amount
+selectors. This is an explicit app assumption of 1 gram per milliliter, not a
+universal physical equivalence. Known product density from a supported volume
+choice, or a custom fluid-ounce weight, takes priority and displays plain `ml`.
+Pieces and serving-only nutrition do not gain an invented physical weight.
+Switching 0.5 kg to the estimated ml option gives 500 ml and preserves the
+calculated nutrition. Stored entry quantities retain the original gram basis;
+`selectedAmount` remembers ml for labels and future review. This option alone
+does not classify a food as a drink or add hydration entries.

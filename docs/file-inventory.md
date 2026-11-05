@@ -164,13 +164,17 @@ This inventory describes the currently relevant files. Historical copies under `
 | `useLocalStorage.ts` | typed Local Storage hook with storage event |
 | `usePendingFoodDraft.ts` | active AI draft and TTL |
 | `useOnboarding.ts` | onboarding marker |
-| `useDraggableSheet.ts` | shared sheet gesture, snap, focus and close |
+| `useDraggableSheet.ts` | shared animation phases, sizing, gesture, focus and closing lifecycle |
+| `useSheetViewport.ts` | visual-viewport frame and size-only measurement refresh |
+| `useSheetDragGestures.ts` | native scrolling and deliberate sheet gesture ownership |
+| `useBlockingDialog.ts` | centered exceptions sharing sheet layer, scroll and focus boundaries |
 
 ## `_lib` – domain and integration logic
 
 | File | Purpose |
 |---|---|
 | `types.ts` | central TypeScript domain types |
+| `dialogLayers.ts` | neutral blocking layer registry and reference-counted page scroll ownership |
 | `sync.ts` | Supabase auth verification, CRUD, merge and workout sync |
 | `localData.ts` | guest/user workspace partitioning, read/write and migration helpers |
 | `foodLog.ts` | shared local-first food logging and optional drink mirror/cloud sync |

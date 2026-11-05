@@ -76,17 +76,6 @@ export default function CustomSupplementsModal({ isOpen, onClose }: CustomSupple
         else if (sheetStateRef.current !== 'closed') closeSheet();
     }, [isOpen, canUsePreferences, openSheet, closeSheet, sheetStateRef]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleEscape = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape' || editorRequest || sheetStateRef.current === 'closed') return;
-            event.preventDefault();
-            event.stopPropagation();
-            closeSheet();
-        };
-        window.addEventListener('keydown', handleEscape, true);
-        return () => window.removeEventListener('keydown', handleEscape, true);
-    }, [isOpen, editorRequest, closeSheet, sheetStateRef]);
 
     const setManagerSubModal = useCallback((active: boolean) => {
         const overlay = document.getElementById('customSupplementsOverlay');

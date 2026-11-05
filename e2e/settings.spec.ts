@@ -129,6 +129,8 @@ test.describe('Settings menu', () => {
         await expect(supplementsModal.locator('.custom-supplement-item')).toHaveCount(1);
         const takenAfterEdit = await page.evaluate(() => JSON.parse(localStorage.getItem('calsync_supplements_taken') || '{}'));
         expect(takenAfterEdit[today][savedId]).toBe(true);
+        // The exiting editor owns Escape until unmount.
+        await expect(editorOverlay).toHaveCount(0);
         page.once('dialog', dialog => dialog.accept());
         await supplementsModal.getByRole('button', { name: 'Remove Vitamin D Plus' }).click();
         await expect(supplementsModal.locator('.custom-supplement-item')).toHaveCount(0);

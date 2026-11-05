@@ -47,7 +47,7 @@ HealthSync has a consistent dark-mode design with a warm orange accent. The app 
 
 **CSS Variables (Root):**
 ```css
---bg: #0F0F10           /* background */
+--bg: #0F0F10
 --surface: #1A1A1C      /* card background */
 --surface2: #232326     /* inputs, secondary surfaces */
 --surface3: #2E2E32     /* hover states */
@@ -55,7 +55,7 @@ HealthSync has a consistent dark-mode design with a warm orange accent. The app 
 --text: #F5F5F7
 --text2: #8E8E93        /* secondary text */
 --text3: #48484A        /* placeholder, disabled */
---accent: #E4840F       /* primary accent color (orange) */
+--accent: #E4840F       /* orange */
 --accent2: #FF9F0A
 --error: #FF453A
 --success: #30D158
@@ -153,14 +153,14 @@ CalSync is the food logging section. The tab name in the original was "CalSync",
 **Entry data structure:**
 ```typescript
 interface FoodEntry {
-  id: string           // UUID
-  food: string         // food name
+  id: string
+  food: string
   kcal: number
   prot: number         // protein in g
   carb: number         // carbs in g
   fat: number          // fat in g
   weight?: number      // weight in g
-  emoji?: string       // e.g. "🍎"
+  emoji?: string
   color?: string       // CSS color for icon
   ts: number           // unix timestamp (ms)
   date: string         // new Date().toDateString()
@@ -202,9 +202,9 @@ Quick-buttons (`.quick-btn`) with `data-ml` for common amounts.
 *Entry data structure:*
 ```typescript
 interface DrinkEntry {
-  id: string           // UUID
-  drink: string        // drink name e.g. "Water"
-  emoji?: string       // e.g. "💧"
+  id: string
+  drink: string
+  emoji?: string
   color?: string       // CSS color
   amount: number       // ml
   ts: number           // unix timestamp (ms)

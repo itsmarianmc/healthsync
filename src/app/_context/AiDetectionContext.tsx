@@ -151,7 +151,7 @@ export function AiDetectionProvider({ children }: { children: React.ReactNode })
     }, [bump]);
 
     const detections = useMemo(() => {
-        version;
+        void version;
         return Array.from(detectionsRef.current.values()).sort((a, b) => b.startedAt - a.startedAt);
     }, [version]);
 

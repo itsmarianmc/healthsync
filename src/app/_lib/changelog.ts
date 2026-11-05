@@ -100,16 +100,14 @@ export const PENDING_RELOAD_STORAGE_KEY = 'healthsync_pending_reload_after_updat
 export { readLocalLastSeen, writeLocalLastSeen } from './changelogStorage';
 
 export function readPendingReloadAfterUpdate(): boolean {
-    try {
-        return localStorage.getItem(PENDING_RELOAD_STORAGE_KEY) === 'true';
-    } catch {
-        return false;
-    }
+    // Legacy callers cannot turn a shared persisted flag into reload consent.
+    return false;
 }
 
-export function writePendingReloadAfterUpdate(pending: boolean): void {
+export function writePendingReloadAfterUpdate(_pending: boolean): void {
+    void _pending;
     try {
-        localStorage.setItem(PENDING_RELOAD_STORAGE_KEY, String(pending));
+        localStorage.removeItem(PENDING_RELOAD_STORAGE_KEY);
     } catch {}
 }
 

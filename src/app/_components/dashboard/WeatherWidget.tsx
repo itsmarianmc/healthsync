@@ -231,7 +231,7 @@ export default function WeatherWidget() {
       } catch {
         if (!cancelled) {
           console.warn('Weather data could not be loaded.');
-          setError('Weather unavailable. Check your connection and try again later.');
+          setError('Weather unavailable');
           setWeatherData(null);
           setLoading(false);
         }

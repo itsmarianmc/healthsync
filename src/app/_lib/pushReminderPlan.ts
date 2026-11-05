@@ -54,7 +54,7 @@ function spaced(minutes: readonly number[]): boolean {
     return minutes.every((minute, index) => index === 0 || minute - minutes[index - 1] >= REMINDER_MIN_GAP_MINUTES);
 }
 
-/** Pure candidate generation only. Persist atomically before publishing; never regenerate a stored day. */
+/** Persist atomically before publishing; never regenerate an already stored day. */
 export function createReminderPlan(date: string, select: (min: number, max: number) => number = randomInt): ReminderPlan {
     const midnight = calendarDate(date);
     let minutes: number[] | undefined;
@@ -78,7 +78,7 @@ export function createReminderPlan(date: string, select: (min: number, max: numb
     };
 }
 
-/** Explicit allowlist for the scheduler body. The UTC instant belongs in scheduling metadata. */
+/** Scheduling timestamps belong in metadata, outside the allowlisted job body. */
 export function reminderJob(event: ReminderEvent): ReminderJob {
     return { date: event.date, category: event.category, eventId: event.eventId };
 }

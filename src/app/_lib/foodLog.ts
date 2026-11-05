@@ -10,8 +10,7 @@ function readEntries<T>(key: string): T[] {
     return value as T[];
 }
 
-// The journal is written before any log/queue mutation. A reload or local-write
-// failure can finish the same IDs without losing records or logging duplicates.
+// Journal before log/queue writes so reload recovery reuses IDs without losing or duplicating records.
 export function recoverFoodBatch(): void {
     const raw = localStorage.getItem(FOOD_BATCH_KEY);
     if (!raw) return;
@@ -38,15 +37,13 @@ export function recoverFoodBatch(): void {
     window.dispatchEvent(new Event('storage'));
 }
 
-// Synchronous local boundary: callers may dismiss as soon as this returns and
-// observe cloudSync separately. Only local/journal failures throw here.
+// Only local/journal failures throw; callers may dismiss before cloudSync settles.
 export function commitFoodEntries(entries: FoodEntry[], userId?: string, clearSelection = true): { cloudSync: Promise<{ cloudPending: boolean }> } {
     const owner = userId || GUEST_OWNER;
     const isCurrent = workspaceGuard(owner);
     if (!isCurrent()) throw new Error('Food workspace changed');
     recoverFoodBatch();
-    // Reusing every prepared ID also acknowledges a recovered, partially written
-    // batch and clears its selection. Cloud upserts remain idempotent on retry.
+    // Recovered IDs acknowledge partial batches and allow selection cleanup; cloud retries are idempotent.
     const existing = new Set(readEntries<FoodEntry>('calsync_v1').map(entry => entry.id));
     if (entries.some(entry => !existing.has(entry.id))) {
         localStorage.setItem(FOOD_BATCH_KEY, JSON.stringify({ owner, entries, clearSelection } satisfies Batch));

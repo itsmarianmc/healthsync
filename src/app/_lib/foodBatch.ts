@@ -1,5 +1,5 @@
-import { buildFoodEntry } from './foodEntry';
-import { foodAmountToBase, foodBaseUnit, type FoodAmountUnit } from './foodPortions';
+import { buildFoodAmountEntry } from './foodEntry';
+import { foodDefaultAmount, type FoodAmountUnit } from './foodPortions';
 import { generateId } from './ids';
 import type { FoodEntry, FoodSearchResult } from './types';
 
@@ -7,20 +7,34 @@ export type FoodSelection = { id: string; food: FoodSearchResult; amount: string
 export const FOOD_SELECTION_KEY = 'calsync_food_selection_v1';
 export type FoodSelectionCache = { version: 1; items: FoodSelection[]; ts?: number; batch?: FoodEntry[] };
 
-export function readFoodSelection(): FoodSelectionCache {
+export function readFoodSelection(strict = false): FoodSelectionCache {
     try {
         const value = JSON.parse(localStorage.getItem(FOOD_SELECTION_KEY) || '{"version":1,"items":[]}');
-        return value.version === 1 && Array.isArray(value.items) ? value : { version: 1, items: [] };
-    } catch { return { version: 1, items: [] }; }
+        if (value.version === 1 && Array.isArray(value.items)) return value;
+        throw new Error('Invalid food selection');
+    } catch (error) {
+        if (strict) throw error;
+        return { version: 1, items: [] };
+    }
+}
+
+export function prependFoodSelection(item: FoodSelection): boolean {
+    const cached = readFoodSelection(true);
+    if (cached.batch?.length) return false;
+    if (!cached.items.some(existing => existing.id === item.id)) {
+        localStorage.setItem(FOOD_SELECTION_KEY, JSON.stringify({ ...cached, items: [item, ...cached.items] }));
+        window.dispatchEvent(new Event('storage'));
+    }
+    return true;
 }
 
 export function createFoodSelection(food: FoodSearchResult): FoodSelection {
-    return { id: generateId('selection'), food, amount: food.portion ? '1' : '100', unit: food.portion?.unit || foodBaseUnit(food) };
+    const { amount, unit } = foodDefaultAmount(food);
+    return { id: generateId('selection'), food, amount: String(amount), unit };
 }
 
 export function selectionEntry(item: FoodSelection, ts: number): FoodEntry {
-    const base = foodAmountToBase(item.food, item.amount.trim() ? Number(item.amount) : NaN, item.unit);
-    return buildFoodEntry(item.food, base.amount, base.unit, ts);
+    return buildFoodAmountEntry(item.food, item.amount.trim() ? Number(item.amount) : NaN, item.unit, ts);
 }
 
 // Sum the rounded occurrence values, exactly as stored in the food log.

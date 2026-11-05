@@ -17,7 +17,7 @@ beforeEach(() => {
   const supabase = {
     auth: { getSession: async () => ({ data: { session: { access_token: 'fixture' } } }) },
     from: table => ({
-      upsert: async () => { await writeHook(); return { error: writeError }; },
+      upsert: async payload => { await writeHook(payload); return { error: writeError }; },
       select: (_fields, options) => {
         assert.equal(options.count, 'exact');
         const query = {
@@ -73,6 +73,27 @@ test('save, module reload, offline failure, then retry retains entry and durable
   await syncEntries('food', 'A', async () => snapshot(++pulls === 1 ? [] : [food('offline')]), sync.pushFoodEntriesToCloud);
   assert.equal(local.pendingIds('food').size, 0);
   assert.equal(saved().length, 1);
+});
+
+test('temporary food and its nutrition basis survive the food snapshot cloud round trip', async () => {
+  const load = moduleLoader();
+  const { createFoodSelection, selectionEntry } = load('./foodBatch');
+  const item = createFoodSelection({ name: 'Oats', defaultUnit: 'g', nutritionBasisAmount: 150,
+    kcalPer100: 200, protPer100: 10, carbPer100: 20, fatPer100: 4, temporary: true });
+  const entry = selectionEntry({ ...item, amount: '80' }, Date.now());
+  writeHook = rows => {
+    assert.equal(rows[0].catalog_food_id, null);
+    pages.push({ data: JSON.parse(JSON.stringify(rows)), count: rows.length, error: null });
+  };
+  await sync.pushFoodEntriesToCloud([entry], 'A');
+  const { entries: [synced] } = await sync.pullFoodFromCloud('A');
+  const restored = load('./foodLibrary').historyFood(synced);
+  assert.equal(restored.temporary, true);
+  assert.equal(restored.nutritionBasisAmount, 150);
+  assert.deepEqual(restored.selectedAmount, { amount: 80, unit: 'g' });
+  assert.equal(restored.catalogFoodId, undefined);
+  assert.equal(synced.kcal, 160);
+  assert.equal(synced.prot, 8);
 });
 
 test('failed legacy recovery queues retry before upload', async () => {

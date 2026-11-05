@@ -4,9 +4,11 @@ import { useEffect, useRef, type RefObject } from 'react';
 
 const INTERACTIVE = 'button, a, input, textarea, select, option, label, summary, [role="button"], [role="slider"], [role="spinbutton"], [contenteditable]:not([contenteditable="false"]), [data-sheet-no-drag]';
 const DRAG_SLOP = 6;
+const EDGE_PULL_SLOP = 32;
 type Gesture = {
   input: 'touch' | 'pointer'; id: number; target: Element; body: boolean;
   x: number; y: number; active: boolean;
+  native: boolean; pull: number;
 };
 
 export function useSheetDragGestures({ modalRef, overlayRef, onStart, onMove, onEnd, pointerHandle = false }: {
@@ -16,8 +18,7 @@ export function useSheetDragGestures({ modalRef, overlayRef, onStart, onMove, on
 }) {
   const gesture = useRef<Gesture | null>(null);
 
-  // Rebind after renders so conditionally mounted dialogs and current close
-  // callbacks are covered. An in-progress gesture survives these rebindings.
+  // Rebind for mounted dialogs and current callbacks without resetting an active gesture.
   useEffect(() => {
     const modal = modalRef.current;
     if (!modal) return;
@@ -37,7 +38,7 @@ export function useSheetDragGestures({ modalRef, overlayRef, onStart, onMove, on
       const current = gesture.current;
       gesture.current = null;
       if (!current) return;
-      if (current.active) onEnd(cancelled || !enabled());
+      if (current.active) onEnd(cancelled || !enabled() || (current.body && current.pull <= EDGE_PULL_SLOP));
       if (current.input === 'pointer' && modal.hasPointerCapture(current.id)) modal.releasePointerCapture(current.id);
     };
     const start = (target: EventTarget | null, x: number, y: number, id: number, input: Gesture['input']) => {
@@ -45,13 +46,12 @@ export function useSheetDragGestures({ modalRef, overlayRef, onStart, onMove, on
       const header = target.closest('.modal-handle-zone, .modal-header');
       if (!header && !target.closest('.modal-body')) return;
       if (input === 'pointer' && !pointerHandle && target.closest('.modal-handle-zone')) return;
-      gesture.current = { input, id, target, body: !header, x, y, active: false };
+      gesture.current = { input, id, target, body: !header, x, y, active: false, native: false, pull: 0 };
     };
     const atScrollTop = (target: Element) => {
       for (let node: Element | null = target; node && node !== modal; node = node.parentElement) {
-        // Check every nested scroller, including the sheet's own body. Negative
-        // iOS overscroll positions also count as the top edge.
-        if (node.scrollTop > 1) return false;
+        // Include nested scrollers and negative iOS overscroll at the top edge.
+        if (node.scrollTop > 1 || node.scrollTop < -1) return false;
       }
       return true;
     };
@@ -59,26 +59,30 @@ export function useSheetDragGestures({ modalRef, overlayRef, onStart, onMove, on
       const current = gesture.current;
       if (!current) return;
       if (!enabled()) { finish(true); return; }
+      if (current.body && window.getSelection()?.isCollapsed === false) { finish(true); return; }
+      if (current.native) return;
       const dx = x - current.x, dy = y - current.y;
       if (!current.active) {
         if (Math.abs(dx) > DRAG_SLOP && Math.abs(dx) > Math.abs(dy)) { gesture.current = null; return; }
         if (current.body && (!atScrollTop(current.target) || dy <= 0)) {
-          current.x = x; current.y = y;
+          // WebKit moves may become non-cancelable; never steal an active native scroll.
+          current.native = true;
           return;
         }
         if (Math.abs(dy) <= Math.abs(dx)) return;
-        // A non-passive touch listener prevents the native rubber band before
-        // accepting the pull. Native scrolling continues everywhere else.
-        if (event.cancelable) event.preventDefault();
-        else if (current.input === 'touch') { gesture.current = null; return; }
         if (Math.abs(dy) < DRAG_SLOP) return;
+        if (event.cancelable) event.preventDefault();
+        else if (current.input === 'touch') { current.native = true; return; }
         current.active = true;
         onStart(current.y);
         if (current.input === 'pointer') {
           try { modal.setPointerCapture(current.id); } catch { /* The pointer may already have been cancelled. */ }
         }
       } else if (event.cancelable) event.preventDefault();
-      onMove(current.body ? Math.max(current.y, y) : y);
+      current.pull = Math.max(0, dy);
+      // Only fresh top-edge pulls use elasticity; short pulls cannot trigger fling dismissal.
+      const pull = Math.max(0, dy);
+      onMove(current.body ? current.y + (pull <= EDGE_PULL_SLOP ? pull / 3 : pull - EDGE_PULL_SLOP + EDGE_PULL_SLOP / 3) : y);
     };
     const pointerDown = (event: PointerEvent) => {
       if (event.pointerType === 'touch' || !event.isPrimary || event.button !== 0) return;

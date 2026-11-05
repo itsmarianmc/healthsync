@@ -211,30 +211,9 @@ function GifModal({ url, name, instructions, instructionSteps, onClose }: {
     instructionSteps?: string[];
     onClose: () => void
 }) {
-    const overlayRef = useRef<HTMLDivElement>(null);
-    const modalRef = useRef<HTMLDivElement>(null);
-    const dragY = useRef(0);
-    const dragging = useRef(false);
+    const { overlayRef, modalRef, open, close, handleProps } = useDraggableSheet({ onClose });
     const [activeTab, setActiveTab] = useState<'overview' | 'steps'>('overview');
-
-    useEffect(() => {
-        requestAnimationFrame(() => {
-            if (overlayRef.current) overlayRef.current.classList.add('visible');
-            if (modalRef.current) {
-                modalRef.current.style.transition = 'transform 0.42s cubic-bezier(0.34,1.15,0.64,1)';
-                modalRef.current.style.transform = 'translateY(0)';
-            }
-        });
-    }, []);
-
-    const close = () => {
-        if (overlayRef.current) overlayRef.current.classList.remove('visible');
-        if (modalRef.current) {
-            modalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4,0,0.2,1)';
-            modalRef.current.style.transform = 'translateY(110%)';
-        }
-        setTimeout(onClose, 380);
-    };
+    useEffect(() => { open(); }, [open]);
 
     const hasOverview = !!instructions;
     const hasSteps = !!(instructionSteps && instructionSteps.length > 0);
@@ -244,10 +223,7 @@ function GifModal({ url, name, instructions, instructionSteps, onClose }: {
         <div className="app-overlay" ref={overlayRef} style={{ zIndex: 10001 }} onClick={e => { if (e.target === overlayRef.current) close(); }}
             role="dialog" aria-modal="true" aria-label={`${name} exercise details`}>
             <div className="modal" ref={modalRef} style={{ transform: 'translateY(100%)' }}>
-                <div className="modal-handle-zone"
-                    onPointerDown={e => { dragging.current = true; dragY.current = e.clientY; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); if (modalRef.current) modalRef.current.style.transition = 'none'; }}
-                    onPointerMove={e => { if (!dragging.current || !modalRef.current) return; const dy = e.clientY - dragY.current; if (dy > 0) modalRef.current.style.transform = `translateY(${dy}px)`; }}
-                    onPointerUp={e => { if (!dragging.current) return; dragging.current = false; if (e.clientY - dragY.current > 80) close(); else if (modalRef.current) { modalRef.current.style.transition = 'transform 0.42s cubic-bezier(0.34,1.15,0.64,1)'; modalRef.current.style.transform = 'translateY(0)'; } }}>
+                <div className="modal-handle-zone" {...handleProps}>
                     <div className="modal-handle" />
                 </div>
                 <div className="modal-header">
@@ -534,7 +510,7 @@ function CreateModal({ editRoutine, onSave, onClose }: {
     onSave: (routine: Omit<Routine, 'id' | 'created_at'> & { id?: string; created_at?: string }) => void;
     onClose: () => void;
 }) {
-    const sheet = useDraggableSheet({ onClose });
+    const sheet = useDraggableSheet({ onClose, initialExpanded: true });
     const [name, setName] = useState(editRoutine?.name ?? '');
     const [exercises, setExercises] = useState<RoutineExercise[]>(
         editRoutine ? editRoutine.exercises.map(ex => ({ ...ex, sets: ex.sets.map(s => ({ ...s })) })) : []
@@ -544,8 +520,7 @@ function CreateModal({ editRoutine, onSave, onClose }: {
 
     useEffect(() => {
         sheet.open();
-        const t = setTimeout(() => sheet.snapToExpanded(), 80);
-        return () => clearTimeout(t);
+
     }, []);
 
     const addExercises = (items: ExerciseCacheItem[]) => {
@@ -635,7 +610,7 @@ function AddExercisesModal({ alreadyAdded, onAdd, onClose }: {
     onAdd: (items: ExerciseCacheItem[]) => void;
     onClose: () => void;
 }) {
-    const sheet = useDraggableSheet({ onClose });
+    const sheet = useDraggableSheet({ onClose, initialExpanded: true });
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
     const [allExercises, setAllExercises] = useState<ExerciseCacheItem[]>([]);
@@ -644,8 +619,7 @@ function AddExercisesModal({ alreadyAdded, onAdd, onClose }: {
 
     useEffect(() => {
         sheet.open();
-        const t = setTimeout(() => sheet.snapToExpanded(), 80);
-        return () => clearTimeout(t);
+
     }, []);
 
     useEffect(() => {
@@ -897,9 +871,13 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     onClose: () => void;
     onFinish: (session: WorkoutSession, intensity: number, endTime: number) => void;
 }) {
-    const overlayRef = useRef<HTMLDivElement>(null);
-    const modalRef = useRef<HTMLDivElement>(null);
-    const handleZoneRef = useRef<HTMLDivElement>(null);
+    const closeAction = useRef<(() => void) | null>(null);
+    const sheet = useDraggableSheet({ onClose: () => {
+        const action = closeAction.current;
+        closeAction.current = null;
+        if (action) action(); else setMinimized(true);
+    } });
+    const { modalRef, overlayRef, handleProps } = sheet;
     const contentWrapperRef = useRef<HTMLDivElement>(null);
     const [session, setSession] = useState<WorkoutSession>(initSession);
     const [elapsed, setElapsed] = useState(0);
@@ -912,9 +890,6 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
     const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
     const [restRemaining, setRestRemaining] = useState<number>(0);
     const finishTimeRef = useRef<number | null>(null);
-    const dragY = useRef(0);
-    const dragStartT = useRef(0);
-    const isDragging = useRef(false);
     const prBaselineRef = useRef<Record<string, ExerciseBest>>({});
     const sessionBestsRef = useRef<Record<string, ExerciseBest>>({});
 
@@ -936,17 +911,7 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
         }
     }, [canUsePreferences]);
 
-    useEffect(() => {
-        requestAnimationFrame(() => {
-            if (overlayRef.current) overlayRef.current.classList.add('visible');
-            if (modalRef.current) {
-                modalRef.current.style.transition = 'transform 0.42s cubic-bezier(0.34,1.15,0.64,1)';
-                modalRef.current.style.transform = 'translateY(0)';
-            }
-        });
-        document.body.classList.add('modal-open');
-        return () => { document.body.classList.remove('modal-open'); };
-    }, []);
+    useEffect(() => { sheet.open(); }, [sheet.open]);
 
     useEffect(() => {
         if (ratingMode) return;
@@ -991,35 +956,12 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
         }
     };
 
-    const minimize = useCallback(() => {
-        setMinimized(true);
-        if (overlayRef.current) overlayRef.current.classList.remove('visible');
-        document.body.classList.remove('modal-open');
-        if (modalRef.current) {
-            modalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4,0,0.2,1)';
-            modalRef.current.style.transform = 'translateY(110%)';
-        }
-    }, []);
-
-    const restore = useCallback(() => {
-        setMinimized(false);
-        if (overlayRef.current) overlayRef.current.classList.add('visible');
-        document.body.classList.add('modal-open');
-        if (modalRef.current) {
-            modalRef.current.style.transition = 'transform 0.42s cubic-bezier(0.34,1.15,0.64,1)';
-            modalRef.current.style.transform = 'translateY(0)';
-        }
-    }, []);
-
+    const minimize = useCallback(() => { closeAction.current = null; sheet.close(); }, [sheet.close]);
+    const restore = useCallback(() => { setMinimized(false); sheet.open(); }, [sheet.open]);
     const discard = () => {
         if (!confirm('Discard workout? Progress will be lost.')) return;
-        if (overlayRef.current) overlayRef.current.classList.remove('visible');
-        document.body.classList.remove('modal-open');
-        if (modalRef.current) {
-          modalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4,0,0.2,1)';
-          modalRef.current.style.transform = 'translateY(110%)';
-        }
-        setTimeout(onClose, 400);
+        closeAction.current = onClose;
+        sheet.close();
     };
 
     const finish = () => {
@@ -1031,17 +973,12 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
             return;
         }
         if (!rating) return;
-        if (modalRef.current) {
-            modalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.4,0,0.2,1)';
-            modalRef.current.style.transform = 'translateY(110%)';
-        }
-        setTimeout(() => {
-            onFinish({
-                ...session,
-                intensity: String(rating),
-                exercises: session.exercises.map(ex => ({ ...ex, intensity: String(rating) })),
-            }, rating, finishTimeRef.current ?? Date.now());
-        }, 380);
+        closeAction.current = () => onFinish({
+            ...session,
+            intensity: String(rating),
+            exercises: session.exercises.map(ex => ({ ...ex, intensity: String(rating) })),
+        }, rating, finishTimeRef.current ?? Date.now());
+        sheet.close();
     };
 
     const updateSet = (exIdx: number, setIdx: number, patch: Partial<SessionSet>) => {
@@ -1093,30 +1030,7 @@ function ActiveWorkoutModal({ session: initSession, onClose, onFinish }: {
                 onClick={e => { if (e.target === overlayRef.current) minimize(); }}
                 role="dialog" aria-modal="true" aria-label="Active workout">
                 <div className="modal" id="activeWorkoutModal" ref={modalRef} style={{ transform: 'translateY(100%)' }}>
-                    <div className="modal-handle-zone" id="activeWorkoutHandleZone" ref={handleZoneRef}
-                        onPointerDown={e => {
-                        isDragging.current = true; dragY.current = e.clientY; dragStartT.current = e.clientY;
-                        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-                        if (modalRef.current) modalRef.current.style.transition = 'none';
-                        }}
-                        onPointerMove={e => {
-                        if (!isDragging.current || !modalRef.current || !overlayRef.current) return;
-                        const dy = Math.max(0, e.clientY - dragY.current);
-                        modalRef.current.style.transform = `translateY(${dy}px)`;
-                        const fade = Math.min(dy / 200, 1);
-                        overlayRef.current.style.background = `rgba(0,0,0,${0.6 * (1 - fade)})`;
-                        overlayRef.current.style.backdropFilter = `blur(${8 * (1 - fade)}px)`;
-                        }}
-                        onPointerUp={e => {
-                        if (!isDragging.current) return; isDragging.current = false;
-                        if (e.clientY - dragStartT.current > 120) { minimize(); }
-                        else if (modalRef.current && overlayRef.current) {
-                            modalRef.current.style.transition = 'transform 0.36s cubic-bezier(0.34,1.15,0.64,1)';
-                            modalRef.current.style.transform = 'translateY(0)';
-                            overlayRef.current.style.background = '';
-                            overlayRef.current.style.backdropFilter = '';
-                        }
-                        }}>
+                    <div className="modal-handle-zone" id="activeWorkoutHandleZone" {...handleProps}>
                         <div className="modal-handle" />
                     </div>
                     <div className="modal-header">
@@ -1239,7 +1153,11 @@ interface WorkoutModalProps {
 }
 
 export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
-    const sheet = useDraggableSheet({ onClose });
+    const pendingSession = useRef<WorkoutSession | null>(null);
+    const sheet = useDraggableSheet({ onClose: () => {
+        onClose();
+        if (pendingSession.current) { setActiveSession(pendingSession.current); pendingSession.current = null; }
+    }, initialExpanded: true });
     const { user, showToast, retrySync } = useAuth();
     const { canUsePreferences } = useCookieConsent();
 
@@ -1259,7 +1177,7 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
                 setRoutines([]);
             }
             sheet.open();
-            setTimeout(() => sheet.snapToExpanded(), 80);
+
         } else if (sheet.stateRef.current !== 'closed') {
             sheet.close();
         }
@@ -1340,7 +1258,6 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
             showToast('Workout tracking requires cookie consent');
             return;
         }
-        sheet.close();
         const cache = await loadExercisesCache();
         const exCache: Record<string, ExerciseCacheItem> = {};
         cache.forEach(ex => { exCache[ex.name] = ex; });
@@ -1362,7 +1279,8 @@ export default function WorkoutModal({ isOpen, onClose }: WorkoutModalProps) {
                 };
             }),
         };
-        setTimeout(() => setActiveSession(session), 420);
+        pendingSession.current = session;
+        sheet.close();
     };
 
     const handleFinish = async (session: WorkoutSession, rating: number, endTime: number) => {

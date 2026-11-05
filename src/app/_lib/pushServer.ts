@@ -30,7 +30,6 @@ export function pushConfig() {
     const subject = process.env.WEB_PUSH_VAPID_SUBJECT;
     if (!publicKey || !privateKey || !subject) return null;
     try {
-        // Library validation also catches malformed deployment configuration.
         webpush.setVapidDetails(subject, publicKey, privateKey);
         return { subject, publicKey, privateKey };
     } catch { return null; }

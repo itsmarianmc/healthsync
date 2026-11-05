@@ -2,7 +2,7 @@ import { logger } from '@/lib/logger';
 import type { AiRecipeCandidate, FoodSearchResult } from './types';
 import { FOOD_ICONS, validatedFoodIcon } from './foodIcons';
 
-export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-lite:generateContent';
+export const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash-lite:generateContent';
 
 export interface GeminiAnalysis {
     icon?: string;
