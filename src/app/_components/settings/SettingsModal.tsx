@@ -1052,7 +1052,7 @@ export default function SettingsModal({ isOpen, onClose, onOpenNotes, onOpenCust
                                 <a id="openNotes" onClick={e => { e.preventDefault(); onOpenNotes(); }}>About / Licenses</a>
                             </p>
                             <p>
-                                <a href="https://healthsync.itsmarian.dev/legal/ai-guidelines">AI Guidelines</a> • <a href="https://contact.itsmarian.dev/">Contact</a> • <a href="https://healthsync.itsmarian.dev/legal/cookies">Cookies</a> • <a href="https://healthsync.itsmarian.dev/legal/privacy">Privacy Policy</a> • <a href="https://healthsync.itsmarian.dev/legal/terms">Terms of Use</a>
+                                <a href="https://healthsync.itsmarian.dev/legal/ai-guidelines">AI Guidelines</a> • <a href="https://itsmarian.dev/contact/">Contact</a> • <a href="https://healthsync.itsmarian.dev/legal/cookies">Cookies</a> • <a href="https://healthsync.itsmarian.dev/legal/privacy">Privacy Policy</a> • <a href="https://healthsync.itsmarian.dev/legal/terms">Terms of Use</a>
                             </p>
                             <p>
                                 <a>Running HealthSync v{APP_VERSION}</a> • <a className="change-settings" data-open-cookie-settings>Change Cookie Preferences</a>

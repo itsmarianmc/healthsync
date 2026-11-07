@@ -5,7 +5,7 @@ export default function Footer() {
         <footer>
             <p>TUTTO È POSSIBILE</p>
             <p>
-                <a href="https://contact.itsmarian.dev/">Contact</a>
+                <a href="https://itsmarian.dev/contact/">Contact</a>
                 {' • '}
                 <a href="https://healthsync.itsmarian.dev/legal/cookies">Cookies</a>
                 {' • '}

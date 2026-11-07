@@ -2782,12 +2782,6 @@ input::-webkit-inner-spin-button {
 	.sheet-step-track { transition: none; }
 }
 
-#appOverlay[data-sheet-covered]>.modal,
-.barcode-search-overlay[data-sheet-covered]>.modal {
-	scale: 0.92;
-	translate: 0 10px;
-}
-
 .modal-step {
 	-webkit-overflow-scrolling: touch;
 	display: none;
